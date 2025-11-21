@@ -1,0 +1,16 @@
+[
+{
+  "modid": "steve",
+  "name": "Steve AI Mod",
+  "description": "AI-powered agents that play Minecraft with you. Cursor for Minecraft.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "https://github.com/pravets/Steve",
+  "updateUrl": "",
+  "authorList": ["Steve AI Team"],
+  "credits": "OpenAI, Groq, Minecraft Forge, LangChain",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
