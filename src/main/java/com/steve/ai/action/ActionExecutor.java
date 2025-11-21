@@ -2,6 +2,7 @@ package com.steve.ai.action;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.entity.SteveEntity;
+import com.steve.ai.ai.LLMClient;
 import java.util.Queue;
 import java.util.LinkedList;
 
@@ -26,11 +27,20 @@ public class ActionExecutor {
     public void tick() {
         if (!isExecuting && !commandQueue.isEmpty()) {
             String command = commandQueue.poll();
-            // Прототип: реализуем базовый "экшен" — просто отправить в чат
-            String msg = "[Steve] Выполняю команду: " + command;
-            steve.sendChatMessage(msg);
-            lastMessage = msg;
-            isExecuting = false;
+            isExecuting = true;
+            new Thread(() -> {
+                LLMClient llm = new LLMClient();
+                String llmAnswer = llm.requestLLM(command);
+                String msg;
+                if (llmAnswer == null || llmAnswer.startsWith("[ERROR]")) {
+                    msg = "[Steve] Не удалось получить ответ от LLM!";
+                } else {
+                    msg = "[Steve] " + llmAnswer;
+                }
+                steve.sendChatMessage(msg);
+                lastMessage = msg;
+                isExecuting = false;
+            }).start();
         }
     }
 
