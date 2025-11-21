@@ -1,136 +1,106 @@
 package com.steve.ai.command;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.context.CommandContext;
 import com.steve.ai.SteveMod;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.phys.Vec3;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.world.World;
 
-public class SteveCommands {
-    
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("steve")
-            .then(Commands.literal("spawn")
-                .then(Commands.argument("name", StringArgumentType.string())
-                    .executes(SteveCommands::spawnSteve)))
-            .then(Commands.literal("remove")
-                .then(Commands.argument("name", StringArgumentType.string())
-                    .executes(SteveCommands::removeSteve)))
-            .then(Commands.literal("list")
-                .executes(SteveCommands::listSteves))
-            .then(Commands.literal("stop")
-                .then(Commands.argument("name", StringArgumentType.string())
-                    .executes(SteveCommands::stopSteve)))
-            .then(Commands.literal("tell")
-                .then(Commands.argument("name", StringArgumentType.string())
-                    .then(Commands.argument("command", StringArgumentType.greedyString())
-                        .executes(SteveCommands::tellSteve))))
-        );
-    }
+public class SteveCommands extends CommandBase {
+    @Override
+    public String getCommandName() { return "steve"; }
 
-    private static int spawnSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
-        CommandSourceStack source = context.getSource();
-        
-        ServerLevel serverLevel = source.getLevel();
-        if (serverLevel == null) {
-            source.sendFailure(Component.literal("Command must be run on server"));
-            return 0;
+    @Override
+    public String getCommandUsage(ICommandSender sender) { return "/steve <spawn|remove|list|stop|tell> ..."; }
+
+    @Override
+    public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length < 1) {
+            sender.addChatMessage(new ChatComponentText("Usage: /steve <spawn|remove|list|stop|tell> ..."));
+            return;
         }
-
+        String sub = args[0];
         SteveManager manager = SteveMod.getSteveManager();
-        
-        Vec3 sourcePos = source.getPosition();
-        if (source.getEntity() != null) {
-            Vec3 lookVec = source.getEntity().getLookAngle();
-            sourcePos = sourcePos.add(lookVec.x * 3, 0, lookVec.z * 3);
-        } else {
-            sourcePos = sourcePos.add(3, 0, 0);
-        }
-        Vec3 spawnPos = sourcePos;
-        
-        SteveEntity steve = manager.spawnSteve(serverLevel, spawnPos, name);
-        if (steve != null) {
-            source.sendSuccess(() -> Component.literal("Spawned Steve: " + name), true);
-            return 1;
-        } else {
-            source.sendFailure(Component.literal("Failed to spawn Steve. Name may already exist or max limit reached."));
-            return 0;
-        }
-    }
-
-    private static int removeSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
-        CommandSourceStack source = context.getSource();
-        
-        SteveManager manager = SteveMod.getSteveManager();
-        if (manager.removeSteve(name)) {
-            source.sendSuccess(() -> Component.literal("Removed Steve: " + name), true);
-            return 1;
-        } else {
-            source.sendFailure(Component.literal("Steve not found: " + name));
-            return 0;
-        }
-    }
-
-    private static int listSteves(CommandContext<CommandSourceStack> context) {
-        CommandSourceStack source = context.getSource();
-        SteveManager manager = SteveMod.getSteveManager();
-        
-        var names = manager.getSteveNames();
-        if (names.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No active Steves"), false);
-        } else {
-            source.sendSuccess(() -> Component.literal("Active Steves (" + names.size() + "): " + String.join(", ", names)), false);
-        }
-        return 1;
-    }
-
-    private static int stopSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
-        CommandSourceStack source = context.getSource();
-        
-        SteveManager manager = SteveMod.getSteveManager();
-        SteveEntity steve = manager.getSteve(name);
-        
-        if (steve != null) {
-            steve.getActionExecutor().stopCurrentAction();
-            steve.getMemory().clearTaskQueue();
-            source.sendSuccess(() -> Component.literal("Stopped Steve: " + name), true);
-            return 1;
-        } else {
-            source.sendFailure(Component.literal("Steve not found: " + name));
-            return 0;
+        if (sub.equalsIgnoreCase("spawn")) {
+            if (args.length < 2) {
+                sender.addChatMessage(new ChatComponentText("Usage: /steve spawn <name>"));
+                return;
+            }
+            String name = args[1];
+            World world = sender instanceof EntityPlayer ? ((EntityPlayer) sender).worldObj : MinecraftServer.getServer().getEntityWorld();
+            double x = sender.getPlayerCoordinates().posX + 2;
+            double y = sender.getPlayerCoordinates().posY;
+            double z = sender.getPlayerCoordinates().posZ + 2;
+            SteveEntity steve = manager.spawnSteve(world, x, y, z, name);
+            if (steve != null) {
+                sender.addChatMessage(new ChatComponentText("Spawned Steve: " + name));
+            } else {
+                sender.addChatMessage(new ChatComponentText("Failed to spawn (already exists or max limit)."));
+            }
+        } else if (sub.equalsIgnoreCase("remove")) {
+            if (args.length < 2) {
+                sender.addChatMessage(new ChatComponentText("Usage: /steve remove <name>"));
+                return;
+            }
+            String name = args[1];
+            if (manager.removeSteve(name)) {
+                sender.addChatMessage(new ChatComponentText("Removed Steve: " + name));
+            } else {
+                sender.addChatMessage(new ChatComponentText("Steve not found: " + name));
+            }
+        } else if (sub.equalsIgnoreCase("list")) {
+            String s = "Active Steves: ";
+            for (String n : manager.getSteveNames()) s += n + ", ";
+            sender.addChatMessage(new ChatComponentText(s));
+        } else if (sub.equalsIgnoreCase("stop")) {
+            if (args.length < 2) {
+                sender.addChatMessage(new ChatComponentText("Usage: /steve stop <name>"));
+                return;
+            }
+            String name = args[1];
+            SteveEntity steve = manager.getSteve(name);
+            if (steve != null) {
+                steve.getActionExecutor().stopCurrentAction();
+                steve.getMemory().clearTaskQueue();
+                sender.addChatMessage(new ChatComponentText("Stopped Steve: " + name));
+            } else {
+                sender.addChatMessage(new ChatComponentText("Steve not found: " + name));
+            }
+        } else if (sub.equalsIgnoreCase("tell")) {
+            if (args.length < 3) {
+                sender.addChatMessage(new ChatComponentText("Usage: /steve tell <name> <command>"));
+                return;
+            }
+            String name = args[1];
+            String cmd = join(args, 2);
+            SteveEntity steve = manager.getSteve(name);
+            if (steve != null) {
+                new Thread(() -> steve.getActionExecutor().processNaturalLanguageCommand(cmd)).start();
+            } else {
+                sender.addChatMessage(new ChatComponentText("Steve not found: " + name));
+            }
         }
     }
 
-    private static int tellSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
-        String command = StringArgumentType.getString(context, "command");
-        CommandSourceStack source = context.getSource();
-        
-        SteveManager manager = SteveMod.getSteveManager();
-        SteveEntity steve = manager.getSteve(name);
-        
-        if (steve != null) {
-            // Disabled command feedback message
-            // source.sendSuccess(() -> Component.literal("Instructing " + name + ": " + command), true);
-            
-            new Thread(() -> {
-                steve.getActionExecutor().processNaturalLanguageCommand(command);
-            }).start();
-            
-            return 1;
-        } else {
-            source.sendFailure(Component.literal("Steve not found: " + name));
-            return 0;
+    @Override
+    public int getRequiredPermissionLevel() { return 2; }
+
+    public static void register(FMLServerStartingEvent event) {
+        event.registerServerCommand(new SteveCommands());
+    }
+
+    private String join(String[] arr, int start) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i < arr.length; i++) {
+            if (i > start) sb.append(" ");
+            sb.append(arr[i]);
         }
+        return sb.toString();
     }
 }
-
