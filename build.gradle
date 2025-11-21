@@ -1,90 +1,61 @@
-plugins {
-    id 'eclipse'
-    id 'idea'
-    id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-}
-
-version = '1.0.0'
-group = 'com.steve.ai'
-
-base {
-    archivesName = 'steve-ai-mod'
-}
-
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
-
-minecraft {
-    mappings channel: 'official', version: '1.20.1'
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                steve {
-                    source sourceSets.main
-                }
-            }
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            name = "forge"
+            url = "https://maven.minecraftforge.net/"
         }
-
-        server {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                steve {
-                    source sourceSets.main
-                }
-            }
+        maven {
+            name = "sonatype"
+            url = "https://oss.sonatype.org/content/repositories/snapshots/"
         }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
     }
 }
 
-sourceSets.main.resources { srcDir 'src/generated/resources' }
+apply plugin: 'forge'
+
+version = "1.0.0-mc1.7.10"
+group = "com.steve.ai"
+archivesBaseName = "steve-ai-mod"
+
+minecraft {
+    version = "1.7.10-10.13.4.1614-1.7.10"
+    runDir = "run"
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
+    // HTTP client for LLM API calls
+    compile 'org.apache.httpcomponents:httpclient:4.5.14'
+    compile 'org.apache.httpcomponents:httpcore:4.4.16'
     
-    // HTTP client - Using Java 11+ built-in HttpClient (no external dependencies needed!)
-    // JSON parsing - Minecraft already includes Gson
-    
-    // Baritone API (will need to be added manually to libs folder)
-    // implementation files('libs/baritone-api-1.20.1.jar')
+    // Gson is already included in Minecraft, but we declare it for clarity
+    // compile 'com.google.code.gson:gson:2.8.9'
 }
 
-tasks.named('jar', Jar).configure {
-    manifest {
-        attributes([
-            'Specification-Title': 'Steve AI Mod',
-            'Specification-Vendor': 'Steve AI',
-            'Specification-Version': '1',
-            'Implementation-Title': project.name,
-            'Implementation-Version': project.jar.archiveVersion,
-            'Implementation-Vendor': 'Steve AI'
-        ])
+processResources {
+    inputs.property "version", project.version
+    inputs.property "mcversion", project.minecraft.version
+
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+        expand 'version':project.version, 'mcversion':project.minecraft.version
     }
 
-    finalizedBy 'reobfJar'
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifact jar
-        }
-    }
-    repositories {
-        maven {
-            url "file://${project.projectDir}/mcmodsrepo"
-        }
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
     }
 }
 
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.0'
+}
