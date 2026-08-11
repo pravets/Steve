@@ -51,7 +51,7 @@ import java.util.function.Supplier;
  *
  * <p><b>Usage Example:</b></p>
  * <pre>
- * AsyncLLMClient rawClient = new AsyncOpenAIClient(apiKey, model, maxTokens, temp);
+ * AsyncLLMClient rawClient = new OpenAICompatibleClient(providerId, baseUrl, apiKey, model, maxTokens, temp, true, 60);
  * LLMCache cache = new LLMCache();
  * LLMFallbackHandler fallback = new LLMFallbackHandler();
  *

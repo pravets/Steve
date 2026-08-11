@@ -11,8 +11,10 @@ import java.util.regex.Pattern;
  * Fallback handler that generates pattern-based responses when LLM calls fail.
  *
  * <p>Provides graceful degradation when all LLM providers are unavailable.
- * Uses simple pattern matching to recognize common Minecraft commands and
- * generate appropriate action responses.</p>
+ * Responses are emitted in the exact format expected by
+ * {@link com.steve.ai.llm.ResponseParser} and pass
+ * {@code TaskPlanner.validateTask} so that the agent keeps doing something
+ * sensible instead of silently doing nothing.</p>
  *
  * <p><b>When is this used?</b></p>
  * <ul>
@@ -21,82 +23,65 @@ import java.util.regex.Pattern;
  *   <li>Rate limiter rejects request</li>
  *   <li>Network is completely unavailable</li>
  * </ul>
- *
- * <p><b>Design Philosophy:</b></p>
- * <ul>
- *   <li>Something is better than nothing - basic functionality continues</li>
- *   <li>Conservative defaults - prefer safe actions (wait) over risky ones</li>
- *   <li>Transparency - responses indicate they're from fallback system</li>
- * </ul>
- *
- * <p><b>Supported Patterns:</b></p>
- * <ul>
- *   <li><b>mine:</b> Matches "mine", "dig", "collect ore"</li>
- *   <li><b>build:</b> Matches "build", "construct", "create house"</li>
- *   <li><b>attack:</b> Matches "attack", "fight", "kill"</li>
- *   <li><b>follow:</b> Matches "follow", "come", "follow me"</li>
- *   <li><b>move:</b> Matches "go to", "move to", "walk"</li>
- *   <li><b>default:</b> Matches nothing - returns "wait" action</li>
- * </ul>
- *
- * @since 1.1.0
  */
 public class LLMFallbackHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LLMFallbackHandler.class);
 
-    // Pattern-based fallback responses in JSON format matching ResponseParser expectations
+    // Pattern-based fallback responses in ResponseParser JSON format.
+    // IMPORTANT: parameters must satisfy TaskPlanner.validateTask:
+    //   mine   -> block, quantity
+    //   build  -> structure, blocks, dimensions
+    //   attack -> target
+    //   follow -> player
+    //   place  -> block, x, y, z
+    // There is no "wait" action - the safe default is "follow".
     private static final Map<Pattern, String> PATTERN_RESPONSES = Map.of(
         // Mining patterns
         Pattern.compile("(?i).*(mine|dig|collect|gather|ore|diamond|iron|coal|stone).*"),
-        "{\"thoughts\":\"[Fallback] Mining action detected\",\"tasks\":[{\"action\":\"mine\",\"target\":\"iron_ore\",\"quantity\":10}]}",
+        "{\"reasoning\":\"[Fallback] Mining action detected\",\"plan\":\"Mine iron ore\",\"tasks\":[{\"action\":\"mine\",\"parameters\":{\"block\":\"iron_ore\",\"quantity\":10}}]}",
 
         // Building patterns
         Pattern.compile("(?i).*(build|construct|create|make).*(house|home|shelter|structure|base).*"),
-        "{\"thoughts\":\"[Fallback] Building action detected\",\"tasks\":[{\"action\":\"build\",\"structure\":\"house\",\"size\":\"small\"}]}",
+        "{\"reasoning\":\"[Fallback] Building action detected\",\"plan\":\"Build a house\",\"tasks\":[{\"action\":\"build\",\"parameters\":{\"structure\":\"house\",\"blocks\":[\"oak_planks\",\"cobblestone\"],\"dimensions\":[9,6,9]}}]}",
 
         // Combat patterns
         Pattern.compile("(?i).*(attack|fight|kill|destroy|hostile|monster|zombie|skeleton|creeper).*"),
-        "{\"thoughts\":\"[Fallback] Combat action detected\",\"tasks\":[{\"action\":\"attack\",\"target\":\"nearest_hostile\"}]}",
+        "{\"reasoning\":\"[Fallback] Combat action detected\",\"plan\":\"Attack hostiles\",\"tasks\":[{\"action\":\"attack\",\"parameters\":{\"target\":\"hostile\"}}]}",
 
         // Follow patterns
         Pattern.compile("(?i).*(follow|come|here|with me|accompany).*"),
-        "{\"thoughts\":\"[Fallback] Follow action detected\",\"tasks\":[{\"action\":\"follow\",\"target\":\"player\"}]}",
+        "{\"reasoning\":\"[Fallback] Follow action detected\",\"plan\":\"Follow the player\",\"tasks\":[{\"action\":\"follow\",\"parameters\":{\"player\":\"USE_NEARBY_PLAYER_NAME\"}}]}",
 
-        // Movement patterns
+        // Movement patterns -> follow the player (pathfind needs coordinates we don't have)
         Pattern.compile("(?i).*(go to|move to|walk to|travel|path|navigate).*"),
-        "{\"thoughts\":\"[Fallback] Movement action detected\",\"tasks\":[{\"action\":\"pathfind\",\"target\":\"player\"}]}",
+        "{\"reasoning\":\"[Fallback] Movement detected, following player\",\"plan\":\"Follow the player\",\"tasks\":[{\"action\":\"follow\",\"parameters\":{\"player\":\"USE_NEARBY_PLAYER_NAME\"}}]}",
 
         // Placement patterns
         Pattern.compile("(?i).*(place|put|set).*(block|torch|door).*"),
-        "{\"thoughts\":\"[Fallback] Placement action detected\",\"tasks\":[{\"action\":\"place_block\",\"block\":\"torch\",\"position\":\"here\"}]}",
+        "{\"reasoning\":\"[Fallback] Placement action detected\",\"plan\":\"Place a torch\",\"tasks\":[{\"action\":\"place\",\"parameters\":{\"block\":\"torch\",\"x\":0,\"y\":0,\"z\":0}}]}",
 
-        // Stop patterns
+        // Stop patterns -> there is no wait action, follow is the safest no-op
         Pattern.compile("(?i).*(stop|halt|cancel|wait|pause|stay).*"),
-        "{\"thoughts\":\"[Fallback] Stop action detected\",\"tasks\":[{\"action\":\"wait\",\"duration\":5}]}"
+        "{\"reasoning\":\"[Fallback] Idle action detected\",\"plan\":\"Stay near the player\",\"tasks\":[{\"action\":\"follow\",\"parameters\":{\"player\":\"USE_NEARBY_PLAYER_NAME\"}}]}"
     );
 
     // Default response when no pattern matches
     private static final String DEFAULT_RESPONSE =
-        "{\"thoughts\":\"[Fallback] No pattern matched, waiting\",\"tasks\":[{\"action\":\"wait\",\"duration\":5}]}";
+        "{\"reasoning\":\"[Fallback] No pattern matched\",\"plan\":\"Stay near the player\",\"tasks\":[{\"action\":\"follow\",\"parameters\":{\"player\":\"USE_NEARBY_PLAYER_NAME\"}}]}";
 
     /**
      * Generates a fallback response based on pattern matching.
      *
-     * <p>Analyzes the prompt text to identify the user's intent and returns
-     * a pre-configured action response. If no pattern matches, returns a
-     * safe "wait" action.</p>
-     *
      * @param prompt Original prompt that failed
      * @param error  The error that triggered the fallback (for logging)
-     * @return LLMResponse containing pattern-matched action or default wait action
+     * @return LLMResponse containing pattern-matched action or default follow action
      */
     public LLMResponse generateFallback(String prompt, Throwable error) {
         LOGGER.warn("Generating fallback response for prompt: '{}' (error: {})",
             truncatePrompt(prompt, 50),
             error != null ? error.getClass().getSimpleName() + ": " + error.getMessage() : "unknown");
 
-        // Try to match against known patterns
         String responseContent = matchPattern(prompt);
         String matchedPattern = responseContent.equals(DEFAULT_RESPONSE) ? "default" : "pattern-match";
 
@@ -136,13 +121,6 @@ public class LLMFallbackHandler {
         return DEFAULT_RESPONSE;
     }
 
-    /**
-     * Truncates a prompt for logging purposes.
-     *
-     * @param prompt Prompt to truncate
-     * @param maxLength Maximum length
-     * @return Truncated prompt with "..." if needed
-     */
     private String truncatePrompt(String prompt, int maxLength) {
         if (prompt == null) {
             return "[null]";
@@ -155,11 +133,6 @@ public class LLMFallbackHandler {
 
     /**
      * Checks if a prompt would match any known pattern.
-     *
-     * <p>Useful for testing and debugging.</p>
-     *
-     * @param prompt The prompt to check
-     * @return true if a pattern matches, false if would use default
      */
     public boolean wouldMatchPattern(String prompt) {
         if (prompt == null || prompt.isEmpty()) {
@@ -173,8 +146,6 @@ public class LLMFallbackHandler {
 
     /**
      * Returns the number of registered patterns.
-     *
-     * @return Pattern count
      */
     public int getPatternCount() {
         return PATTERN_RESPONSES.size();

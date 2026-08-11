@@ -4,7 +4,10 @@ import com.steve.ai.SteveMod;
 import com.steve.ai.action.Task;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.llm.async.*;
+import com.steve.ai.llm.async.AsyncLLMClient;
+import com.steve.ai.llm.async.LLMCache;
+import com.steve.ai.llm.async.LLMResponse;
+import com.steve.ai.llm.async.OpenAICompatibleClient;
 import com.steve.ai.llm.resilience.LLMFallbackHandler;
 import com.steve.ai.llm.resilience.ResilientLLMClient;
 import com.steve.ai.memory.WorldKnowledge;
@@ -12,113 +15,54 @@ import com.steve.ai.memory.WorldKnowledge;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class TaskPlanner {
-    // Legacy synchronous clients (for backward compatibility)
-    private final OpenAIClient openAIClient;
-    private final GeminiClient geminiClient;
-    private final GroqClient groqClient;
 
-    // NEW: Async resilient clients
-    private final AsyncLLMClient asyncOpenAIClient;
-    private final AsyncLLMClient asyncGroqClient;
-    private final AsyncLLMClient asyncGeminiClient;
+    private final AsyncLLMClient llmClient;
     private final LLMCache llmCache;
-    private final LLMFallbackHandler fallbackHandler;
+    private final OpenAICompatibleClient baseClient;
 
     public TaskPlanner() {
-        // Legacy clients
-        this.openAIClient = new OpenAIClient();
-        this.geminiClient = new GeminiClient();
-        this.groqClient = new GroqClient();
-
-        // Initialize async infrastructure
-        this.llmCache = new LLMCache();
-        this.fallbackHandler = new LLMFallbackHandler();
-
-        // Initialize async clients with resilience wrappers
-        String apiKey = SteveConfig.OPENAI_API_KEY.get();
-        String model = SteveConfig.OPENAI_MODEL.get();
+        String provider = SteveConfig.AI_PROVIDER.get().toLowerCase();
+        String baseUrl = SteveConfig.LLM_BASE_URL.get();
+        String apiKey = SteveConfig.LLM_API_KEY.get();
+        String model = SteveConfig.LLM_MODEL.get();
         int maxTokens = SteveConfig.MAX_TOKENS.get();
         double temperature = SteveConfig.TEMPERATURE.get();
+        boolean jsonMode = SteveConfig.LLM_JSON_MODE.get();
+        int timeoutSeconds = SteveConfig.LLM_TIMEOUT_SECONDS.get();
 
-        // Create base async clients
-        AsyncLLMClient baseOpenAI = new AsyncOpenAIClient(apiKey, model, maxTokens, temperature);
-        AsyncLLMClient baseGroq = new AsyncGroqClient(apiKey, "llama-3.1-8b-instant", 500, temperature);
-        AsyncLLMClient baseGemini = new AsyncGeminiClient(apiKey, "gemini-1.5-flash", maxTokens, temperature);
-
-        // Wrap with resilience patterns
-        this.asyncOpenAIClient = new ResilientLLMClient(baseOpenAI, llmCache, fallbackHandler);
-        this.asyncGroqClient = new ResilientLLMClient(baseGroq, llmCache, fallbackHandler);
-        this.asyncGeminiClient = new ResilientLLMClient(baseGemini, llmCache, fallbackHandler);
-
-        SteveMod.LOGGER.info("TaskPlanner initialized with async resilient clients");
-    }
-
-    public ResponseParser.ParsedResponse planTasks(SteveEntity steve, String command) {
-        try {
-            String systemPrompt = PromptBuilder.buildSystemPrompt();
-            WorldKnowledge worldKnowledge = new WorldKnowledge(steve);
-            String userPrompt = PromptBuilder.buildUserPrompt(steve, command, worldKnowledge);
-            
-            String provider = SteveConfig.AI_PROVIDER.get().toLowerCase();
-            SteveMod.LOGGER.info("Requesting AI plan for Steve '{}' using {}: {}", steve.getSteveName(), provider, command);
-            
-            String response = getAIResponse(provider, systemPrompt, userPrompt);
-            
-            if (response == null) {
-                SteveMod.LOGGER.error("Failed to get AI response for command: {}", command);
-                return null;
-            }            ResponseParser.ParsedResponse parsedResponse = ResponseParser.parseAIResponse(response);
-            
-            if (parsedResponse == null) {
-                SteveMod.LOGGER.error("Failed to parse AI response");
-                return null;
-            }
-            
-            SteveMod.LOGGER.info("Plan: {} ({} tasks)", parsedResponse.getPlan(), parsedResponse.getTasks().size());
-            
-            return parsedResponse;
-            
-        } catch (Exception e) {
-            SteveMod.LOGGER.error("Error planning tasks", e);
-            return null;
-        }
-    }
-
-    private String getAIResponse(String provider, String systemPrompt, String userPrompt) {
-        String response = switch (provider) {
-            case "groq" -> groqClient.sendRequest(systemPrompt, userPrompt);
-            case "gemini" -> geminiClient.sendRequest(systemPrompt, userPrompt);
-            case "openai" -> openAIClient.sendRequest(systemPrompt, userPrompt);
-            default -> {
-                SteveMod.LOGGER.warn("Unknown AI provider '{}', using Groq", provider);
-                yield groqClient.sendRequest(systemPrompt, userPrompt);
-            }
-        };
-
-        if (response == null && !provider.equals("groq")) {
-            SteveMod.LOGGER.warn("{} failed, trying Groq as fallback", provider);
-            response = groqClient.sendRequest(systemPrompt, userPrompt);
+        if (!LLMProviders.isValid(provider)) {
+            SteveMod.LOGGER.warn("Unknown LLM provider '{}', falling back to 'ollama'. Valid: {}",
+                provider, String.join(", ", List.of(
+                    LLMProviders.OPENAI, LLMProviders.GROQ, LLMProviders.GEMINI,
+                    LLMProviders.OLLAMA, LLMProviders.LMSTUDIO, LLMProviders.OPENCODE_GO,
+                    LLMProviders.CUSTOM)));
+            provider = LLMProviders.OLLAMA;
         }
 
-        return response;
+        this.baseClient = OpenAICompatibleClient.forProvider(
+            provider, baseUrl, apiKey, model, maxTokens, temperature, jsonMode, timeoutSeconds);
+
+        if (LLMProviders.requiresKey(provider) && !baseClient.hasApiKey()) {
+            SteveMod.LOGGER.warn("Provider '{}' requires an API key but llm.apiKey is empty. " +
+                "LLM calls will fail; set the key in config/steve-common.toml.", provider);
+        }
+
+        this.llmCache = new LLMCache();
+        this.llmClient = new ResilientLLMClient(baseClient, llmCache, new LLMFallbackHandler());
+
+        SteveMod.LOGGER.info("TaskPlanner initialized: provider={}, baseUrl={}, model={}, jsonMode={}",
+            provider, baseClient.getBaseUrl(), baseClient.getModel(), jsonMode);
     }
 
     /**
      * Asynchronously plans tasks for Steve using the configured LLM provider.
      *
-     * <p>This method returns immediately with a CompletableFuture, allowing the game thread
-     * to continue without blocking. The actual LLM call is executed on a separate thread pool
-     * with full resilience patterns (circuit breaker, retry, rate limiting, caching).</p>
-     *
-     * <p><b>Non-blocking:</b> Game thread is never blocked</p>
-     * <p><b>Resilient:</b> Automatic retry, circuit breaker, fallback on failure</p>
-     * <p><b>Cached:</b> Repeated prompts may hit cache (40-60% hit rate)</p>
-     *
-     * @param steve   The Steve entity making the request
-     * @param command The user command to plan
-     * @return CompletableFuture that completes with the parsed response, or null on failure
+     * <p>Returns immediately with a CompletableFuture; the LLM call runs on a
+     * separate thread with resilience patterns (circuit breaker, retry, rate
+     * limiting, caching, fallback).</p>
      */
     public CompletableFuture<ResponseParser.ParsedResponse> planTasksAsync(SteveEntity steve, String command) {
         try {
@@ -130,19 +74,14 @@ public class TaskPlanner {
             SteveMod.LOGGER.info("[Async] Requesting AI plan for Steve '{}' using {}: {}",
                 steve.getSteveName(), provider, command);
 
-            // Build params map
             Map<String, Object> params = Map.of(
                 "systemPrompt", systemPrompt,
-                "model", SteveConfig.OPENAI_MODEL.get(),
+                "model", SteveConfig.LLM_MODEL.get(),
                 "maxTokens", SteveConfig.MAX_TOKENS.get(),
                 "temperature", SteveConfig.TEMPERATURE.get()
             );
 
-            // Select async client based on provider
-            AsyncLLMClient client = getAsyncClient(provider);
-
-            // Execute async request
-            return client.sendAsync(userPrompt, params)
+            return llmClient.sendAsync(userPrompt, params)
                 .thenApply(response -> {
                     String content = response.getContent();
                     if (content == null || content.isEmpty()) {
@@ -177,45 +116,62 @@ public class TaskPlanner {
     }
 
     /**
-     * Returns the appropriate async client based on provider config.
+     * Legacy blocking variant. Blocks the calling thread up to the configured
+     * LLM timeout. Prefer {@link #planTasksAsync(SteveEntity, String)}.
      *
-     * @param provider Provider name ("openai", "groq", "gemini")
-     * @return Resilient async client
+     * @deprecated Use planTasksAsync instead.
      */
-    private AsyncLLMClient getAsyncClient(String provider) {
-        return switch (provider) {
-            case "openai" -> asyncOpenAIClient;
-            case "gemini" -> asyncGeminiClient;
-            case "groq" -> asyncGroqClient;
-            default -> {
-                SteveMod.LOGGER.warn("[Async] Unknown provider '{}', using Groq", provider);
-                yield asyncGroqClient;
-            }
-        };
+    @Deprecated
+    public ResponseParser.ParsedResponse planTasks(SteveEntity steve, String command) {
+        try {
+            return planTasksAsync(steve, command).get(SteveConfig.LLM_TIMEOUT_SECONDS.get() + 5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            SteveMod.LOGGER.error("Error planning tasks (sync)", e);
+            return null;
+        }
     }
 
-    /**
-     * Returns the LLM cache for monitoring.
-     *
-     * @return LLM cache instance
-     */
     public LLMCache getLLMCache() {
         return llmCache;
     }
 
     /**
-     * Checks if the specified provider's async client is healthy.
-     *
-     * @param provider Provider name
-     * @return true if healthy (circuit breaker not OPEN)
+     * Checks if the configured provider's async client is healthy.
      */
-    public boolean isProviderHealthy(String provider) {
-        return getAsyncClient(provider).isHealthy();
+    public boolean isProviderHealthy() {
+        return llmClient.isHealthy();
+    }
+
+    /**
+     * Live health check of the configured provider endpoint (GET /models).
+     */
+    public boolean pingProvider() {
+        return getBaseClient().checkHealth();
+    }
+
+    private OpenAICompatibleClient getBaseClient() {
+        return baseClient;
+    }
+
+    public String getActiveProvider() {
+        return SteveConfig.AI_PROVIDER.get().toLowerCase();
+    }
+
+    public String getActiveModel() {
+        String model = SteveConfig.LLM_MODEL.get();
+        if (model == null || model.isEmpty()) {
+            return LLMProviders.resolveModel(getActiveProvider(), "");
+        }
+        return model;
+    }
+
+    public String getActiveBaseUrl() {
+        return LLMProviders.resolveBaseUrl(getActiveProvider(), SteveConfig.LLM_BASE_URL.get());
     }
 
     public boolean validateTask(Task task) {
         String action = task.getAction();
-        
+
         return switch (action) {
             case "pathfind" -> task.hasParameters("x", "y", "z");
             case "mine" -> task.hasParameters("block", "quantity");
@@ -238,4 +194,3 @@ public class TaskPlanner {
             .toList();
     }
 }
-

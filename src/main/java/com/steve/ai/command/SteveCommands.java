@@ -4,8 +4,11 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.steve.ai.SteveMod;
+import com.steve.ai.config.SteveConfig;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
+import com.steve.ai.llm.LLMProviders;
+import com.steve.ai.llm.async.OpenAICompatibleClient;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -31,7 +34,56 @@ public class SteveCommands {
                 .then(Commands.argument("name", StringArgumentType.string())
                     .then(Commands.argument("command", StringArgumentType.greedyString())
                         .executes(SteveCommands::tellSteve))))
+            .then(Commands.literal("providers")
+                .executes(SteveCommands::listProviders))
         );
+    }
+
+    private static int listProviders(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+
+        String activeProvider = SteveConfig.AI_PROVIDER.get().toLowerCase();
+        String activeBase = LLMProviders.resolveBaseUrl(activeProvider, SteveConfig.LLM_BASE_URL.get());
+        String activeModel = SteveConfig.LLM_MODEL.get();
+        if (activeModel == null || activeModel.isEmpty()) {
+            activeModel = LLMProviders.resolveModel(activeProvider, "");
+        }
+        String activeKey = SteveConfig.LLM_API_KEY.get();
+        boolean keyPresent = activeKey != null && !activeKey.isEmpty();
+        String modelLine = "§eModel: §f" + activeModel + "§7 | key: " + (keyPresent ? "§aset" : "§cmissing");
+
+        source.sendSuccess(() -> Component.literal(
+            "§eActive provider: §f" + activeProvider + "§7 (" + activeBase + ")"), false);
+        source.sendSuccess(() -> Component.literal(modelLine), false);
+
+        // Live health check of the active provider (GET /models, 3s timeout)
+        String providerId = activeProvider;
+        String baseUrl = activeBase;
+        String apiKey = SteveConfig.LLM_API_KEY.get();
+        String modelOverride = SteveConfig.LLM_MODEL.get();
+        new Thread(() -> {
+            try {
+                OpenAICompatibleClient client = OpenAICompatibleClient.forProvider(
+                    providerId, baseUrl, apiKey, modelOverride,
+                    SteveConfig.MAX_TOKENS.get(), SteveConfig.TEMPERATURE.get(),
+                    SteveConfig.LLM_JSON_MODE.get(), SteveConfig.LLM_TIMEOUT_SECONDS.get());
+                boolean healthy = client.checkHealth();
+                source.sendSuccess(() -> Component.literal(
+                    "§eHealth: " + (healthy ? "§aONLINE" : "§cUNREACHABLE") + " §7(GET " + baseUrl + "/models)"),
+                    false);
+            } catch (Exception e) {
+                source.sendSuccess(() -> Component.literal("§cHealth check error: " + e.getMessage()), false);
+            }
+        }, "steve-health-check").start();
+
+        // List all known providers
+        source.sendSuccess(() -> Component.literal("§eAvailable providers:"), false);
+        source.sendSuccess(() -> Component.literal(
+            "§7 openai, groq, gemini, ollama, lmstudio, opencode-go, custom"), false);
+        source.sendSuccess(() -> Component.literal(
+            "§7 Set llm.provider in config/steve-common.toml to switch"), false);
+
+        return 1;
     }
 
     private static int spawnSteve(CommandContext<CommandSourceStack> context) {

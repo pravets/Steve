@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p><b>Usage Example:</b></p>
  * <pre>
- * AsyncLLMClient client = new AsyncOpenAIClient(apiKey, model, maxTokens, temperature);
+ * AsyncLLMClient client = new OpenAICompatibleClient(providerId, baseUrl, apiKey, model, maxTokens, temp, true, 60);
  * Map&lt;String, Object&gt; params = Map.of("model", "gpt-3.5-turbo", "maxTokens", 1000);
  *
  * client.sendAsync("Generate a task plan", params)
