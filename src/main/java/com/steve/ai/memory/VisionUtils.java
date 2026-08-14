@@ -29,7 +29,9 @@ public final class VisionUtils {
     }
 
     /**
-     * Compass direction from one position to another, e.g. "E", "SW", "up-N", "here".
+     * Compass direction from one position to another: 8-directional
+     * (N, NE, E, SE, S, SW, W, NW) optionally combined with "up"/"down",
+     * e.g. "E", "SW", "up-N". Returns "here" only when positions are identical.
      */
     public static String directionTo(BlockPos from, BlockPos to) {
         int dx = to.getX() - from.getX();
@@ -37,14 +39,23 @@ public final class VisionUtils {
         int dz = to.getZ() - from.getZ();
 
         StringBuilder dir = new StringBuilder();
-        if (dy > 3) dir.append("up");
-        else if (dy < -3) dir.append("down");
+        if (dy > 0) dir.append("up");
+        else if (dy < 0) dir.append("down");
 
+        // 8-directional horizontal: diagonal when both axes are comparable
         String horizontal = "";
-        if (Math.abs(dx) > Math.abs(dz)) {
-            horizontal = dx > 0 ? "E" : "W";
-        } else if (Math.abs(dz) > 0) {
-            horizontal = dz > 0 ? "S" : "N";
+        int ax = Math.abs(dx);
+        int az = Math.abs(dz);
+        if (ax > 0 || az > 0) {
+            boolean diagonal = ax > 0 && az > 0
+                && ax >= az / 2 && az >= ax / 2;
+            if (diagonal) {
+                horizontal = (dz > 0 ? "S" : "N") + (dx > 0 ? "E" : "W");
+            } else if (ax > az) {
+                horizontal = dx > 0 ? "E" : "W";
+            } else {
+                horizontal = dz > 0 ? "S" : "N";
+            }
         }
         if (!horizontal.isEmpty()) {
             if (dir.length() > 0) dir.append("-");

@@ -3,6 +3,9 @@ package com.steve.ai.memory;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.entity.SteveEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -24,10 +27,23 @@ import java.util.concurrent.ConcurrentHashMap;
  * Honest vision for Steve: scans the world for interesting blocks (trees, ores,
  * chests) but only reports blocks with a clear line of sight (no x-ray, no cheats).
  *
- * <p>Scans run on demand and results are cached per-Steve for a few ticks
- * ({@code vision.scanCacheTicks}) so we don't hammer the server with raycasts.</p>
+ * <p>Scanning is <b>approximate sampling</b> beyond the precise near zone:
+ * the near zone ({@value #PRECISE_RADIUS} blocks) is scanned block-by-block,
+ * the far zone uses the configured grid step. The cache is per-Steve and is
+ * invalidated when Steve moves, changes dimension, or the TTL expires.</p>
+ *
+ * <p>Performance safeguards: positions in unloaded chunks are skipped (no
+ * synchronous chunk loading), and the effective grid step is automatically
+ * increased so a single scan never exceeds {@value #MAX_SCAN_POSITIONS} block
+ * lookups (prevents server tick stalls with large radius / small step).</p>
  */
 public final class VisionScanner {
+
+    /** Max block lookups per full scan (keeps server tick responsive). */
+    private static final int MAX_SCAN_POSITIONS = 100_000;
+
+    /** Radius (blocks) scanned block-by-block for exact results. */
+    private static final int PRECISE_RADIUS = 16;
 
     /** Block types Steve considers "interesting" when looking around. */
     private static final Set<Block> INTERESTING = new HashSet<>();
@@ -63,13 +79,19 @@ public final class VisionScanner {
         INTERESTING.add(Blocks.EMERALD_ORE);
         INTERESTING.add(Blocks.DEEPSLATE_EMERALD_ORE);
 
+        // Ores (nether)
+        INTERESTING.add(Blocks.NETHER_GOLD_ORE);
+        INTERESTING.add(Blocks.NETHER_QUARTZ_ORE);
+        INTERESTING.add(Blocks.ANCIENT_DEBRIS);
+
         // Storage
         INTERESTING.add(Blocks.CHEST);
         INTERESTING.add(Blocks.TRAPPED_CHEST);
         INTERESTING.add(Blocks.BARREL);
     }
 
-    private record ScanCache(long cachedAtTick, Map<Block, List<BlockPos>> visible) {}
+    private record ScanCache(long cachedAtTick, BlockPos origin, ResourceKey<Level> dimension,
+                             Map<Block, List<BlockPos>> visible) {}
 
     private static final Map<SteveEntity, ScanCache> CACHE = new ConcurrentHashMap<>();
 
@@ -102,6 +124,7 @@ public final class VisionScanner {
     /**
      * Human-readable summary of what Steve can see, for the LLM prompt.
      * Example: "oak_log x3 (12m S), iron_ore (8m down), chest (20m W)"
+     * Block names are registry ids (oak_log), matching what actions expect.
      */
     public static String getVisibleSummary(SteveEntity steve) {
         Map<Block, List<BlockPos>> visible = scan(steve);
@@ -125,7 +148,7 @@ public final class VisionScanner {
                 BlockPos nearest = VisionUtils.nearestOf(positions, center);
                 int distance = (int) Math.round(Math.sqrt(center.distSqr(nearest)));
                 String direction = VisionUtils.directionTo(center, nearest);
-                parts.add(block.getName().getString() + " x" + positions.size()
+                parts.add(blockId(block) + " x" + positions.size()
                     + " (" + distance + "m " + direction + ")");
             });
 
@@ -154,19 +177,38 @@ public final class VisionScanner {
     }
 
     /**
+     * Drops the cached scan for a Steve (call when the entity is removed/despawned).
+     */
+    public static void forget(SteveEntity steve) {
+        CACHE.remove(steve);
+    }
+
+    /**
+     * Clears all cached scans (call on server shutdown).
+     */
+    public static void clearCache() {
+        CACHE.clear();
+    }
+
+    /**
      * Returns the cached (or freshly scanned) map of visible interesting blocks.
+     * Cache is reused only if Steve is still at the same position in the same
+     * dimension and the TTL has not expired.
      */
     private static Map<Block, List<BlockPos>> scan(SteveEntity steve) {
         long tick = steve.level().getGameTime();
+        BlockPos pos = steve.blockPosition();
+        ResourceKey<Level> dim = steve.level().dimension();
         int ttl = SteveConfig.WORLD_SCAN_CACHE_TICKS.get();
 
         ScanCache cached = CACHE.get(steve);
-        if (cached != null && tick - cached.cachedAtTick < ttl) {
+        if (cached != null && tick - cached.cachedAtTick < ttl
+                && cached.origin().equals(pos) && cached.dimension() == dim) {
             return cached.visible();
         }
 
         Map<Block, List<BlockPos>> visible = scanWorld(steve);
-        CACHE.put(steve, new ScanCache(tick, visible));
+        CACHE.put(steve, new ScanCache(tick, pos.immutable(), dim, visible));
         return visible;
     }
 
@@ -174,29 +216,30 @@ public final class VisionScanner {
         Level level = steve.level();
         BlockPos center = steve.blockPosition();
         int radius = SteveConfig.WORLD_SCAN_RADIUS.get();
-        int step = Math.max(1, SteveConfig.WORLD_SCAN_STEP.get());
+        int configuredStep = Math.max(1, SteveConfig.WORLD_SCAN_STEP.get());
 
-        // Phase 1: cheap grid pass - collect candidate positions of interesting blocks.
-        // No raycasts yet: getBlockState is fast, level.clip is not.
-        Map<Block, List<BlockPos>> candidates = new HashMap<>();
-
-        for (int dx = -radius; dx <= radius; dx += step) {
-            for (int dy = -radius; dy <= radius; dy += step) {
-                for (int dz = -radius; dz <= radius; dz += step) {
-                    BlockPos pos = center.offset(dx, dy, dz);
-                    Block block = level.getBlockState(pos).getBlock();
-                    if (block == Blocks.AIR || block == Blocks.CAVE_AIR || block == Blocks.VOID_AIR) {
-                        continue;
-                    }
-                    if (!INTERESTING.contains(block)) {
-                        continue;
-                    }
-                    candidates.computeIfAbsent(block, k -> new ArrayList<>()).add(pos.immutable());
-                }
+        // Budget guard: auto-increase the effective step so a full scan stays
+        // within MAX_SCAN_POSITIONS block lookups (no server tick stalls).
+        int step = configuredStep;
+        while (step <= 8) {
+            long positions = (long) Math.pow((2L * radius / step) + 1, 3);
+            if (positions <= MAX_SCAN_POSITIONS) {
+                break;
             }
+            step *= 2;
         }
 
-        // Phase 2: line-of-sight check only for the candidates (usually a handful).
+        Map<Block, List<BlockPos>> candidates = new HashMap<>();
+        collectCandidates(level, center, radius, step, candidates);
+
+        // Precise pass: block-by-block in the near zone so thin targets
+        // (e.g. a single oak log trunk) are never missed close to Steve.
+        if (step > 1) {
+            int preciseRadius = Math.min(PRECISE_RADIUS, radius);
+            collectCandidates(level, center, preciseRadius, 1, candidates);
+        }
+
+        // Line-of-sight check only for the candidates (usually a handful).
         // Cap the work per block type at the nearest 64 candidates to keep the
         // server tick fast even in dense forests.
         Map<Block, List<BlockPos>> visible = new HashMap<>();
@@ -217,5 +260,33 @@ public final class VisionScanner {
             }
         }
         return visible;
+    }
+
+    private static void collectCandidates(Level level, BlockPos center, int radius, int step,
+                                          Map<Block, List<BlockPos>> candidates) {
+        for (int dx = -radius; dx <= radius; dx += step) {
+            for (int dy = -radius; dy <= radius; dy += step) {
+                for (int dz = -radius; dz <= radius; dz += step) {
+                    BlockPos pos = center.offset(dx, dy, dz);
+                    // Never load chunks synchronously on the server tick
+                    if (!level.hasChunkAt(pos)) {
+                        continue;
+                    }
+                    Block block = level.getBlockState(pos).getBlock();
+                    if (block == Blocks.AIR || block == Blocks.CAVE_AIR || block == Blocks.VOID_AIR) {
+                        continue;
+                    }
+                    if (!INTERESTING.contains(block)) {
+                        continue;
+                    }
+                    candidates.computeIfAbsent(block, k -> new ArrayList<>()).add(pos.immutable());
+                }
+            }
+        }
+    }
+
+    private static String blockId(Block block) {
+        ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+        return key != null ? key.getPath() : block.toString();
     }
 }

@@ -20,10 +20,31 @@ class VisionUtilsTest {
     }
 
     @Test
-    void directionIsSouthWhenTargetIsSouthWestButSouthDominates() {
+    void directionIsSouthWestWhenBothAxesComparable() {
         BlockPos from = new BlockPos(0, 64, 0);
         BlockPos to = new BlockPos(-5, 64, 8);
-        assertEquals("S", VisionUtils.directionTo(from, to));
+        assertEquals("SW", VisionUtils.directionTo(from, to));
+    }
+
+    @Test
+    void directionIsNorthEastWhenBothAxesComparable() {
+        BlockPos from = new BlockPos(0, 64, 0);
+        BlockPos to = new BlockPos(6, 64, -4);
+        assertEquals("NE", VisionUtils.directionTo(from, to));
+    }
+
+    @Test
+    void directionIsUpWhenTargetIsOneBlockAbove() {
+        BlockPos from = new BlockPos(0, 64, 0);
+        BlockPos to = new BlockPos(0, 65, 0);
+        assertEquals("up", VisionUtils.directionTo(from, to));
+    }
+
+    @Test
+    void directionIsDownWhenTargetIsTwoBlocksBelow() {
+        BlockPos from = new BlockPos(0, 64, 0);
+        BlockPos to = new BlockPos(0, 62, 0);
+        assertEquals("down", VisionUtils.directionTo(from, to));
     }
 
     @Test
