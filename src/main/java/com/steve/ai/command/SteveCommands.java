@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.steve.ai.SteveMod;
 import com.steve.ai.config.SteveConfig;
+import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
 import com.steve.ai.llm.LLMProviders;
@@ -14,6 +15,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.List;
 
 public class SteveCommands {
     
@@ -36,7 +39,68 @@ public class SteveCommands {
                         .executes(SteveCommands::tellSteve))))
             .then(Commands.literal("providers")
                 .executes(SteveCommands::listProviders))
+            .then(Commands.literal("debug")
+                .executes(SteveCommands::debugSteve))
         );
+    }
+
+    private static int debugSteve(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        SteveManager manager = SteveMod.getSteveManager();
+
+        String provider = SteveConfig.AI_PROVIDER.get().toLowerCase();
+        String base = LLMProviders.resolveBaseUrl(provider, SteveConfig.LLM_BASE_URL.get());
+        String model = SteveConfig.LLM_MODEL.get();
+        if (model == null || model.isEmpty()) {
+            model = LLMProviders.resolveModel(provider, "");
+        }
+        String key = SteveConfig.LLM_API_KEY.get();
+        boolean keyPresent = key != null && !key.isEmpty();
+        boolean jsonMode = SteveConfig.LLM_JSON_MODE.get();
+        String llmLine = "§eLLM: §f" + provider + "§7 (" + base + ") model=" + model
+            + " key=" + (keyPresent ? "§aset" : "§cmissing")
+            + " jsonMode=" + jsonMode;
+
+        source.sendSuccess(() -> Component.literal(llmLine), false);
+
+        // Provider health (async, 3s timeout)
+        String providerId = provider;
+        String baseUrl = base;
+        String apiKey = SteveConfig.LLM_API_KEY.get();
+        String modelOverride = SteveConfig.LLM_MODEL.get();
+        new Thread(() -> {
+            try {
+                OpenAICompatibleClient client = OpenAICompatibleClient.forProvider(
+                    providerId, baseUrl, apiKey, modelOverride,
+                    SteveConfig.MAX_TOKENS.get(), SteveConfig.TEMPERATURE.get(),
+                    SteveConfig.LLM_JSON_MODE.get(), SteveConfig.LLM_TIMEOUT_SECONDS.get());
+                source.sendSuccess(() -> Component.literal(
+                    "§eHealth: §f" + (client.checkHealth() ? "§aONLINE" : "§cUNREACHABLE")
+                        + "§7 (GET " + baseUrl + "/models)"), false);
+            } catch (Exception e) {
+                source.sendSuccess(() -> Component.literal("§cHealth check error: " + e.getMessage()), false);
+            }
+        }, "steve-health-check").start();
+
+        // Per-Steve state
+        var steves = manager.getAllSteves();
+        if (steves.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("§7No Steves spawned. Use /steve spawn <name>"), false);
+        } else {
+            for (SteveEntity steve : steves) {
+                source.sendSuccess(() -> Component.literal(
+                    "§e" + steve.getSteveName() + "§7: " + steve.getActionExecutor().getStateSummary()), false);
+            }
+        }
+
+        // Recent debug events
+        List<String> events = AgentDebugBuffer.getEvents(20);
+        source.sendSuccess(() -> Component.literal("§eRecent events (" + events.size() + "):"), false);
+        for (String event : events) {
+            source.sendSuccess(() -> Component.literal("§7 " + event), false);
+        }
+
+        return 1;
     }
 
     private static int listProviders(CommandContext<CommandSourceStack> context) {

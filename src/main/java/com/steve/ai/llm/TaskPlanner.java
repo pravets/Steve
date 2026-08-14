@@ -3,6 +3,7 @@ package com.steve.ai.llm;
 import com.steve.ai.SteveMod;
 import com.steve.ai.action.Task;
 import com.steve.ai.config.SteveConfig;
+import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.llm.async.AsyncLLMClient;
 import com.steve.ai.llm.async.LLMCache;
@@ -73,6 +74,7 @@ public class TaskPlanner {
             String provider = SteveConfig.AI_PROVIDER.get().toLowerCase();
             SteveMod.LOGGER.info("[Async] Requesting AI plan for Steve '{}' using {}: {}",
                 steve.getSteveName(), provider, command);
+            AgentDebugBuffer.log(steve.getSteveName(), "COMMAND", "[" + provider + "] " + command);
 
             Map<String, Object> params = Map.of(
                 "systemPrompt", systemPrompt,
@@ -86,12 +88,18 @@ public class TaskPlanner {
                     String content = response.getContent();
                     if (content == null || content.isEmpty()) {
                         SteveMod.LOGGER.error("[Async] Empty response from LLM");
+                        AgentDebugBuffer.log(steve.getSteveName(), "LLM", "empty response");
                         return null;
                     }
+
+                    AgentDebugBuffer.log(steve.getSteveName(), "LLM",
+                        "model=" + response.getModel() + " cache=" + response.isFromCache()
+                            + " content=" + truncate(content, 400));
 
                     ResponseParser.ParsedResponse parsed = ResponseParser.parseAIResponse(content);
                     if (parsed == null) {
                         SteveMod.LOGGER.error("[Async] Failed to parse AI response");
+                        AgentDebugBuffer.log(steve.getSteveName(), "PARSE", "FAILED to parse: " + truncate(content, 400));
                         return null;
                     }
 
@@ -101,11 +109,15 @@ public class TaskPlanner {
                         response.getLatencyMs(),
                         response.getTokensUsed(),
                         response.isFromCache());
+                    AgentDebugBuffer.log(steve.getSteveName(), "PARSE",
+                        "ok, " + parsed.getTasks().size() + " tasks, plan=\"" + truncate(parsed.getPlan(), 200) + "\"");
 
                     return parsed;
                 })
                 .exceptionally(throwable -> {
                     SteveMod.LOGGER.error("[Async] Error planning tasks: {}", throwable.getMessage());
+                    AgentDebugBuffer.log(steve.getSteveName(), "LLM_ERROR",
+                        throwable.getClass().getSimpleName() + ": " + truncate(throwable.getMessage(), 300));
                     return null;
                 });
 
@@ -192,5 +204,11 @@ public class TaskPlanner {
         return tasks.stream()
             .filter(this::validateTask)
             .toList();
+    }
+
+    private static String truncate(String str, int maxLength) {
+        if (str == null) return "[null]";
+        if (str.length() <= maxLength) return str;
+        return str.substring(0, maxLength) + "...";
     }
 }

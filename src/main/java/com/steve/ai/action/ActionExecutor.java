@@ -2,6 +2,7 @@ package com.steve.ai.action;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.action.actions.*;
+import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.di.ServiceContainer;
 import com.steve.ai.di.SimpleServiceContainer;
 import com.steve.ai.event.EventBus;
@@ -229,6 +230,9 @@ public class ActionExecutor {
                     taskQueue.clear();
                     taskQueue.addAll(response.getTasks());
 
+                    AgentDebugBuffer.log(steve.getSteveName(), "PLAN",
+                        "goal=\"" + truncate(currentGoal, 200) + "\", queued tasks: " + response.getTasks().size());
+
                     if (SteveConfig.ENABLE_CHAT_RESPONSES.get()) {
                         sendToGUI(steve.getSteveName(), "Okay! " + currentGoal);
                     }
@@ -237,6 +241,7 @@ public class ActionExecutor {
                         steve.getSteveName(), taskQueue.size());
                 } else {
                     sendToGUI(steve.getSteveName(), "I couldn't understand that command.");
+                    AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning returned null (see LLM/PARSE events)");
                     SteveMod.LOGGER.warn("Steve '{}' async planning returned null response", steve.getSteveName());
                 }
 
@@ -258,6 +263,8 @@ public class ActionExecutor {
                 ActionResult result = currentAction.getResult();
                 SteveMod.LOGGER.info("Steve '{}' - Action completed: {} (Success: {})", 
                     steve.getSteveName(), result.getMessage(), result.isSuccess());
+                AgentDebugBuffer.log(steve.getSteveName(), result.isSuccess() ? "ACTION_DONE" : "ACTION_FAIL",
+                    currentAction.getClass().getSimpleName() + " -> " + truncate(result.getMessage(), 200));
                 
                 steve.getMemory().addAction(currentAction.getDescription());
                 
@@ -315,11 +322,15 @@ public class ActionExecutor {
         
         if (currentAction == null) {
             SteveMod.LOGGER.error("FAILED to create action for task: {}", task);
+            AgentDebugBuffer.log(steve.getSteveName(), "NO_ACTION",
+                "no factory for action '" + task.getAction() + "', params=" + task.getParameters());
             return;
         }
 
         SteveMod.LOGGER.info("Created action: {} - starting now...", currentAction.getClass().getSimpleName());
         currentAction.start();
+        AgentDebugBuffer.log(steve.getSteveName(), "ACTION_START",
+            currentAction.getClass().getSimpleName() + " " + task.getAction() + " " + task.getParameters());
         SteveMod.LOGGER.info("Action started! Is complete: {}", currentAction.isComplete());
     }
 
@@ -448,6 +459,43 @@ public class ActionExecutor {
      */
     public boolean isPlanning() {
         return isPlanning;
+    }
+
+    /**
+     * Number of tasks waiting in the queue.
+     */
+    public int getQueuedTaskCount() {
+        return taskQueue.size();
+    }
+
+    /**
+     * Description of the currently running action, or null if idle.
+     */
+    public String getCurrentActionDescription() {
+        return currentAction != null ? currentAction.getDescription() : null;
+    }
+
+    /**
+     * One-line summary of the agent state, used by /steve debug.
+     */
+    public String getStateSummary() {
+        if (isPlanning) {
+            return "planning (" + (pendingCommand != null ? truncate(pendingCommand, 50) : "?") + ")";
+        }
+        if (currentAction != null) {
+            return "executing: " + truncate(currentAction.getDescription(), 60)
+                + " (queue: " + taskQueue.size() + ")";
+        }
+        if (!taskQueue.isEmpty()) {
+            return "waiting, " + taskQueue.size() + " tasks queued";
+        }
+        return "idle (following player)";
+    }
+
+    private static String truncate(String str, int maxLength) {
+        if (str == null) return "[null]";
+        if (str.length() <= maxLength) return str;
+        return str.substring(0, maxLength) + "...";
     }
 }
 
