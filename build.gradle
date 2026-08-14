@@ -5,6 +5,9 @@ plugins {
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
+// Enable Forge JarJar (bundles runtime libraries into the mod jar, META-INF/jarjar)
+jarJar.enable()
+
 version = '1.0.0'
 group = 'com.steve.ai'
 
@@ -55,22 +58,22 @@ dependencies {
 
     // HTTP client - Using Java 11+ built-in HttpClient (no external dependencies needed!)
     // JSON parsing - Minecraft already includes Gson
-
-    // GraalVM for JavaScript code execution engine
-    implementation 'org.graalvm.polyglot:polyglot:23.1.0'
-    implementation 'org.graalvm.polyglot:js:23.1.0'
+    // LLM cache - JDK LinkedHashMap (no Caffeine needed)
+    // SHA-256 hashing - JDK MessageDigest (no commons-codec needed)
 
     // Resilience4j for fault tolerance (circuit breaker, retry, rate limiting, bulkhead)
+    // Bundled into the mod jar via JarJar (META-INF/jarjar) so the mod works outside the dev env.
     implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.1.0'
     implementation 'io.github.resilience4j:resilience4j-retry:2.1.0'
     implementation 'io.github.resilience4j:resilience4j-ratelimiter:2.1.0'
     implementation 'io.github.resilience4j:resilience4j-bulkhead:2.1.0'
 
-    // Caffeine cache for LLM response caching
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
-
-    // Apache Commons for SHA-256 hashing (cache keys)
-    implementation 'commons-codec:commons-codec:1.16.0'
+    jarJar('io.github.resilience4j:resilience4j-core:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
+    jarJar('io.github.resilience4j:resilience4j-circuitbreaker:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
+    jarJar('io.github.resilience4j:resilience4j-retry:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
+    jarJar('io.github.resilience4j:resilience4j-ratelimiter:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
+    jarJar('io.github.resilience4j:resilience4j-bulkhead:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
+    jarJar('io.vavr:vavr:0.10.4') { jarJar.ranged(it, '[0.10.4,0.11.0)') }
 
     // JUnit 5 for testing
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'
