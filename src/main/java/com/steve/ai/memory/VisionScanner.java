@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -229,11 +230,13 @@ public final class VisionScanner {
             step *= 2;
         }
 
-        Map<Block, List<BlockPos>> candidates = new HashMap<>();
+        Map<Block, Set<BlockPos>> candidates = new HashMap<>();
         collectCandidates(level, center, radius, step, candidates);
 
         // Precise pass: block-by-block in the near zone so thin targets
         // (e.g. a single oak log trunk) are never missed close to Steve.
+        // Set-based collection deduplicates positions that overlap between
+        // the coarse and precise passes (no double raycasts, no inflated xN).
         if (step > 1) {
             int preciseRadius = Math.min(PRECISE_RADIUS, radius);
             collectCandidates(level, center, preciseRadius, 1, candidates);
@@ -243,9 +246,9 @@ public final class VisionScanner {
         // Cap the work per block type at the nearest 64 candidates to keep the
         // server tick fast even in dense forests.
         Map<Block, List<BlockPos>> visible = new HashMap<>();
-        for (Map.Entry<Block, List<BlockPos>> entry : candidates.entrySet()) {
+        for (Map.Entry<Block, Set<BlockPos>> entry : candidates.entrySet()) {
             Block block = entry.getKey();
-            List<BlockPos> positions = entry.getValue();
+            List<BlockPos> positions = new ArrayList<>(entry.getValue());
 
             positions.sort(Comparator.comparingDouble(p -> p.distSqr(center)));
             int checked = 0;
@@ -263,7 +266,7 @@ public final class VisionScanner {
     }
 
     private static void collectCandidates(Level level, BlockPos center, int radius, int step,
-                                          Map<Block, List<BlockPos>> candidates) {
+                                          Map<Block, Set<BlockPos>> candidates) {
         for (int dx = -radius; dx <= radius; dx += step) {
             for (int dy = -radius; dy <= radius; dy += step) {
                 for (int dz = -radius; dz <= radius; dz += step) {
@@ -279,7 +282,7 @@ public final class VisionScanner {
                     if (!INTERESTING.contains(block)) {
                         continue;
                     }
-                    candidates.computeIfAbsent(block, k -> new ArrayList<>()).add(pos.immutable());
+                    candidates.computeIfAbsent(block, k -> new LinkedHashSet<>()).add(pos.immutable());
                 }
             }
         }

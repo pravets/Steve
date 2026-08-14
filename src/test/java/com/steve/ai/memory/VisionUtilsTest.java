@@ -77,4 +77,18 @@ class VisionUtilsTest {
         );
         assertEquals(new BlockPos(3, 64, 0), VisionUtils.nearestOf(positions, center));
     }
+
+    @Test
+    void duplicatePositionsDoNotInflateCounts() {
+        // Simulates the coarse + precise scan passes overlapping:
+        // the same position must count once (Set-based dedup).
+        java.util.LinkedHashSet<BlockPos> set = new java.util.LinkedHashSet<>();
+        set.add(new BlockPos(2, 64, 0)); // from coarse pass (even offset)
+        set.add(new BlockPos(2, 64, 0)); // same position from precise pass
+        set.add(new BlockPos(3, 64, 0)); // only precise pass
+
+        assertEquals(2, set.size(), "Overlapping passes must not produce duplicates");
+        assertEquals(List.of(new BlockPos(2, 64, 0), new BlockPos(3, 64, 0)),
+            new java.util.ArrayList<>(set));
+    }
 }
