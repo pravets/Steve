@@ -169,7 +169,7 @@ public class SteveGUI {
         int headerHeight = 35;
         graphics.fillGradient(panelX, panelY, screenWidth, headerHeight, HEADER_COLOR, HEADER_COLOR);
         graphics.drawString(mc.font, "§lSteve AI", panelX + PANEL_PADDING, panelY + 8, TEXT_COLOR);
-        graphics.drawString(mc.font, "§7Press K to close", panelX + PANEL_PADDING, panelY + 20, 0xFF888888);
+        graphics.drawString(mc.font, "§7ESC or Ctrl+K to close", panelX + PANEL_PADDING, panelY + 20, 0xFF888888);
 
         // Message history area
         int inputAreaY = screenHeight - 80;
@@ -295,12 +295,6 @@ public class SteveGUI {
         if (!isOpen || inputBox == null) return false;
 
         Minecraft mc = Minecraft.getInstance();
-        
-        // Escape key - close panel
-        if (keyCode == 256) { // ESC
-            toggle();
-            return true;
-        }
         
         // Enter key - send command
         if (keyCode == 257) {

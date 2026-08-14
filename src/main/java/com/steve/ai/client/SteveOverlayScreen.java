@@ -3,6 +3,7 @@ package com.steve.ai.client;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * Invisible overlay screen that captures input for the Steve GUI
@@ -27,15 +28,17 @@ public class SteveOverlayScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // K key to close
-        if (keyCode == 75 && !hasShiftDown() && !hasControlDown() && !hasAltDown()) { // K
+        // Close dialog with ESC or Ctrl+K. Plain K must NOT close - it is used
+        // for typing (e.g. the letter "k" in commands).
+        boolean isCtrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE || (keyCode == GLFW.GLFW_KEY_K && isCtrl)) {
             SteveGUI.toggle();
             if (minecraft != null) {
                 minecraft.setScreen(null);
             }
             return true;
         }
-        
+
         return SteveGUI.handleKeyPress(keyCode, scanCode, modifiers);
     }
 
