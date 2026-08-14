@@ -26,11 +26,17 @@ jobs:
       - name: Build mod
         run: ./gradlew build --no-daemon --stacktrace
 
+      - name: Stage mod jar (JarJar variant as the single deliverable)
+        run: |
+          VERSION=$(grep -oP "version = '\K[^']+" build.gradle)
+          mkdir -p dist
+          cp build/libs/steve-ai-mod-${VERSION}-all.jar dist/steve-ai-mod-${VERSION}.jar
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
           name: steve-ai-mod
-          path: build/libs/*.jar
+          path: dist/*.jar
           if-no-files-found: error
 
   release:

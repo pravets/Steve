@@ -68,11 +68,11 @@ dependencies {
     implementation 'io.github.resilience4j:resilience4j-ratelimiter:2.1.0'
     implementation 'io.github.resilience4j:resilience4j-bulkhead:2.1.0'
 
-    jarJar('io.github.resilience4j:resilience4j-core:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
-    jarJar('io.github.resilience4j:resilience4j-circuitbreaker:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
-    jarJar('io.github.resilience4j:resilience4j-retry:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
-    jarJar('io.github.resilience4j:resilience4j-ratelimiter:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
-    jarJar('io.github.resilience4j:resilience4j-bulkhead:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)') }
+    jarJar('io.github.resilience4j:resilience4j-core:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)'); exclude group: 'org.slf4j' }
+    jarJar('io.github.resilience4j:resilience4j-circuitbreaker:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)'); exclude group: 'org.slf4j' }
+    jarJar('io.github.resilience4j:resilience4j-retry:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)'); exclude group: 'org.slf4j' }
+    jarJar('io.github.resilience4j:resilience4j-ratelimiter:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)'); exclude group: 'org.slf4j' }
+    jarJar('io.github.resilience4j:resilience4j-bulkhead:2.1.0') { jarJar.ranged(it, '[2.1.0,3.0.0)'); exclude group: 'org.slf4j' }
     jarJar('io.vavr:vavr:0.10.4') { jarJar.ranged(it, '[0.10.4,0.11.0)') }
 
     // JUnit 5 for testing
