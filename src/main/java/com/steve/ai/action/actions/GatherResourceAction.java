@@ -171,9 +171,14 @@ public class GatherResourceAction extends BaseAction {
             // Nearest visible target wins - skip known-unreachable positions
             // (cliff/lava ores would otherwise be re-picked forever) and logs
             // that are NOT part of a tree (player structures stay untouched)
-            mineTarget = visible.stream()
+            List<BlockPos> treeLogs = visible.stream()
                 .filter(p -> !unreachableTargets.contains(p))
                 .filter(this::isTreeLog)
+                .toList();
+            if (visible.size() != treeLogs.size()) {
+                debugLog("SEARCH", "visible=" + visible.size() + ", tree logs=" + treeLogs.size());
+            }
+            mineTarget = treeLogs.stream()
                 .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (mineTarget != null) {
@@ -303,10 +308,10 @@ public class GatherResourceAction extends BaseAction {
         phase = Phase.SEARCH; // look for the next visible block
     }
 
-    /** A log counts as a tree log when leaves are within 3 blocks. */
+    /** A log counts as a tree log when leaves are within 5 blocks. */
     private boolean isTreeLog(BlockPos pos) {
         return FellSupport.hasNearbyBlock(pos,
-            p -> steve.level().getBlockState(p).getBlock() instanceof LeavesBlock, 3);
+            p -> steve.level().getBlockState(p).getBlock() instanceof LeavesBlock, 5);
     }
 
     // ---- fell mode ----

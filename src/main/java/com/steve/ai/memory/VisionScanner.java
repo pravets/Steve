@@ -168,7 +168,11 @@ public final class VisionScanner {
         Level level = steve.level();
         Vec3 eye = steve.getEyePosition(1.0F);
         Vec3 to = Vec3.atCenterOf(target);
-        Vec3 dir = to.subtract(eye).normalize();
+        Vec3 dir = to.subtract(eye);
+        if (dir.lengthSqr() < 1.0E-4) {
+            return true; // target is inside/at the eye - trivially visible
+        }
+        dir = dir.normalize();
 
         // Step through leaves (they have a collision shape but should not
         // hide ores/logs behind the canopy); hard cap on iterations.

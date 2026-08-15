@@ -293,7 +293,18 @@ public class ActionExecutor {
                     SteveMod.LOGGER.info("Steve '{}' - Ticking action: {}", 
                         steve.getSteveName(), currentAction.getDescription());
                 }
-                currentAction.tick();
+                try {
+                    currentAction.tick();
+                } catch (Exception e) {
+                    // An action crash must never leave the Steve silently
+                    // standing: report it as an honest failure.
+                    SteveMod.LOGGER.error("Steve '{}' action '{}' crashed",
+                        steve.getSteveName(), currentAction.getClass().getSimpleName(), e);
+                    AgentDebugBuffer.log(steve.getSteveName(), "ACTION_FAIL",
+                        currentAction.getClass().getSimpleName() + " crashed: " + e);
+                    currentAction.cancel();
+                    currentAction = null;
+                }
                 return;
             }
         }
