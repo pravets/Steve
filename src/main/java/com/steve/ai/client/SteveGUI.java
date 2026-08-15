@@ -3,10 +3,14 @@ package com.steve.ai.client;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.steve.ai.SteveMod;
 import com.steve.ai.entity.SteveEntity;
+import com.steve.ai.network.ServerboundRequestInventoryPacket;
+import com.steve.ai.network.ServerboundRequestSteveListPacket;
+import com.steve.ai.network.SteveNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -30,7 +34,13 @@ public class SteveGUI {
     private static EditBox inputBox;
     private static List<String> commandHistory = new ArrayList<>();
     private static int historyIndex = -1;
-    
+
+    // Inventory view state (client-side copies from server packets)
+    private static boolean showingInventory = false;
+    private static List<String> steveNames = new ArrayList<>();
+    private static String selectedSteve = null;
+    private static List<ItemStack> inventoryStacks = new ArrayList<>();
+
     // Message history and scrolling
     private static List<ChatMessage> messages = new ArrayList<>();
     private static int scrollOffset = 0;
@@ -39,6 +49,8 @@ public class SteveGUI {
     private static final int BORDER_COLOR = 0x40404040; // More transparent border
     private static final int HEADER_COLOR = 0x25252525; // More transparent header (~15% opacity)
     private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final int SLOT_COLOR = 0x33FFFFFF;
+    private static final int SLOT_SIZE = 18;
     
     // Message bubble colors
     private static final int USER_BUBBLE_COLOR = 0xC04CAF50; // Green bubble for user
@@ -70,6 +82,7 @@ public class SteveGUI {
             if (inputBox != null) {
                 inputBox.setFocused(true);
             }
+            requestSteveList(); // Refresh Steve list so commands target real agents
         } else {
             if (inputBox != null) {
                 inputBox = null;
@@ -128,6 +141,56 @@ public class SteveGUI {
         addMessage("System", text, SYSTEM_BUBBLE_COLOR, false);
     }
 
+    /**
+     * Toggle between chat and inventory views.
+     */
+    public static void toggleView() {
+        showingInventory = !showingInventory;
+        if (showingInventory) {
+            requestSteveList();
+        }
+    }
+
+    public static boolean isShowingInventory() {
+        return showingInventory;
+    }
+
+    /**
+     * Called from the network handler: the list of active Steves.
+     */
+    public static void setSteveList(List<String> names) {
+        steveNames = new ArrayList<>(names);
+        if (selectedSteve == null || !steveNames.contains(selectedSteve)) {
+            selectedSteve = steveNames.isEmpty() ? null : steveNames.get(0);
+        }
+        if (selectedSteve != null) {
+            requestInventory(selectedSteve);
+        }
+    }
+
+    /**
+     * Called from the network handler: a Steve's inventory contents.
+     */
+    public static void setInventoryView(String steveName, List<ItemStack> stacks) {
+        if (steveName.equals(selectedSteve)) {
+            inventoryStacks = new ArrayList<>(stacks);
+        }
+    }
+
+    private static void requestSteveList() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            SteveNetworking.CHANNEL.sendToServer(new ServerboundRequestSteveListPacket());
+        }
+    }
+
+    private static void requestInventory(String steveName) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            SteveNetworking.CHANNEL.sendToServer(new ServerboundRequestInventoryPacket(steveName));
+        }
+    }
+
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
         if (event.getOverlay().id().toString().contains("hotbar")) {
@@ -168,8 +231,20 @@ public class SteveGUI {
 
         int headerHeight = 35;
         graphics.fillGradient(panelX, panelY, screenWidth, headerHeight, HEADER_COLOR, HEADER_COLOR);
-        graphics.drawString(mc.font, "§lSteve AI", panelX + PANEL_PADDING, panelY + 8, TEXT_COLOR);
-        graphics.drawString(mc.font, "§7ESC or Ctrl+K to close", panelX + PANEL_PADDING, panelY + 20, 0xFF888888);
+        graphics.drawString(mc.font, "§lSteve AI", panelX + PANEL_PADDING, panelY + 6, TEXT_COLOR);
+        // View tabs (clickable)
+        String chatTab = showingInventory ? "§7[Chat]" : "§e[Chat]";
+        String invTab = showingInventory ? "§e[Inv]" : "§7[Inv]";
+        graphics.drawString(mc.font, chatTab + " " + invTab, panelX + PANEL_PADDING + 58, panelY + 6, TEXT_COLOR);
+        graphics.drawString(mc.font, "§7ESC: close | Tab: view | Click name: select",
+            panelX + PANEL_PADDING, panelY + 20, 0xFF888888);
+
+        // Inventory view replaces the chat area entirely
+        if (showingInventory) {
+            renderInventoryView(graphics, mc, panelX, screenWidth, headerHeight);
+            RenderSystem.disableBlend();
+            return;
+        }
 
         // Message history area
         int inputAreaY = screenHeight - 80;
@@ -274,6 +349,66 @@ public class SteveGUI {
     }
 
     /**
+     * Renders the inventory view: a clickable list of Steves and the selected
+     * Steve's inventory grid.
+     */
+    private static void renderInventoryView(GuiGraphics graphics, Minecraft mc,
+                                            int panelX, int screenWidth, int headerHeight) {
+        int y = headerHeight + 10;
+
+        // Steve selector list
+        if (steveNames.isEmpty()) {
+            graphics.drawString(mc.font, "§7No Steves. Spawn one via chat:", panelX + PANEL_PADDING, y, 0xFFAAAAAA);
+            graphics.drawString(mc.font, "§7/steve spawn <name>", panelX + PANEL_PADDING, y + 12, 0xFFAAAAAA);
+            return;
+        }
+
+        graphics.drawString(mc.font, "§7Steves:", panelX + PANEL_PADDING, y, 0xFFAAAAAA);
+        y += 12;
+        for (String name : steveNames) {
+            String line = name.equals(selectedSteve) ? "§e> " + name : "§7  " + name;
+            graphics.drawString(mc.font, line, panelX + PANEL_PADDING, y, TEXT_COLOR);
+            y += 12;
+        }
+
+        y += 4;
+        String header = selectedSteve != null
+            ? "§e" + selectedSteve + "'s inventory§7 (" + inventoryStacks.size() + " stacks)"
+            : "§7No Steve selected";
+        graphics.drawString(mc.font, header, panelX + PANEL_PADDING, y, TEXT_COLOR);
+        y += 12;
+
+        // Inventory grid: 9 columns x 3 rows (27 slots, matches the default capacity)
+        int gridX = panelX + PANEL_PADDING + 2;
+        int cols = 9;
+        int index = 0;
+        for (ItemStack stack : inventoryStacks) {
+            int row = index / cols;
+            int col = index % cols;
+            if (row >= 3) {
+                break; // Only render 27 slots
+            }
+            int slotX = gridX + col * SLOT_SIZE;
+            int slotY = y + row * SLOT_SIZE;
+            graphics.fill(slotX, slotY, slotX + SLOT_SIZE - 2, slotY + SLOT_SIZE - 2, SLOT_COLOR);
+            if (!stack.isEmpty()) {
+                graphics.renderItem(stack, slotX + 1, slotY + 1);
+                graphics.renderItemDecorations(mc.font, stack, slotX + 1, slotY + 1);
+            }
+            index++;
+        }
+        graphics.drawString(mc.font, "§8Items: " + totalItems(), panelX + PANEL_PADDING, y + 3 * SLOT_SIZE + 4, 0xFF777777);
+    }
+
+    private static int totalItems() {
+        int total = 0;
+        for (ItemStack stack : inventoryStacks) {
+            total += stack.getCount();
+        }
+        return total;
+    }
+
+    /**
      * Simple word wrap for text
      */
     private static String wrapText(net.minecraft.client.gui.Font font, String text, int maxWidth) {
@@ -296,6 +431,12 @@ public class SteveGUI {
 
         Minecraft mc = Minecraft.getInstance();
         
+        // Tab - toggle chat / inventory view
+        if (keyCode == 258) { // TAB
+            toggleView();
+            return true;
+        }
+
         // Enter key - send command
         if (keyCode == 257) {
             String command = inputBox.getValue().trim();
@@ -352,6 +493,31 @@ public class SteveGUI {
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
+        int panelX = (int) (screenWidth - PANEL_WIDTH + slideOffset);
+
+        // Click on the header (title/tabs) toggles the view - only within the
+        // panel's horizontal bounds (panelX..screenWidth), not anywhere on screen
+        if (mouseY < 35 && mouseX >= panelX && mouseX < screenWidth) {
+            toggleView();
+            return;
+        }
+
+        if (showingInventory) {
+            // Click on a Steve name selects it and requests its inventory
+            int y = 35 + 10 + 12; // headerHeight + 10 + "Steves:" label
+            for (String name : steveNames) {
+                if (mouseY >= y && mouseY < y + 12 && mouseX >= panelX && mouseX < panelX + PANEL_WIDTH) {
+                    if (!name.equals(selectedSteve)) {
+                        selectedSteve = name;
+                        inventoryStacks.clear();
+                        requestInventory(name);
+                    }
+                    return;
+                }
+                y += 12;
+            }
+            return;
+        }
 
         if (inputBox != null) {
             int inputAreaY = screenHeight - 80;
@@ -394,12 +560,12 @@ public class SteveGUI {
         List<String> targetSteves = parseTargetSteves(command);
         
         if (targetSteves.isEmpty()) {
-            var steves = SteveMod.getSteveManager().getAllSteves();
-            if (!steves.isEmpty()) {
-                targetSteves.add(steves.iterator().next().getSteveName());
+            if (!steveNames.isEmpty()) {
+                targetSteves.add(steveNames.get(0));
             } else {
-                // No Steves available
+                // No Steves available (client-side list; refresh from server)
                 addSystemMessage("No Steve agents found! Use 'spawn <name>' to create one.");
+                requestSteveList();
                 return;
             }
         }
@@ -424,17 +590,7 @@ public class SteveGUI {
         
         if (commandLower.startsWith("all steves ") || commandLower.startsWith("all ") || 
             commandLower.startsWith("everyone ") || commandLower.startsWith("everybody ")) {
-            var allSteves = SteveMod.getSteveManager().getAllSteves();
-            for (SteveEntity steve : allSteves) {
-                targets.add(steve.getSteveName());
-            }
-            return targets;
-        }
-        
-        var allSteves = SteveMod.getSteveManager().getAllSteves();
-        List<String> availableNames = new ArrayList<>();
-        for (SteveEntity steve : allSteves) {
-            availableNames.add(steve.getSteveName().toLowerCase());
+            return new ArrayList<>(steveNames);
         }
         
         String[] parts = command.split(",");
@@ -442,12 +598,10 @@ public class SteveGUI {
             String trimmed = part.trim();
             String firstWord = trimmed.split(" ")[0].toLowerCase();
             
-            if (availableNames.contains(firstWord)) {
-                for (SteveEntity steve : allSteves) {
-                    if (steve.getSteveName().equalsIgnoreCase(firstWord)) {
-                        targets.add(steve.getSteveName());
-                        break;
-                    }
+            for (String name : steveNames) {
+                if (name.toLowerCase().equals(firstWord)) {
+                    targets.add(name);
+                    break;
                 }
             }
         }

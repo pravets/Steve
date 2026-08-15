@@ -67,7 +67,7 @@
 | Этап | Содержание | Ключевые файлы |
 |------|-----------|----------------|
 | **1. Зрение** | Честный скан (raycast), целевой поиск, кэш, радиус в конфиге, сводка для промпта | WorldKnowledge, SteveConfig, PromptBuilder |
-| **2. Инвентарь** | 36 слотов + NBT, зачисление дропов, подбор ItemEntity, панель K + `/steve inventory` | SteveEntity, SteveGUI, SteveCommands, новое Inventory |
+| **2. Инвентарь** | 27 слотов (одинарный сундук; задел под апгрейды вместимости) + NBT, зачисление дропов, подбор ItemEntity, панель K + `/steve inventory`, ПКМ по боту — take-only меню | SteveEntity, SteveGUI, SteveCommands, SteveInventory, SteveMenu |
 | **3. Умный сбор** | Стратегия поверхность/руда, расширение поиска, инструменты, счёт по предметам, авто-возврат при полном инвентаре | MineBlockAction, GatherResourceAction, новое HarvestAction |
 | **4. Передача** | `give` (авто + команда), передача игроку, склад в сундуки | GiveAction, TaskPlanner (валидация), PromptBuilder |
 | **5. Мозги/диалог** | `respond`, `look`, обогащённый промпт, fallback-паттерны | PromptBuilder, ResponseParser, LLMFallbackHandler |

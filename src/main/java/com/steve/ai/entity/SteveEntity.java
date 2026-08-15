@@ -2,22 +2,32 @@ package com.steve.ai.entity;
 
 import com.steve.ai.action.ActionExecutor;
 import com.steve.ai.memory.SteveMemory;
+import com.steve.ai.menu.SteveMenu;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class SteveEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> STEVE_NAME = 
@@ -26,15 +36,23 @@ public class SteveEntity extends PathfinderMob {
     private String steveName;
     private SteveMemory memory;
     private ActionExecutor actionExecutor;
+    private SteveInventory inventory;
     private int tickCounter = 0;
+    private int pickupCooldown = 0;
     private boolean isFlying = false;
     private boolean isInvulnerable = false;
+
+    /** Pickup radius for items lying on the ground, in blocks. */
+    private static final double PICKUP_RADIUS = 3.0;
+    /** Pickup scan every N ticks (20 ticks = 1 second). */
+    private static final int PICKUP_INTERVAL = 10;
 
     public SteveEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.steveName = "Steve";
         this.memory = new SteveMemory(this);
         this.actionExecutor = new ActionExecutor(this);
+        this.inventory = new SteveInventory(this, SteveInventory.DEFAULT_SIZE);
         this.setCustomNameVisible(true);
         
         this.isInvulnerable = true;
@@ -63,11 +81,69 @@ public class SteveEntity extends PathfinderMob {
     }
 
     @Override
+    public void remove(RemovalReason reason) {
+        // Drop the inventory into the world when Steve is killed or discarded
+        // (/kill, /steve remove) instead of silently losing the contents.
+        // Unloading/changing dimension must keep the inventory (it is in NBT).
+        if (!this.level().isClientSide && !inventory.isEmpty()
+                && (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED)) {
+            for (ItemStack stack : inventory.takeAll()) {
+                this.spawnAtLocation(stack);
+            }
+        }
+        super.remove(reason);
+    }
+
+    @Override
     public void tick() {
         super.tick();
         
         if (!this.level().isClientSide) {
             actionExecutor.tick();
+            tickPickup();
+        }
+    }
+
+    /**
+     * Periodically picks up nearby item entities into Steve's inventory.
+     */
+    private void tickPickup() {
+        if (--pickupCooldown > 0) {
+            return;
+        }
+        pickupCooldown = PICKUP_INTERVAL;
+
+        if (!inventory.hasFreeSpace()) {
+            return; // Inventory full - leave items on the ground
+        }
+
+        AABB searchBox = this.getBoundingBox().inflate(PICKUP_RADIUS);
+        List<ItemEntity> items = this.level().getEntitiesOfClass(ItemEntity.class, searchBox);
+        for (ItemEntity item : items) {
+            if (item.isRemoved() || !item.isAlive()) {
+                continue;
+            }
+            // Respect vanilla pickup delay: items thrown by a player (Q), tossed
+            // to teammates or dropped on death must not be vacuumed instantly
+            if (item.hasPickUpDelay()) {
+                continue;
+            }
+            ItemStack stack = item.getItem();
+            if (stack.isEmpty()) {
+                continue;
+            }
+            ItemStack remainder = inventory.addItem(stack);
+            if (remainder.getCount() < stack.getCount()) {
+                // We picked up at least part of the stack
+                if (remainder.isEmpty()) {
+                    item.discard();
+                } else {
+                    item.setItem(remainder);
+                }
+            }
+            if (!inventory.hasFreeSpace()) {
+                break; // Inventory full - stop picking up
+            }
         }
     }
 
@@ -85,6 +161,10 @@ public class SteveEntity extends PathfinderMob {
         return this.memory;
     }
 
+    public SteveInventory getInventory() {
+        return this.inventory;
+    }
+
     public ActionExecutor getActionExecutor() {
         return this.actionExecutor;
     }
@@ -97,6 +177,10 @@ public class SteveEntity extends PathfinderMob {
         CompoundTag memoryTag = new CompoundTag();
         this.memory.saveToNBT(memoryTag);
         tag.put("Memory", memoryTag);
+
+        CompoundTag inventoryTag = new CompoundTag();
+        this.inventory.saveToNBT(inventoryTag);
+        tag.put("Inventory", inventoryTag);
     }
 
     @Override
@@ -108,6 +192,10 @@ public class SteveEntity extends PathfinderMob {
         
         if (tag.contains("Memory")) {
             this.memory.loadFromNBT(tag.getCompound("Memory"));
+        }
+
+        if (tag.contains("Inventory")) {
+            this.inventory.loadFromNBT(tag.getCompound("Inventory"));
         }
     }
 
@@ -125,6 +213,21 @@ public class SteveEntity extends PathfinderMob {
         
         Component chatComponent = Component.literal("<" + this.steveName + "> " + message);
         this.level().players().forEach(player -> player.sendSystemMessage(chatComponent));
+    }
+
+    /**
+     * Right-click on a Steve opens its inventory as a take-only container menu:
+     * the player can selectively take items, but cannot place items into Steve.
+     */
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (!this.level().isClientSide && player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, p) ->
+                    new SteveMenu(containerId, playerInventory, this.inventory),
+                Component.literal(this.steveName + "'s Inventory")));
+        }
+        return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
 
     @Override

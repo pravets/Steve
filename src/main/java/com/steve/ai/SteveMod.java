@@ -5,6 +5,8 @@ import com.steve.ai.command.SteveCommands;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
+import com.steve.ai.menu.SteveMenus;
+import com.steve.ai.network.SteveNetworking;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.common.MinecraftForge;
@@ -41,7 +43,10 @@ public class SteveMod {
     public SteveMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        SteveNetworking.register();
+
         ENTITIES.register(modEventBus);
+        SteveMenus.MENUS.register(modEventBus);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SteveConfig.SPEC);
 

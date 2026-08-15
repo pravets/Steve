@@ -7,6 +7,7 @@ import com.steve.ai.SteveMod;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
+import com.steve.ai.entity.SteveInventory;
 import com.steve.ai.entity.SteveManager;
 import com.steve.ai.llm.LLMProviders;
 import com.steve.ai.llm.async.OpenAICompatibleClient;
@@ -41,7 +42,28 @@ public class SteveCommands {
                 .executes(SteveCommands::listProviders))
             .then(Commands.literal("debug")
                 .executes(SteveCommands::debugSteve))
+            .then(Commands.literal("inventory")
+                .then(Commands.argument("name", StringArgumentType.string())
+                    .executes(SteveCommands::showInventory)))
         );
+    }
+
+    private static int showInventory(CommandContext<CommandSourceStack> context) {
+        String name = StringArgumentType.getString(context, "name");
+        CommandSourceStack source = context.getSource();
+
+        SteveEntity steve = SteveMod.getSteveManager().getSteve(name);
+        if (steve == null) {
+            source.sendFailure(Component.literal("Steve not found: " + name));
+            return 0;
+        }
+
+        SteveInventory inventory = steve.getInventory();
+        source.sendSuccess(() -> Component.literal(
+            "§e" + name + "'s inventory§7 (" + inventory.getStacksCount() + "/" + inventory.getMaxSize()
+                + " stacks, " + inventory.getTotalCount() + " items): " + inventory.toDisplayString()),
+            false);
+        return 1;
     }
 
     private static int debugSteve(CommandContext<CommandSourceStack> context) {
