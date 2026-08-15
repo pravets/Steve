@@ -27,7 +27,12 @@ import java.util.List;
  */
 public class SteveInventory implements Container {
 
-    public static final int DEFAULT_SIZE = 36;
+    /**
+     * Default capacity: 27 slots (3 rows x 9), matching a vanilla single chest
+     * / the player's main grid. Deliberately small - capacity upgrades
+     * (backpacks etc.) can raise this later.
+     */
+    public static final int DEFAULT_SIZE = 27;
     private static final String NBT_KEY = "Inventory";
 
     private final ItemStack[] slots;

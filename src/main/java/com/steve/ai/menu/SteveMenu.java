@@ -10,17 +10,16 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Container menu for Steve's inventory, laid out as a double chest
- * (6 rows x 9 = 54 slots) so the vanilla {@code generic_54} chest texture
- * renders it without custom geometry.
+ * Container menu for Steve's inventory, laid out as a vanilla single chest
+ * (3 rows x 9 = 27 slots) so the {@code generic_54} texture renders it with
+ * the exact vanilla single-chest blits - no custom geometry.
  *
  * <p>Steve's slots are read-only (players can only TAKE items, never place
- * them). The last two rows (slots 36-53) are empty and take-only too; they
- * exist only so the menu matches the double-chest layout.</p>
+ * them).</p>
  */
 public class SteveMenu extends AbstractContainerMenu {
 
-    private static final int STEVE_SLOTS = 54; // 6 rows x 9, double-chest layout
+    private static final int STEVE_SLOTS = 27; // 3 rows x 9, single-chest layout
     private static final int PLAYER_SLOTS_START = STEVE_SLOTS;
     private static final int SLOT_COUNT = STEVE_SLOTS + 36;
 
@@ -31,15 +30,15 @@ public class SteveMenu extends AbstractContainerMenu {
         this.container = container;
         container.startOpen(playerInventory.player);
 
-        // Steve's slots: 6 rows x 9, take-only (slots 36-53 read as EMPTY)
-        for (int row = 0; row < 6; row++) {
+        // Steve's slots: 3 rows x 9, take-only
+        for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 this.addSlot(new TakeOnlySlot(container, row * 9 + col, 8 + col * 18, 18 + row * 18));
             }
         }
 
-        // Player inventory: 3 rows x 9 + hotbar (double-chest offsets)
-        int playerOffset = (6 - 4) * 18; // 36
+        // Player inventory: 3 rows x 9 + hotbar (single-chest offsets)
+        int playerOffset = (3 - 4) * 18; // -18
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 this.addSlot(new Slot(playerInventory, col + row * 9 + 9,

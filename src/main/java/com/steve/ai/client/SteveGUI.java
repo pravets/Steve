@@ -373,7 +373,7 @@ public class SteveGUI {
 
         y += 4;
         String header = selectedSteve != null
-            ? "§e" + selectedSteve + "'s inventory§7 (" + inventoryStacks.size() + "/36 stacks)"
+            ? "§e" + selectedSteve + "'s inventory§7 (" + inventoryStacks.size() + " stacks)"
             : "§7No Steve selected";
         graphics.drawString(mc.font, header, panelX + PANEL_PADDING, y, TEXT_COLOR);
         y += 12;
