@@ -334,6 +334,11 @@ public class GatherResourceAction extends BaseAction {
 
     private void phaseFellAscend() {
         steve.setFlying(false);
+        // Climbing is manual (setPos): an active navigation would drag the
+        // Steve off the pillar back to the ground - stop it before ascending.
+        if (steve.getNavigation().isInProgress()) {
+            steve.getNavigation().stop();
+        }
 
         // Stall guard: progress is a felled log OR a grown pillar
         fellStallTicks++;
@@ -370,34 +375,34 @@ public class GatherResourceAction extends BaseAction {
             ItemStack pillarBlock = FellSupport.findSolidPillarBlock(steve.level(), standPos,
                 steve.getInventory(), fellLogBlock);
             if (pillarBlock.isEmpty()) {
+                debugLog("FELL", "no pillar block in inventory - gathering material");
                 phase = Phase.FELL_GATHER; // gather dirt/stone first
                 return;
             }
             Block block = ((BlockItem) pillarBlock.getItem()).getBlock();
-            // Leaves block the pillar: clear them first (drops are vacuumed).
-            // Grass/snow/ferns underfoot are fine - only replaceable blocks are skipped
             BlockState standState = steve.level().getBlockState(standPos);
-            if (standState.getBlock() instanceof LeavesBlock) {
+            // Leaves (and any other block in the way) are cleared first - the
+            // canopy must not block the pillar. Drops are vacuumed.
+            if (!standState.canBeReplaced()) {
                 steve.swing(InteractionHand.MAIN_HAND, true);
                 steve.level().destroyBlock(standPos, true);
-                return; // retry next tick once the leaves are gone
+                debugLog("FELL", "cleared " + standState.getBlock().getName().getString() + " at " + standPos);
+                return; // retry next tick once the way is clear
             }
-            if (standState.canBeReplaced()) {
-                steve.level().setBlock(standPos, block.defaultBlockState(), 3);
-                steve.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
-                // Remove one block from the inventory slot that held it
-                for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
-                    ItemStack slot = steve.getInventory().getItem(i);
-                    if (!slot.isEmpty() && slot.getItem() == pillarBlock.getItem()) {
-                        steve.getInventory().removeItem(i, 1);
-                        break;
-                    }
+            steve.level().setBlock(standPos, block.defaultBlockState(), 3);
+            steve.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
+            // Remove one block from the inventory slot that held it
+            for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
+                ItemStack slot = steve.getInventory().getItem(i);
+                if (!slot.isEmpty() && slot.getItem() == pillarBlock.getItem()) {
+                    steve.getInventory().removeItem(i, 1);
+                    break;
                 }
-                fellHeight++;
-                fellStallTicks = 0;
-                debugLog("FELL", "pillar up to y=" + (standPos.getY() + 1) + " (height " + fellHeight + ")");
-                return;
             }
+            fellHeight++;
+            fellStallTicks = 0;
+            debugLog("FELL", "pillar up to y=" + (standPos.getY() + 1) + " (height " + fellHeight + ")");
+            return;
         }
 
         // 3. No logs above (or height limit): dismantle the pillar on the way down
@@ -405,6 +410,9 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private void phaseFellDescend() {
+        if (steve.getNavigation().isInProgress()) {
+            steve.getNavigation().stop();
+        }
         fellStallTicks++;
         if (fellStallTicks > FELL_STALL_TICKS) {
             finish(false, "Stuck while dismantling the pillar");
