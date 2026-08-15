@@ -3,6 +3,8 @@ package com.steve.ai.entity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -16,8 +18,11 @@ import java.util.List;
  *
  * <p>ItemStacks are stored as full stacks (they merge on add, no slot-based
  * layout yet - that keeps the logic simple and the data compact).</p>
+ *
+ * <p>Implements {@link Container} so players can open Steve's inventory via
+ * a vanilla chest menu (right-click on Steve) and take/give items selectively.</p>
  */
-public class SteveInventory {
+public class SteveInventory implements Container {
 
     public static final int DEFAULT_SIZE = 36;
     private static final String NBT_KEY = "Inventory";
@@ -173,5 +178,81 @@ public class SteveInventory {
             sb.append(stack.getHoverName().getString()).append(" x").append(stack.getCount());
         }
         return sb.toString();
+    }
+
+    // ==================== Container implementation ====================
+    // Slot-based access for the vanilla chest menu (right-click on Steve).
+    // A "slot" is an index into the compact stack list; empty slots beyond the
+    // list read as ItemStack.EMPTY, and removing an item shrinks the list.
+
+    @Override
+    public int getContainerSize() {
+        return maxSize;
+    }
+
+    @Override
+    public ItemStack getItem(int slot) {
+        return slot >= 0 && slot < stacks.size() ? stacks.get(slot) : ItemStack.EMPTY;
+    }
+
+    @Override
+    public ItemStack removeItem(int slot, int amount) {
+        if (slot < 0 || slot >= stacks.size()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = stacks.get(slot);
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        int toRemove = Math.min(amount, stack.getCount());
+        ItemStack removed = stack.copy();
+        removed.setCount(toRemove);
+        stack.shrink(toRemove);
+        if (stack.isEmpty()) {
+            stacks.remove(slot);
+        }
+        return removed;
+    }
+
+    @Override
+    public ItemStack removeItemNoUpdate(int slot) {
+        if (slot < 0 || slot >= stacks.size()) {
+            return ItemStack.EMPTY;
+        }
+        return stacks.remove(slot);
+    }
+
+    @Override
+    public void setItem(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= maxSize) {
+            return;
+        }
+        if (stack.isEmpty()) {
+            if (slot < stacks.size()) {
+                stacks.remove(slot);
+            }
+            return;
+        }
+        if (slot < stacks.size()) {
+            stacks.set(slot, stack);
+        } else if (slot == stacks.size() && stacks.size() < maxSize) {
+            stacks.add(stack);
+        }
+        // slot > size: ignore (client only sends valid slot operations)
+    }
+
+    @Override
+    public void setChanged() {
+        // No-op: SteveInventory is not a block entity
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return true;
+    }
+
+    @Override
+    public void clearContent() {
+        stacks.clear();
     }
 }

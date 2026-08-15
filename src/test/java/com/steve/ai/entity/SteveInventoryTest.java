@@ -169,4 +169,59 @@ class SteveInventoryTest {
         assertEquals(9, loaded.getStacksCount(),
             "Load must clamp to maxSize even with oversized NBT");
     }
+
+    // ==================== Container (chest menu) access ====================
+
+    @Test
+    void containerGetItemReturnsEmptyForOutOfRangeSlot() {
+        SteveInventory inventory = new SteveInventory(9);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
+
+        assertTrue(inventory.getItem(0).isEmpty() == false);
+        assertTrue(inventory.getItem(5).isEmpty(), "Slot beyond stack list is empty");
+        assertTrue(inventory.getItem(-1).isEmpty());
+        assertEquals(9, inventory.getContainerSize());
+    }
+
+    @Test
+    void containerRemoveItemTakesPartialStack() {
+        SteveInventory inventory = new SteveInventory(9);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
+
+        ItemStack taken = inventory.removeItem(0, 3);
+        assertEquals(3, taken.getCount());
+        assertEquals(7, inventory.countItem(Items.OAK_LOG));
+        assertEquals(1, inventory.getStacksCount());
+    }
+
+    @Test
+    void containerRemoveItemRemovesSlotWhenEmpty() {
+        SteveInventory inventory = new SteveInventory(9);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
+
+        ItemStack taken = inventory.removeItem(0, 64);
+        assertEquals(10, taken.getCount());
+        assertTrue(inventory.isEmpty(), "Slot must be removed when fully emptied");
+    }
+
+    @Test
+    void containerSetItemPlacesAndReplaces() {
+        SteveInventory inventory = new SteveInventory(9);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
+
+        // Replace slot 0
+        inventory.setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+        assertEquals(5, inventory.countItem(Items.IRON_INGOT));
+        assertEquals(0, inventory.countItem(Items.OAK_LOG));
+
+        // Append a new slot at the end
+        inventory.setItem(1, new ItemStack(Items.DIAMOND, 2));
+        assertEquals(2, inventory.countItem(Items.DIAMOND));
+        assertEquals(2, inventory.getStacksCount());
+
+        // Empty stack removes the slot
+        inventory.setItem(0, ItemStack.EMPTY);
+        assertEquals(1, inventory.getStacksCount());
+        assertEquals(0, inventory.countItem(Items.IRON_INGOT));
+    }
 }
