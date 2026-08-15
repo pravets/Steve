@@ -28,6 +28,7 @@ public class GatherResourceAction extends BaseAction {
     private static final double ARRIVED_DISTANCE_SQ = 3.0 * 3.0;
     private static final double MINE_REACH_SQ = 5.0 * 5.0;
     private static final int ROUTE_STALL_TICKS = 60; // give navigation time to build a path
+    private static final int MINE_STALL_TICKS = 60; // unreachable visible ore grace period
 
     private Block targetBlock;
     private int targetQuantity;
@@ -37,6 +38,7 @@ public class GatherResourceAction extends BaseAction {
     private BlockPos routeTarget;
     private BlockPos mineTarget;
     private int ticksOnRoute;
+    private int ticksOnMine;
     private int ticksRunning;
 
     private enum Phase { SEARCH, ROUTING, MINING, FINISHED }
@@ -64,6 +66,7 @@ public class GatherResourceAction extends BaseAction {
         gatheredCount = 0;
         ticksRunning = 0;
         ticksOnRoute = 0;
+        ticksOnMine = 0;
         origin = steve.blockPosition();
         searchState = new ResourceSearchPlanner.SearchState(origin, 0, 0, steve.level().getGameTime());
 
@@ -71,7 +74,7 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false);
         steve.getNavigation().stop();
 
-        AgentDebugLog("GATHER", "search " + targetBlock.getName().getString() + " x" + targetQuantity
+        debugLog("GATHER", "search " + targetBlock.getName().getString() + " x" + targetQuantity
             + " from " + origin);
     }
 
@@ -142,8 +145,9 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false); // ground movement, always
         ticksOnRoute++;
 
-        boolean reached = steve.distanceToSqr(routeTarget.getX() + 0.5, routeTarget.getY() + 0.5, routeTarget.getZ() + 0.5)
-            <= ARRIVED_DISTANCE_SQ;
+        // Stations sit at origin.y + 5 (look-out altitude) but Steve walks on
+        // the ground: arrival and stall checks use the HORIZONTAL distance.
+        boolean reached = horizontalDistanceSqr(routeTarget) <= ARRIVED_DISTANCE_SQ;
 
         if (reached) {
             ticksOnRoute = 0;
@@ -162,7 +166,7 @@ public class GatherResourceAction extends BaseAction {
         // Path cannot be built / blocked: skip this station after a grace period
         if (ticksOnRoute > ROUTE_STALL_TICKS
                 && steve.getNavigation().isDone()
-                && steve.distanceToSqr(routeTarget.getX() + 0.5, routeTarget.getY() + 0.5, routeTarget.getZ() + 0.5) > ARRIVED_DISTANCE_SQ) {
+                && horizontalDistanceSqr(routeTarget) > ARRIVED_DISTANCE_SQ) {
             ticksOnRoute = 0;
             steve.getNavigation().stop();
             phase = Phase.SEARCH; // next station
@@ -178,6 +182,7 @@ public class GatherResourceAction extends BaseAction {
         // Target block gone (already mined by someone else / dropped)
         if (steve.level().getBlockState(mineTarget).getBlock() != targetBlock) {
             mineTarget = null;
+            ticksOnMine = 0;
             phase = Phase.SEARCH;
             return;
         }
@@ -187,6 +192,15 @@ public class GatherResourceAction extends BaseAction {
             if (!steve.getNavigation().isInProgress()) {
                 steve.getNavigation().moveTo(mineTarget.getX() + 0.5, mineTarget.getY(), mineTarget.getZ() + 0.5, 1.0);
             }
+            // Visible but unreachable ore (cliff, lava): give up after a grace
+            // period instead of re-pathfinding forever until the global timeout.
+            ticksOnMine++;
+            if (ticksOnMine > MINE_STALL_TICKS && steve.getNavigation().isDone()) {
+                ticksOnMine = 0;
+                steve.getNavigation().stop();
+                mineTarget = null;
+                phase = Phase.SEARCH;
+            }
             return;
         }
 
@@ -194,7 +208,8 @@ public class GatherResourceAction extends BaseAction {
         steve.swing(InteractionHand.MAIN_HAND, true);
         steve.level().destroyBlock(mineTarget, true);
         gatheredCount++;
-        AgentDebugLog("MINE", targetBlock.getName().getString() + " at " + mineTarget
+        ticksOnMine = 0;
+        debugLog("MINE", targetBlock.getName().getString() + " at " + mineTarget
             + " (" + gatheredCount + "/" + targetQuantity + ")");
 
         mineTarget = null;
@@ -210,8 +225,15 @@ public class GatherResourceAction extends BaseAction {
         result = success ? ActionResult.success(message) : ActionResult.failure(message);
     }
 
-    private void AgentDebugLog(String type, String message) {
+    private void debugLog(String type, String message) {
         com.steve.ai.debug.AgentDebugBuffer.log(steve.getSteveName(), type, message);
+    }
+
+    /** Squared horizontal (XZ) distance to a block - for ground navigation checks. */
+    private double horizontalDistanceSqr(BlockPos pos) {
+        double dx = steve.getX() - (pos.getX() + 0.5);
+        double dz = steve.getZ() - (pos.getZ() + 0.5);
+        return dx * dx + dz * dz;
     }
 
     @Override

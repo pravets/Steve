@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -42,7 +43,7 @@ public final class ResourceBlocks {
         if (blockName == null || blockName.isBlank()) {
             return null;
         }
-        String normalized = blockName.toLowerCase().replace(" ", "_");
+        String normalized = blockName.toLowerCase(Locale.ROOT).replace(" ", "_");
         if (RESOURCE_TO_BLOCK.containsKey(normalized)) {
             normalized = RESOURCE_TO_BLOCK.get(normalized);
         }
