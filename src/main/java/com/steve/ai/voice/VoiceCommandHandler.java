@@ -1,7 +1,7 @@
 package com.steve.ai.voice;
 
 import com.steve.ai.SteveMod;
-import com.steve.ai.command.CommandDispatcher;
+import com.steve.ai.command.SteveCommandDispatcher;
 import com.steve.ai.config.SteveConfig;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,6 +24,10 @@ public final class VoiceCommandHandler {
 
     /** In-progress recording per player. */
     private static final Map<UUID, PendingVoice> PENDING = new ConcurrentHashMap<>();
+
+    /** Minimum interval between transcriptions per player (anti-spam guard). */
+    private static final long STT_MIN_INTERVAL_MS = 3000;
+    private static final Map<UUID, Long> LAST_STT_AT = new ConcurrentHashMap<>();
 
     private VoiceCommandHandler() {}
 
@@ -49,16 +53,40 @@ public final class VoiceCommandHandler {
             return;
         }
 
+        // A fresh recording always starts with seq=0: reset any abandoned buffer
+        // (e.g. after a lost 'last' chunk) instead of ignoring new chunks.
+        if (seq == 0) {
+            PENDING.remove(player.getUUID());
+        }
         PendingVoice pending = PENDING.computeIfAbsent(player.getUUID(), k -> new PendingVoice());
         if (seq <= pending.lastSeq) {
             return; // duplicate/out-of-order chunk - ignore
         }
+
+        // Server-side size guard: the client auto-stops, but a hostile/buggy
+        // client could stream forever - cap the total recording size.
+        int maxBytes = SteveConfig.VOICE_MAX_RECORDING_SECONDS.get() * 32000 * 2;
+        if (pending.buffer.size() + chunk.length > maxBytes) {
+            PENDING.remove(player.getUUID());
+            player.sendSystemMessage(Component.literal("§cVoice: recording too long, discarded"));
+            return;
+        }
+
         pending.lastSeq = seq;
         pending.buffer.writeBytes(chunk);
 
         if (last) {
             PENDING.remove(player.getUUID());
-            byte[] wav = WavBuilder.buildWav(pending.buffer.toByteArray());
+            // The client already sends a complete WAV (header included) - do
+            // NOT wrap the buffer in WAV again.
+            byte[] wav = pending.buffer.toByteArray();
+            Long lastStt = LAST_STT_AT.get(player.getUUID());
+            long now = System.currentTimeMillis();
+            if (lastStt != null && now - lastStt < STT_MIN_INTERVAL_MS) {
+                player.sendSystemMessage(Component.literal("§7Voice: too fast, try again in a second"));
+                return;
+            }
+            LAST_STT_AT.put(player.getUUID(), now);
             player.sendSystemMessage(Component.literal("§7Recognizing voice command..."));
             transcribeAndDispatch(player, wav);
         }
@@ -75,8 +103,10 @@ public final class VoiceCommandHandler {
         MultipartSttClient.transcribe(wav)
             .whenComplete((text, error) -> player.server.execute(() -> {
                 if (error != null) {
-                    SteveMod.LOGGER.warn("Voice transcription failed for {}: {}", player.getName().getString(), error.toString());
-                    player.sendSystemMessage(Component.literal("§cVoice recognition failed: " + error.getMessage()));
+                    SteveMod.LOGGER.warn("Voice transcription failed for {}: {}", player.getName().getString(),
+                        String.valueOf(error.getMessage()));
+                    player.sendSystemMessage(Component.literal("§cVoice recognition failed: "
+                        + String.valueOf(error.getMessage())));
                     return;
                 }
                 String command = text == null ? "" : text.trim();
@@ -85,7 +115,8 @@ public final class VoiceCommandHandler {
                     return;
                 }
                 player.sendSystemMessage(Component.literal("§7Voice: §f" + command));
-                CommandDispatcher.dispatch(player, command);
+                // Single dispatch path shared with /steve tell (panel K)
+                SteveCommandDispatcher.dispatch(player.createCommandSourceStack(), command);
             }));
     }
 }

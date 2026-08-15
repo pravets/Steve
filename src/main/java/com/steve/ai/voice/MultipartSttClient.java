@@ -48,7 +48,8 @@ public final class MultipartSttClient {
         return HTTP.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
             .thenApply(resp -> {
                 if (resp.statusCode() >= 300) {
-                    SteveMod.LOGGER.warn("STT error {}: {}", resp.statusCode(), resp.body());
+                    // Log status only - the body may contain transcribed speech
+                    SteveMod.LOGGER.warn("STT error status {} for player request", resp.statusCode());
                     throw new RuntimeException("STT endpoint returned " + resp.statusCode());
                 }
                 return parseText(resp.body());
@@ -62,25 +63,17 @@ public final class MultipartSttClient {
         }
         String trimmed = body.trim();
         if (trimmed.startsWith("{")) {
-            // naive JSON scan for "text" (responses are small and single-line)
-            int idx = trimmed.indexOf("\"text\"");
-            if (idx >= 0) {
-                int colon = trimmed.indexOf(':', idx);
-                int start = trimmed.indexOf('"', colon + 1);
-                if (start >= 0) {
-                    int end = trimmed.indexOf('"', start + 1);
-                    if (end > start) {
-                        return unescape(trimmed.substring(start + 1, end));
-                    }
+            try {
+                var root = com.google.gson.JsonParser.parseString(trimmed).getAsJsonObject();
+                if (root.has("text") && !root.get("text").isJsonNull()) {
+                    return root.get("text").getAsString();
                 }
+            } catch (Exception ignored) {
+                // fall through to plain-text handling
             }
             return "";
         }
         return trimmed;
-    }
-
-    private static String unescape(String s) {
-        return s.replace("\\\"", "\"").replace("\\\\", "\\").replace("\\n", "\n");
     }
 
     private static byte[] buildMultipart(byte[] wav, String model, String language, String boundary) {

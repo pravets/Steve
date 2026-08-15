@@ -22,7 +22,7 @@ import java.util.Arrays;
 public final class VoiceRecorder {
 
     private static final AudioFormat FORMAT = new AudioFormat(16000f, 16, 1, true, false);
-    private static final int MIN_RECORDING_BYTES = 16000 / 2; // ~0.5s minimum
+    private static final int MIN_RECORDING_BYTES = 16000; // ~0.5s minimum at 32 KB/s
 
     private static volatile boolean recording = false;
     private static volatile long startedAtMillis = 0;
@@ -85,6 +85,13 @@ public final class VoiceRecorder {
             return true;
         }
         recording = false;
+        // Stop the line BEFORE joining: line.read() can block forever otherwise
+        if (line != null) {
+            try {
+                line.stop();
+            } catch (Exception ignored) {
+            }
+        }
         try {
             if (captureThread != null) {
                 captureThread.join(1000);
@@ -94,7 +101,6 @@ public final class VoiceRecorder {
         }
         if (line != null) {
             try {
-                line.stop();
                 line.close();
             } catch (Exception ignored) {
             }

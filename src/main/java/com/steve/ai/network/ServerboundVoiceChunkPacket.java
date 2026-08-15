@@ -25,6 +25,7 @@ public class ServerboundVoiceChunkPacket {
     }
 
     public static ServerboundVoiceChunkPacket decode(FriendlyByteBuf buf) {
-        return new ServerboundVoiceChunkPacket(buf.readByteArray(), buf.readVarInt(), buf.readBoolean());
+        // Explicit 32 KB cap per chunk (vanilla packet size limit)
+        return new ServerboundVoiceChunkPacket(buf.readByteArray(32767), buf.readVarInt(), buf.readBoolean());
     }
 }

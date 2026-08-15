@@ -621,7 +621,7 @@ public class SteveGUI {
             }
             // Name matching tolerates Russian transcriptions ("алекс" -> Alex,
             // "стиви" -> Steve) and case differences
-            String firstWord = trimmed.split(" ")[0];
+            String firstWord = trimmed.split("\\s+", 2)[0];
             String matched = com.steve.ai.chat.NameMatcher.matchName(firstWord, steveNames);
             if (matched != null) {
                 targets.add(matched);

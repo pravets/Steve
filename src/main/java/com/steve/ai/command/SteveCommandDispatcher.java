@@ -6,14 +6,17 @@ import com.steve.ai.chat.ChatCommandParser;
 import com.steve.ai.chat.NameMatcher;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * Dispatches a natural-language command to Steves, shared by chat (panel K)
- * and voice commands.
+ * Dispatches a natural-language command to Steves, shared by the /steve tell
+ * command (panel K) and voice commands.
  *
  * <p>Addressing rules (in order):
  * <ol>
@@ -21,19 +24,26 @@ import java.util.List;
  *       matched via {@link NameMatcher} (transliteration/dictionary aware) and
  *       stripped from the command;</li>
  *   <li>command is an all-command ("all ...", "все ...") - every Steve;</li>
- *   <li>otherwise - the Steve nearest to the speaker.</li>
+ *   <li>otherwise - the Steve nearest to the speaker (same dimension only).</li>
  * </ol>
  */
-public final class CommandDispatcher {
+public final class SteveCommandDispatcher {
 
-    private CommandDispatcher() {}
+    /** Shared executor for LLM command processing (bounded, daemon). */
+    private static final ExecutorService COMMAND_EXECUTOR = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "steve-command");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private SteveCommandDispatcher() {}
 
     /** Returns how many Steves received the command. */
-    public static int dispatch(ServerPlayer speaker, String command) {
+    public static int dispatch(CommandSourceStack source, String command) {
         SteveManager manager = SteveMod.getSteveManager();
         List<String> names = manager.getSteveNames();
         if (names.isEmpty()) {
-            speaker.sendSystemMessage(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
+            source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
             return 0;
         }
 
@@ -50,7 +60,7 @@ public final class CommandDispatcher {
             SteveEntity steve = manager.getSteve(matched);
             if (steve != null) {
                 String rest = trimmed.substring(firstWord.length()).trim();
-                deliver(steve, rest.isEmpty() ? trimmed : rest, speaker);
+                deliver(steve, rest.isEmpty() ? trimmed : rest, source);
                 return 1;
             }
         }
@@ -61,18 +71,19 @@ public final class CommandDispatcher {
             for (String name : names) {
                 SteveEntity steve = manager.getSteve(name);
                 if (steve != null) {
-                    deliver(steve, trimmed, speaker);
+                    deliver(steve, trimmed, source);
                     count++;
                 }
             }
-            speaker.sendSystemMessage(Component.literal("§7Command sent to " + count + " Steve(s)"));
+            final int sent = count;
+            source.sendSuccess(() -> Component.literal("§7Command sent to " + sent + " Steve(s)"), false);
             return count;
         }
 
-        // 3. nearest Steve to the speaker
-        SteveEntity nearest = nearestSteve(speaker, manager);
+        // 3. nearest Steve to the speaker (same dimension)
+        SteveEntity nearest = nearestSteve(source, manager);
         if (nearest != null) {
-            deliver(nearest, trimmed, speaker);
+            deliver(nearest, trimmed, source);
             return 1;
         }
         return 0;
@@ -83,7 +94,7 @@ public final class CommandDispatcher {
      * deterministically (no LLM round-trip): the current action is cancelled,
      * navigation stops, and the Steve stays in place until the next command.
      */
-    private static void deliver(SteveEntity steve, String command, ServerPlayer speaker) {
+    private static void deliver(SteveEntity steve, String command, CommandSourceStack source) {
         String lower = ChatCommandParser.normalize(command);
         if (ChatCommandParser.isStayCommand(lower)) {
             ActionExecutor executor = steve.getActionExecutor();
@@ -91,19 +102,29 @@ public final class CommandDispatcher {
             executor.setStaying(true);
             steve.getNavigation().stop();
             steve.getMemory().clearTaskQueue();
-            speaker.sendSystemMessage(Component.literal("§7" + steve.getSteveName() + " stopped"));
+            source.sendSuccess(() -> Component.literal("§7" + steve.getSteveName() + " stopped"), false);
             return;
         }
 
-        new Thread(() -> {
-            steve.getActionExecutor().processNaturalLanguageCommand(command);
-        }, "steve-command-" + steve.getSteveName()).start();
+        COMMAND_EXECUTOR.execute(() -> {
+            try {
+                steve.getActionExecutor().processNaturalLanguageCommand(command);
+            } catch (Exception e) {
+                SteveMod.LOGGER.warn("Command processing failed for {}: {}", steve.getSteveName(), e.toString());
+            }
+        });
     }
 
-    private static SteveEntity nearestSteve(ServerPlayer speaker, SteveManager manager) {
+    private static SteveEntity nearestSteve(CommandSourceStack source, SteveManager manager) {
+        if (!(source.getEntity() instanceof ServerPlayer speaker)) {
+            return null; // console: no nearest Steve
+        }
         SteveEntity nearest = null;
         double best = Double.MAX_VALUE;
         for (SteveEntity steve : manager.getAllSteves()) {
+            if (!steve.level().dimension().equals(speaker.level().dimension())) {
+                continue; // cross-dimension bots are never "nearest"
+            }
             double dist = steve.distanceToSqr(speaker);
             if (dist < best) {
                 best = dist;

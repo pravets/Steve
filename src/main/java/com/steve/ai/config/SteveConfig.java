@@ -118,8 +118,10 @@ public class SteveConfig {
             "text as a normal chat command.").push("voice");
 
         VOICE_ENABLED = builder
-            .comment("Enable voice commands (requires a microphone and an STT endpoint)")
-            .define("enabled", true);
+            .comment("Enable voice commands (requires a microphone and an STT endpoint)",
+                "Disabled by default: audio leaves the client and reaches the configured",
+                "STT endpoint - enable explicitly after setting sttApiKey")
+            .define("enabled", false);
 
         STT_BASE_URL = builder
             .comment("Base URL of an OpenAI-compatible STT endpoint.",
