@@ -102,4 +102,25 @@ class FellSupportTest {
             new BlockPos(5, 5, 5), p -> false, 200);
         assertTrue(component.isEmpty());
     }
+
+    // ---- hasNearbyBlock ----
+
+    @Test
+    void findsBlockWithinRadius() {
+        Set<BlockPos> leaves = Set.of(new BlockPos(0, 0, 0), new BlockPos(2, 1, 0));
+        assertTrue(FellSupport.hasNearbyBlock(new BlockPos(1, 0, 0), leaves::contains, 3));
+    }
+
+    @Test
+    void noBlockNearbyReturnsFalse() {
+        Set<BlockPos> leaves = Set.of(new BlockPos(10, 0, 0));
+        assertFalse(FellSupport.hasNearbyBlock(new BlockPos(0, 0, 0), leaves::contains, 3));
+    }
+
+    @Test
+    void zeroRadiusChecksOnlyCenter() {
+        Set<BlockPos> leaves = Set.of(new BlockPos(0, 0, 0));
+        assertTrue(FellSupport.hasNearbyBlock(new BlockPos(0, 0, 0), leaves::contains, 0));
+        assertFalse(FellSupport.hasNearbyBlock(new BlockPos(1, 0, 0), leaves::contains, 0));
+    }
 }

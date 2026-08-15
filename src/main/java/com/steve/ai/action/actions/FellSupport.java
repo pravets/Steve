@@ -53,6 +53,32 @@ public final class FellSupport {
         return ItemStack.EMPTY;
     }
 
+    /** Squared horizontal distance from one block position to another. */
+    public static double horizontalDistanceSqr(BlockPos a, BlockPos b) {
+        double dx = a.getX() - b.getX();
+        double dz = a.getZ() - b.getZ();
+        return dx * dx + dz * dz;
+    }
+
+    /**
+     * True when any block in the given 3D radius (inclusive) matches the
+     * predicate. Used to tell real trees (logs with leaves nearby) apart from
+     * logs inside player structures - structures must never be felled.
+     */
+    public static boolean hasNearbyBlock(BlockPos center, Predicate<BlockPos> isBlock, int radius) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    BlockPos pos = center.offset(dx, dy, dz);
+                    if (isBlock.test(pos)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Collects the connected component of log blocks reachable from
      * {@code start} (6-neighborhood BFS), capped at {@code maxLogs} - guards

@@ -10,6 +10,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -167,9 +168,11 @@ public class GatherResourceAction extends BaseAction {
         List<BlockPos> visible = VisionScanner.findVisible(steve, targetBlock);
         if (!visible.isEmpty()) {
             // Nearest visible target wins - skip known-unreachable positions
-            // (cliff/lava ores would otherwise be re-picked forever)
+            // (cliff/lava ores would otherwise be re-picked forever) and logs
+            // that are NOT part of a tree (player structures stay untouched)
             mineTarget = visible.stream()
                 .filter(p -> !unreachableTargets.contains(p))
+                .filter(this::isTreeLog)
                 .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (mineTarget != null) {
@@ -277,10 +280,13 @@ public class GatherResourceAction extends BaseAction {
         debugLog("MINE", targetBlock.getName().getString() + " at " + mineTarget
             + " (" + gatheredCount + "/" + targetQuantity + ")");
 
-        // Enter whole-tree felling: a log above the mined one means a tree trunk
+        // Enter whole-tree felling: a log above the mined one means a tree
+        // trunk - but only when leaves are nearby (player structures must
+        // never be felled, even if built from logs)
         BlockPos above = mineTarget.above();
         mineTarget = null;
-        if (!fellMode && steve.level().getBlockState(above).getBlock() == targetBlock) {
+        if (!fellMode && steve.level().getBlockState(above).getBlock() == targetBlock
+                && isTreeLog(above)) {
             List<BlockPos> component = FellSupport.collectConnectedLogs(above, this::isTargetLog, FELL_MAX_LOGS);
             if (component.size() >= 2) { // trunk (or trunk+branches) = a tree, not a lone log
                 enterFellMode(component);
@@ -288,6 +294,12 @@ public class GatherResourceAction extends BaseAction {
             }
         }
         phase = Phase.SEARCH; // look for the next visible block
+    }
+
+    /** A log counts as a tree log when leaves are within 3 blocks. */
+    private boolean isTreeLog(BlockPos pos) {
+        return FellSupport.hasNearbyBlock(pos,
+            p -> steve.level().getBlockState(p).getBlock() instanceof LeavesBlock, 3);
     }
 
     // ---- fell mode ----
@@ -358,8 +370,15 @@ public class GatherResourceAction extends BaseAction {
                 return;
             }
             Block block = ((BlockItem) pillarBlock.getItem()).getBlock();
+            // Leaves block the pillar: clear them first (drops are vacuumed).
             // Grass/snow/ferns underfoot are fine - only replaceable blocks are skipped
-            if (steve.level().getBlockState(standPos).canBeReplaced()) {
+            BlockState standState = steve.level().getBlockState(standPos);
+            if (standState.getBlock() instanceof LeavesBlock) {
+                steve.swing(InteractionHand.MAIN_HAND, true);
+                steve.level().destroyBlock(standPos, true);
+                return; // retry next tick once the leaves are gone
+            }
+            if (standState.canBeReplaced()) {
                 steve.level().setBlock(standPos, block.defaultBlockState(), 3);
                 steve.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
                 // Remove one block from the inventory slot that held it
