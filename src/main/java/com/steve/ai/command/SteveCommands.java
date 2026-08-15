@@ -15,6 +15,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
@@ -45,7 +46,60 @@ public class SteveCommands {
             .then(Commands.literal("inventory")
                 .then(Commands.argument("name", StringArgumentType.string())
                     .executes(SteveCommands::showInventory)))
+            .then(Commands.literal("tp")
+                .then(Commands.argument("name", StringArgumentType.string())
+                    .executes(SteveCommands::tpSteve)))
         );
+    }
+
+    /**
+     * /steve tp <name|all> - instantly teleports the named Steve (or all
+     * Steves) to a safe spot near the commanding player.
+     */
+    private static int tpSteve(CommandContext<CommandSourceStack> context) {
+        String name = StringArgumentType.getString(context, "name");
+        CommandSourceStack source = context.getSource();
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("§cThis command must be run by a player"));
+            return 0;
+        }
+
+        SteveManager manager = SteveMod.getSteveManager();
+        AgentDebugBuffer.log(name, "COMMAND", "tp to " + player.getName().getString());
+
+        if ("all".equalsIgnoreCase(name)) {
+            List<String> names = manager.getSteveNames();
+            if (names.isEmpty()) {
+                source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
+                return 0;
+            }
+            int teleported = 0;
+            for (String steveName : names) {
+                SteveEntity steve = manager.getSteve(steveName);
+                if (steve != null && steve.teleportToPlayer(player)) {
+                    teleported++;
+                }
+            }
+            String result = "§aTeleported " + teleported + "/" + names.size() + " Steve(s) to you";
+            source.sendSuccess(() -> Component.literal(result), false);
+            return teleported > 0 ? 1 : 0;
+        }
+
+        SteveEntity steve = manager.getSteve(name);
+        if (steve == null) {
+            source.sendFailure(Component.literal("§cSteve not found: " + name));
+            return 0;
+        }
+        if (steve.level().dimension() != player.level().dimension()) {
+            source.sendFailure(Component.literal("§c" + name + " is in another dimension"));
+            return 0;
+        }
+        if (!steve.teleportToPlayer(player)) {
+            source.sendFailure(Component.literal("§cNo safe spot near you for " + name));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("§a" + name + " teleported to you"), false);
+        return 1;
     }
 
     private static int showInventory(CommandContext<CommandSourceStack> context) {

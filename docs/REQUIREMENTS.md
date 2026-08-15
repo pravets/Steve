@@ -68,7 +68,7 @@
 |------|-----------|----------------|
 | **1. Зрение** | Честный скан (raycast), целевой поиск, кэш, радиус в конфиге, сводка для промпта | WorldKnowledge, SteveConfig, PromptBuilder |
 | **2. Инвентарь** | 27 слотов (одинарный сундук; задел под апгрейды вместимости) + NBT, зачисление дропов, подбор ItemEntity, панель K + `/steve inventory`, ПКМ по боту — take-only меню | SteveEntity, SteveGUI, SteveCommands, SteveInventory, SteveMenu |
-| **3. Умный сбор** | Стратегия поверхность/руда, расширение поиска, инструменты, счёт по предметам, авто-возврат при полном инвентаре | MineBlockAction, GatherResourceAction, новое HarvestAction |
+| **3. Умный сбор** | Стратегия поверхность/руда, расширение поиска, инструменты, счёт по предметам, авто-возврат при полном инвентаре (переиспользует `SteveEntity.teleportToPlayer` из фичи `tp`) | MineBlockAction, GatherResourceAction, новое HarvestAction, SteveEntity |
 | **4. Передача** | `give` (авто + команда), передача игроку, склад в сундуки | GiveAction, TaskPlanner (валидация), PromptBuilder |
 | **5. Мозги/диалог** | `respond`, `look`, обогащённый промпт, fallback-паттерны | PromptBuilder, ResponseParser, LLMFallbackHandler |
 | **6. Полировка** | Кэш/производительность (10 ботов), тесты на Forge-сервере, `/steve debug` расширить | — |

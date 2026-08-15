@@ -24,6 +24,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
@@ -163,6 +165,46 @@ public class SteveEntity extends PathfinderMob {
 
     public SteveInventory getInventory() {
         return this.inventory;
+    }
+
+    /**
+     * Teleports this Steve to a safe spot near the given player.
+     * Fails (returns false) if the Steve is in another dimension or no
+     * safe spot was found. Reused by the auto-return logic (Stage 3:
+     * full inventory -> return to player -> hand over -> go back).
+     */
+    public boolean teleportToPlayer(ServerPlayer player) {
+        if (this.level().dimension() != player.level().dimension()) {
+            return false;
+        }
+        return teleportToPos(player.blockPosition());
+    }
+
+    /**
+     * Teleports this Steve to a safe spot near the given position (same
+     * dimension only). This is the reusable primitive for future teleport
+     * targets (mines, home base, ...).
+     */
+    public boolean teleportToPos(BlockPos pos) {
+        if (pos == null) {
+            return false;
+        }
+        BlockPos target = SteveTeleportUtil.findSafePos(pos, this::isSafeTeleportSpot);
+        if (target == null) {
+            return false;
+        }
+        this.teleportTo(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
+        return true;
+    }
+
+    private boolean isSafeTeleportSpot(int x, int y, int z) {
+        Level level = this.level();
+        BlockState ground = level.getBlockState(new BlockPos(x, y - 1, z));
+        BlockState at = level.getBlockState(new BlockPos(x, y, z));
+        BlockState above = level.getBlockState(new BlockPos(x, y + 1, z));
+        return !ground.isAir() && ground.isSolid()
+            && at.isAir() && !at.liquid()
+            && above.isAir();
     }
 
     public ActionExecutor getActionExecutor() {
