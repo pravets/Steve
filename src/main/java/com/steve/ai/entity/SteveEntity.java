@@ -2,6 +2,7 @@ package com.steve.ai.entity;
 
 import com.steve.ai.action.ActionExecutor;
 import com.steve.ai.memory.SteveMemory;
+import com.steve.ai.menu.SteveMenu;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -19,10 +20,7 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
@@ -54,7 +52,7 @@ public class SteveEntity extends PathfinderMob {
         this.steveName = "Steve";
         this.memory = new SteveMemory(this);
         this.actionExecutor = new ActionExecutor(this);
-        this.inventory = new SteveInventory();
+        this.inventory = new SteveInventory(this, SteveInventory.DEFAULT_SIZE);
         this.setCustomNameVisible(true);
         
         this.isInvulnerable = true;
@@ -218,15 +216,15 @@ public class SteveEntity extends PathfinderMob {
     }
 
     /**
-     * Right-click on a Steve opens its inventory as a vanilla chest menu:
-     * the player can selectively take items (and give items back).
+     * Right-click on a Steve opens its inventory as a take-only container menu:
+     * the player can selectively take items, but cannot place items into Steve.
      */
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!this.level().isClientSide && player instanceof ServerPlayer serverPlayer) {
             serverPlayer.openMenu(new SimpleMenuProvider(
-                (containerId, playerInventory, p) -> new ChestMenu(
-                    MenuType.GENERIC_9x4, containerId, playerInventory, this.inventory, 4),
+                (containerId, playerInventory, p) ->
+                    new SteveMenu(containerId, playerInventory, this.inventory),
                 Component.literal(this.steveName + "'s Inventory")));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);

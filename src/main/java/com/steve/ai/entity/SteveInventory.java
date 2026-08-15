@@ -9,34 +9,45 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Steve's inventory: a fixed-size list of ItemStacks (default 36 slots,
- * matching a player's main inventory) with NBT persistence.
+ * Steve's inventory: a fixed array of slots (default 36, matching a player's
+ * main inventory) with NBT persistence.
  *
- * <p>ItemStacks are stored as full stacks (they merge on add, no slot-based
- * layout yet - that keeps the logic simple and the data compact).</p>
+ * <p>Slot indices are stable ({@link ItemStack#EMPTY} fills empty slots), which
+ * is required for the vanilla container menu contract: the menu addresses each
+ * of the 36 slots by index, and any placement into an empty slot must be
+ * stored, never dropped.</p>
  *
- * <p>Implements {@link Container} so players can open Steve's inventory via
- * a vanilla chest menu (right-click on Steve) and take/give items selectively.</p>
+ * <p>Implements {@link Container} so players can open Steve's inventory via a
+ * container menu (right-click on Steve) and selectively take items.</p>
  */
 public class SteveInventory implements Container {
 
     public static final int DEFAULT_SIZE = 36;
     private static final String NBT_KEY = "Inventory";
 
-    private final List<ItemStack> stacks;
+    private final ItemStack[] slots;
     private final int maxSize;
+    /** Owner for stillValid() checks; null in unit tests. */
+    private final SteveEntity owner;
 
     public SteveInventory() {
-        this(DEFAULT_SIZE);
+        this(null, DEFAULT_SIZE);
     }
 
     public SteveInventory(int maxSize) {
+        this(null, maxSize);
+    }
+
+    public SteveInventory(SteveEntity owner, int maxSize) {
+        this.owner = owner;
         this.maxSize = maxSize;
-        this.stacks = new ArrayList<>();
+        this.slots = new ItemStack[maxSize];
+        Arrays.fill(slots, ItemStack.EMPTY);
     }
 
     /**
@@ -50,28 +61,28 @@ public class SteveInventory implements Container {
 
         ItemStack remainder = incoming.copy();
 
-        // Merge into existing stacks of the same item first
-        for (ItemStack stack : stacks) {
-            if (remainder.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            if (ItemStack.isSameItemSameTags(stack, remainder)) {
-                int space = stack.getMaxStackSize() - stack.getCount();
+        // Merge into existing non-full stacks of the same item
+        for (int i = 0; i < maxSize && !remainder.isEmpty(); i++) {
+            ItemStack slot = slots[i];
+            if (!slot.isEmpty() && ItemStack.isSameItemSameTags(slot, remainder)) {
+                int space = slot.getMaxStackSize() - slot.getCount();
                 if (space > 0) {
                     int move = Math.min(space, remainder.getCount());
-                    stack.grow(move);
+                    slot.grow(move);
                     remainder.shrink(move);
                 }
             }
         }
 
-        // Open new stacks while there is room
-        while (!remainder.isEmpty() && stacks.size() < maxSize) {
-            int perStack = Math.min(remainder.getCount(), remainder.getMaxStackSize());
-            ItemStack newStack = remainder.copy();
-            newStack.setCount(perStack);
-            stacks.add(newStack);
-            remainder.shrink(perStack);
+        // Place into the first empty slot
+        for (int i = 0; i < maxSize && !remainder.isEmpty(); i++) {
+            if (slots[i].isEmpty()) {
+                int perStack = Math.min(remainder.getCount(), remainder.getMaxStackSize());
+                ItemStack newStack = remainder.copy();
+                newStack.setCount(perStack);
+                slots[i] = newStack;
+                remainder.shrink(perStack);
+            }
         }
 
         return remainder;
@@ -81,47 +92,64 @@ public class SteveInventory implements Container {
      * Whether the inventory can hold at least one more item.
      */
     public boolean hasFreeSpace() {
-        if (stacks.size() < maxSize) {
-            return true;
-        }
-        for (ItemStack stack : stacks) {
-            if (stack.getCount() < stack.getMaxStackSize()) {
+        for (int i = 0; i < maxSize; i++) {
+            if (slots[i].isEmpty()) {
+                return true;
+            }
+            if (slots[i].getCount() < slots[i].getMaxStackSize()) {
                 return true;
             }
         }
         return false;
     }
 
+    @Override
     public boolean isEmpty() {
-        return stacks.isEmpty();
+        for (ItemStack slot : slots) {
+            if (!slot.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * Total count of items of the given type across all stacks.
+     * Total count of items of the given type across all slots.
      */
     public int countItem(Item item) {
         int total = 0;
-        for (ItemStack stack : stacks) {
-            if (stack.is(item)) {
-                total += stack.getCount();
+        for (ItemStack slot : slots) {
+            if (!slot.isEmpty() && slot.is(item)) {
+                total += slot.getCount();
             }
         }
         return total;
     }
 
     /**
-     * Total number of items across all stacks.
+     * Total number of items across all slots.
      */
     public int getTotalCount() {
         int total = 0;
-        for (ItemStack stack : stacks) {
-            total += stack.getCount();
+        for (ItemStack slot : slots) {
+            if (!slot.isEmpty()) {
+                total += slot.getCount();
+            }
         }
         return total;
     }
 
+    /**
+     * Number of non-empty slots.
+     */
     public int getStacksCount() {
-        return stacks.size();
+        int count = 0;
+        for (ItemStack slot : slots) {
+            if (!slot.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public int getMaxSize() {
@@ -129,51 +157,60 @@ public class SteveInventory implements Container {
     }
 
     /**
-     * Read-only view of the stacks. Mutate only through the inventory methods.
+     * Read-only view of the non-empty stacks, in slot order.
      */
     public List<ItemStack> getStacks() {
-        return Collections.unmodifiableList(stacks);
+        List<ItemStack> nonEmpty = new ArrayList<>();
+        for (ItemStack slot : slots) {
+            if (!slot.isEmpty()) {
+                nonEmpty.add(slot);
+            }
+        }
+        return Collections.unmodifiableList(nonEmpty);
     }
 
     /**
      * Removes and returns everything (used for handing items over to a player).
      */
     public List<ItemStack> takeAll() {
-        List<ItemStack> taken = new ArrayList<>(stacks);
-        stacks.clear();
+        List<ItemStack> taken = new ArrayList<>();
+        for (int i = 0; i < maxSize; i++) {
+            if (!slots[i].isEmpty()) {
+                taken.add(slots[i]);
+                slots[i] = ItemStack.EMPTY;
+            }
+        }
         return taken;
     }
 
     public void saveToNBT(CompoundTag tag) {
         ListTag list = new ListTag();
-        for (ItemStack stack : stacks) {
-            list.add(stack.save(new CompoundTag()));
+        for (ItemStack slot : slots) {
+            if (!slot.isEmpty()) {
+                list.add(slot.save(new CompoundTag()));
+            }
         }
         tag.put(NBT_KEY, list);
     }
 
     public void loadFromNBT(CompoundTag tag) {
-        stacks.clear();
+        Arrays.fill(slots, ItemStack.EMPTY);
         ListTag list = tag.getList(NBT_KEY, Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            // Preserve the invariant stacks.size() <= maxSize even if the NBT
-            // holds more entries than the configured capacity
-            if (stacks.size() >= maxSize) {
-                break;
-            }
+        int slotIndex = 0;
+        for (int i = 0; i < list.size() && slotIndex < maxSize; i++) {
             ItemStack stack = ItemStack.of(list.getCompound(i));
             if (!stack.isEmpty()) {
-                stacks.add(stack);
+                slots[slotIndex++] = stack;
             }
         }
     }
 
     public String toDisplayString() {
-        if (stacks.isEmpty()) {
+        if (isEmpty()) {
             return "empty";
         }
         StringBuilder sb = new StringBuilder();
-        for (ItemStack stack : stacks) {
+        for (ItemStack stack : getStacks()) {
             if (sb.length() > 0) sb.append(", ");
             sb.append(stack.getHoverName().getString()).append(" x").append(stack.getCount());
         }
@@ -181,9 +218,7 @@ public class SteveInventory implements Container {
     }
 
     // ==================== Container implementation ====================
-    // Slot-based access for the vanilla chest menu (right-click on Steve).
-    // A "slot" is an index into the compact stack list; empty slots beyond the
-    // list read as ItemStack.EMPTY, and removing an item shrinks the list.
+    // Fixed slot model: indices are stable, empty slots are ItemStack.EMPTY.
 
     @Override
     public int getContainerSize() {
@@ -192,34 +227,33 @@ public class SteveInventory implements Container {
 
     @Override
     public ItemStack getItem(int slot) {
-        return slot >= 0 && slot < stacks.size() ? stacks.get(slot) : ItemStack.EMPTY;
+        return slot >= 0 && slot < maxSize ? slots[slot] : ItemStack.EMPTY;
     }
 
     @Override
     public ItemStack removeItem(int slot, int amount) {
-        if (slot < 0 || slot >= stacks.size()) {
+        if (slot < 0 || slot >= maxSize || slots[slot].isEmpty()) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = stacks.get(slot);
-        if (stack.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
+        ItemStack stack = slots[slot];
         int toRemove = Math.min(amount, stack.getCount());
         ItemStack removed = stack.copy();
         removed.setCount(toRemove);
         stack.shrink(toRemove);
         if (stack.isEmpty()) {
-            stacks.remove(slot);
+            slots[slot] = ItemStack.EMPTY; // clear without shifting later slots
         }
         return removed;
     }
 
     @Override
     public ItemStack removeItemNoUpdate(int slot) {
-        if (slot < 0 || slot >= stacks.size()) {
+        if (slot < 0 || slot >= maxSize) {
             return ItemStack.EMPTY;
         }
-        return stacks.remove(slot);
+        ItemStack stack = slots[slot];
+        slots[slot] = ItemStack.EMPTY;
+        return stack;
     }
 
     @Override
@@ -227,18 +261,9 @@ public class SteveInventory implements Container {
         if (slot < 0 || slot >= maxSize) {
             return;
         }
-        if (stack.isEmpty()) {
-            if (slot < stacks.size()) {
-                stacks.remove(slot);
-            }
-            return;
-        }
-        if (slot < stacks.size()) {
-            stacks.set(slot, stack);
-        } else if (slot == stacks.size() && stacks.size() < maxSize) {
-            stacks.add(stack);
-        }
-        // slot > size: ignore (client only sends valid slot operations)
+        // Any valid slot is written (including empty slots beyond the last
+        // non-empty one) - a placed item is never silently dropped.
+        slots[slot] = stack.isEmpty() ? ItemStack.EMPTY : stack.copy();
     }
 
     @Override
@@ -248,11 +273,17 @@ public class SteveInventory implements Container {
 
     @Override
     public boolean stillValid(Player player) {
-        return true;
+        if (owner == null) {
+            return true; // unit tests / detached inventory
+        }
+        return owner.isAlive()
+            && !owner.isRemoved()
+            && owner.level().dimension() == player.level().dimension()
+            && player.distanceToSqr(owner) <= 8.0 * 8.0;
     }
 
     @Override
     public void clearContent() {
-        stacks.clear();
+        Arrays.fill(slots, ItemStack.EMPTY);
     }
 }

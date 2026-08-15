@@ -173,12 +173,12 @@ class SteveInventoryTest {
     // ==================== Container (chest menu) access ====================
 
     @Test
-    void containerGetItemReturnsEmptyForOutOfRangeSlot() {
+    void containerGetItemReturnsEmptyForEmptySlot() {
         SteveInventory inventory = new SteveInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
 
-        assertTrue(inventory.getItem(0).isEmpty() == false);
-        assertTrue(inventory.getItem(5).isEmpty(), "Slot beyond stack list is empty");
+        assertFalse(inventory.getItem(0).isEmpty());
+        assertTrue(inventory.getItem(5).isEmpty(), "Empty slot reads as EMPTY");
         assertTrue(inventory.getItem(-1).isEmpty());
         assertEquals(9, inventory.getContainerSize());
     }
@@ -195,13 +195,17 @@ class SteveInventoryTest {
     }
 
     @Test
-    void containerRemoveItemRemovesSlotWhenEmpty() {
+    void containerRemoveItemClearsSlotWithoutShifting() {
         SteveInventory inventory = new SteveInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
+        inventory.addItem(new ItemStack(Items.DIAMOND, 2)); // slot 1
 
         ItemStack taken = inventory.removeItem(0, 64);
         assertEquals(10, taken.getCount());
-        assertTrue(inventory.isEmpty(), "Slot must be removed when fully emptied");
+        assertTrue(inventory.getItem(0).isEmpty(), "Slot 0 must be empty after removal");
+        assertTrue(inventory.getItem(1).is(Items.DIAMOND),
+            "Slot 1 must keep DIAMOND - indices must stay stable");
+        assertEquals(2, inventory.countItem(Items.DIAMOND));
     }
 
     @Test
@@ -214,14 +218,38 @@ class SteveInventoryTest {
         assertEquals(5, inventory.countItem(Items.IRON_INGOT));
         assertEquals(0, inventory.countItem(Items.OAK_LOG));
 
-        // Append a new slot at the end
+        // Write into an empty slot beyond the last non-empty one
         inventory.setItem(1, new ItemStack(Items.DIAMOND, 2));
         assertEquals(2, inventory.countItem(Items.DIAMOND));
         assertEquals(2, inventory.getStacksCount());
 
-        // Empty stack removes the slot
+        // Clearing slot 0 must NOT shift DIAMOND out of slot 1
         inventory.setItem(0, ItemStack.EMPTY);
+        assertTrue(inventory.getItem(0).isEmpty());
+        assertTrue(inventory.getItem(1).is(Items.DIAMOND));
         assertEquals(1, inventory.getStacksCount());
         assertEquals(0, inventory.countItem(Items.IRON_INGOT));
+    }
+
+    @Test
+    void setItemIntoEmptySlotBeyondStacksIsNotLost() {
+        // Regression: with a compact list, placing into slot 5 while only
+        // slot 0 is occupied silently dropped the item (cursor was consumed).
+        SteveInventory inventory = new SteveInventory(9);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
+
+        inventory.setItem(5, new ItemStack(Items.DIAMOND, 3));
+
+        assertTrue(inventory.getItem(5).is(Items.DIAMOND),
+            "Item placed into an empty slot must be stored, not dropped");
+        assertEquals(3, inventory.countItem(Items.DIAMOND));
+        assertEquals(2, inventory.getStacksCount());
+    }
+
+    @Test
+    void stillValidWithoutOwnerReturnsTrue() {
+        SteveInventory inventory = new SteveInventory(9);
+        assertTrue(inventory.stillValid(null),
+            "Detached inventory (unit tests) must be considered valid");
     }
 }
