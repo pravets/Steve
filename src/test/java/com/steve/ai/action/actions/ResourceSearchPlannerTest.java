@@ -14,14 +14,14 @@ class ResourceSearchPlannerTest {
     private static final int STATIONS_PER_RING = 8;
 
     @Test
-    void firstStationIsFirstRingAtOriginPlusFive() {
+    void firstStationIsFirstRingAtGroundLevel() {
         BlockPos origin = new BlockPos(0, 64, 0);
         var state = new ResourceSearchPlanner.SearchState(origin, 0, 0, 1000);
 
         BlockPos station = ResourceSearchPlanner.stationFor(state, RING_SPACING, STATIONS_PER_RING);
 
-        // radius 8, angle 0 -> (8, 0), y = origin.y + 5
-        assertEquals(new BlockPos(8, 69, 0), station);
+        // radius 8, angle 0 -> (8, 0), y = origin.y (ground level)
+        assertEquals(new BlockPos(8, 64, 0), station);
     }
 
     @Test

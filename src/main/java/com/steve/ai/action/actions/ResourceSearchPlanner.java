@@ -10,8 +10,12 @@ import net.minecraft.core.BlockPos;
  */
 public final class ResourceSearchPlanner {
 
-    /** Look-out altitude above the origin (ground level). */
-    public static final int STATION_HEIGHT_OFFSET = 5;
+    /**
+     * Station altitude offset: Steve walks on the ground (never flies), so
+     * stations sit exactly at ground level - an elevated station only confuses
+     * ground navigation and adds nothing (vision scans from the ground).
+     */
+    public static final int STATION_HEIGHT_OFFSET = 0;
 
     private ResourceSearchPlanner() {}
 

@@ -20,7 +20,6 @@
 | **Следовать за игроком** | «follow me» | `player` |
 | **Путь к точке** | «go to 100 64 -200» | `x`, `y`, `z` |
 | **Собрать ресурсы** | «gather wood», «collect stone» | `resource`, `quantity` |
-| **Добыть руду** | «mine iron», «добыть железо» | `block`, `quantity` |
 | **Телепорт к игроку** | «приди ко мне», «teleport to me» | `player` (или `USE_NEARBY_PLAYER_NAME`) |
 | **Стоять на месте** | «стой», «замри», «wait» | — |
 | **Craft (НЕ РАБОТАЕТ)** | «craft a pickaxe» | вернёт «Crafting not yet implemented» |
