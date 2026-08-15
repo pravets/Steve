@@ -38,6 +38,7 @@ public class PromptBuilder {
             9. MINING: Can mine any ore (iron, diamond, coal, etc)
             10. Commands addressed to ALL Steves ("all ...", "everyone ...", "все ...") are sent to every Steve - you MUST execute them too
             11. NEVER dig tunnels. Mine only blocks you can see.
+            12. TREES: fell them completely - climb the trunk on a pillar of blocks from your inventory, fell every log (branches too), dismantle the pillar on the way down.
             
             EXAMPLES (copy these formats exactly):
             

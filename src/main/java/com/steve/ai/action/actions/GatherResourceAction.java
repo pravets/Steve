@@ -7,8 +7,12 @@ import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.memory.VisionScanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -20,8 +24,14 @@ import java.util.List;
  * ({@link VisionScanner#findVisible}) and mining ONLY visible target blocks.
  * No tunnels are ever dug.</p>
  *
+ * <p><b>Whole-tree felling:</b> when a mined log has a log above it, the Steve
+ * enters fell mode - it collects the whole connected log component (BFS) and
+ * climbs the trunk on a nerd-pole of REAL blocks from its inventory, felling
+ * every log (jungle 2x2s and modded giants included), then dismantles the
+ * pillar on the way down. No landscape litter.</p>
+ *
  * <p>Stops early when: enough blocks gathered, inventory full, search timed
- * out, or the route is exhausted (nothing found within the search radius).</p>
+ * out, the route is exhausted, or felling stalls (no progress for a while).</p>
  */
 public class GatherResourceAction extends BaseAction {
 
@@ -29,6 +39,17 @@ public class GatherResourceAction extends BaseAction {
     private static final double MINE_REACH_SQ = 5.0 * 5.0;
     private static final int ROUTE_STALL_TICKS = 60; // give navigation time to build a path
     private static final int MINE_STALL_TICKS = 60; // unreachable visible ore grace period
+
+    private static final int FELL_MAX_HEIGHT = 64; // world height - pillar can reach any tree top
+    private static final int FELL_STALL_TICKS = 60; // no progress -> give up
+    private static final int FELL_MAX_LOGS = 200; // connected logs per tree (forest guard)
+    private static final Block[] PILLAR_MATERIALS = {
+        net.minecraft.world.level.block.Blocks.DIRT,
+        net.minecraft.world.level.block.Blocks.STONE,
+        net.minecraft.world.level.block.Blocks.COBBLESTONE,
+        net.minecraft.world.level.block.Blocks.GRAVEL,
+        net.minecraft.world.level.block.Blocks.SAND
+    };
 
     private Block targetBlock;
     private int targetQuantity;
@@ -41,7 +62,15 @@ public class GatherResourceAction extends BaseAction {
     private int ticksOnMine;
     private int ticksRunning;
 
-    private enum Phase { SEARCH, ROUTING, MINING, FINISHED }
+    // Fell mode state
+    private boolean fellMode;
+    private boolean fellGatheringMaterial;
+    private Block fellLogBlock;
+    private final List<BlockPos> fellLogs = new ArrayList<>();
+    private int fellHeight;
+    private int fellStallTicks;
+
+    private enum Phase { SEARCH, ROUTING, MINING, FELL_ASCEND, FELL_DESCEND, FELL_GATHER, FINISHED }
 
     private Phase phase = Phase.SEARCH;
 
@@ -67,6 +96,11 @@ public class GatherResourceAction extends BaseAction {
         ticksRunning = 0;
         ticksOnRoute = 0;
         ticksOnMine = 0;
+        fellMode = false;
+        fellGatheringMaterial = false;
+        fellHeight = 0;
+        fellStallTicks = 0;
+        fellLogs.clear();
         origin = steve.blockPosition();
         searchState = new ResourceSearchPlanner.SearchState(origin, 0, 0, steve.level().getGameTime());
 
@@ -102,10 +136,22 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
+        // Fell mode: no progress (no log felled, no pillar change) for a while -> give up
+        if (fellMode) {
+            fellStallTicks++;
+            if (fellStallTicks > FELL_STALL_TICKS) {
+                finish(false, "Stuck while felling (no progress for " + FELL_STALL_TICKS + " ticks)");
+                return;
+            }
+        }
+
         switch (phase) {
             case SEARCH -> phaseSearch();
             case ROUTING -> phaseRouting();
             case MINING -> phaseMining();
+            case FELL_ASCEND -> phaseFellAscend();
+            case FELL_DESCEND -> phaseFellDescend();
+            case FELL_GATHER -> phaseFellGatherMaterial();
             default -> { }
         }
     }
@@ -207,13 +253,151 @@ public class GatherResourceAction extends BaseAction {
         // In reach: break ONLY this block (no tunneling)
         steve.swing(InteractionHand.MAIN_HAND, true);
         steve.level().destroyBlock(mineTarget, true);
-        gatheredCount++;
         ticksOnMine = 0;
+
+        if (fellGatheringMaterial) {
+            // Pillar material gathered: switch back to logs and resume climbing
+            targetBlock = fellLogBlock;
+            fellGatheringMaterial = false;
+            phase = Phase.FELL_ASCEND;
+            return;
+        }
+
+        gatheredCount++;
         debugLog("MINE", targetBlock.getName().getString() + " at " + mineTarget
             + " (" + gatheredCount + "/" + targetQuantity + ")");
 
+        // Enter whole-tree felling: a log above the mined one means a tree trunk
+        BlockPos above = mineTarget.above();
         mineTarget = null;
+        if (!fellMode && steve.level().getBlockState(above).getBlock() == targetBlock) {
+            List<BlockPos> component = FellSupport.collectConnectedLogs(above, this::isTargetLog, FELL_MAX_LOGS);
+            if (component.size() >= 2) { // trunk (or trunk+branches) = a tree, not a lone log
+                enterFellMode(component);
+                return;
+            }
+        }
         phase = Phase.SEARCH; // look for the next visible block
+    }
+
+    // ---- fell mode ----
+
+    private void enterFellMode(List<BlockPos> component) {
+        fellMode = true;
+        fellLogBlock = targetBlock;
+        fellHeight = 0;
+        fellStallTicks = 0;
+        fellLogs.clear();
+        fellLogs.addAll(component);
+        debugLog("FELL", "whole-tree felling: " + component.size() + " logs");
+        phase = Phase.FELL_ASCEND;
+    }
+
+    private void exitFellMode() {
+        fellMode = false;
+        fellGatheringMaterial = false;
+        targetBlock = fellLogBlock;
+        fellHeight = 0;
+        fellStallTicks = 0;
+        fellLogs.clear();
+    }
+
+    private boolean isTargetLog(BlockPos pos) {
+        return steve.level().getBlockState(pos).getBlock() == fellLogBlock;
+    }
+
+    private void phaseFellAscend() {
+        steve.setFlying(false);
+
+        // 1. Fell any remaining log of the component within reach (branches!)
+        BlockPos reachable = null;
+        for (BlockPos log : fellLogs) {
+            if (steve.distanceToSqr(log.getX() + 0.5, log.getY() + 0.5, log.getZ() + 0.5) <= MINE_REACH_SQ) {
+                reachable = log;
+                break;
+            }
+        }
+        if (reachable != null) {
+            steve.swing(InteractionHand.MAIN_HAND, true);
+            steve.level().destroyBlock(reachable, true);
+            gatheredCount++;
+            fellLogs.remove(reachable);
+            fellStallTicks = 0;
+            debugLog("FELL", "felled " + fellLogBlock.getName().getString() + " at " + reachable
+                + " (" + gatheredCount + "/" + targetQuantity + ")");
+            return;
+        }
+
+        // 2. Logs still above us? Climb the pillar (real block from inventory)
+        int steveY = steve.blockPosition().getY();
+        boolean logAbove = fellLogs.stream().anyMatch(p -> p.getY() > steveY);
+        if (logAbove && fellHeight < FELL_MAX_HEIGHT) {
+            BlockPos standPos = steve.blockPosition();
+            ItemStack pillarBlock = FellSupport.findSolidPillarBlock(steve.level(), standPos,
+                steve.getInventory(), fellLogBlock);
+            if (pillarBlock.isEmpty()) {
+                phase = Phase.FELL_GATHER; // gather dirt/stone first
+                return;
+            }
+            Block block = ((BlockItem) pillarBlock.getItem()).getBlock();
+            if (steve.level().getBlockState(standPos).isAir()) {
+                steve.level().setBlock(standPos, block.defaultBlockState(), 3);
+                steve.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
+                // Remove one block from the inventory slot that held it
+                for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
+                    ItemStack slot = steve.getInventory().getItem(i);
+                    if (!slot.isEmpty() && slot.getItem() == pillarBlock.getItem()) {
+                        steve.getInventory().removeItem(i, 1);
+                        break;
+                    }
+                }
+                fellHeight++;
+                fellStallTicks = 0;
+                debugLog("FELL", "pillar up to y=" + (standPos.getY() + 1) + " (height " + fellHeight + ")");
+                return;
+            }
+        }
+
+        // 3. No logs above (or height limit): dismantle the pillar on the way down
+        phase = Phase.FELL_DESCEND;
+    }
+
+    private void phaseFellDescend() {
+        BlockPos below = steve.blockPosition().below();
+        BlockState belowState = steve.level().getBlockState(below);
+
+        if (fellHeight > 0 && !belowState.isAir()
+                && belowState.getBlock() != fellLogBlock
+                && belowState.blocksMotion()) {
+            // Dismantle our own pillar block: drop returns to inventory via vacuum
+            steve.swing(InteractionHand.MAIN_HAND, true);
+            steve.level().destroyBlock(below, true);
+            steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
+            fellHeight--;
+            fellStallTicks = 0;
+            return;
+        }
+
+        // Back on the ground: fell done
+        debugLog("FELL", "tree felled, pillar dismantled (" + fellHeight + " blocks left)");
+        exitFellMode();
+        phase = Phase.SEARCH;
+    }
+
+    private void phaseFellGatherMaterial() {
+        // Find a visible solid material to build the pillar from
+        for (Block material : PILLAR_MATERIALS) {
+            List<BlockPos> visible = VisionScanner.findVisible(steve, material);
+            if (!visible.isEmpty()) {
+                mineTarget = visible.get(0);
+                routeTarget = mineTarget;
+                targetBlock = material;
+                fellGatheringMaterial = true;
+                phase = Phase.ROUTING;
+                return;
+            }
+        }
+        finish(false, "No blocks left to climb the tree with");
     }
 
     // ---- helpers ----
@@ -222,6 +406,7 @@ public class GatherResourceAction extends BaseAction {
         phase = Phase.FINISHED;
         steve.getNavigation().stop();
         steve.setFlying(false);
+        exitFellMode();
         result = success ? ActionResult.success(message) : ActionResult.failure(message);
     }
 
