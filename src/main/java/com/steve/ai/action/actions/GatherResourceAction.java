@@ -291,7 +291,10 @@ public class GatherResourceAction extends BaseAction {
         mineTarget = null;
         if (!fellMode && steve.level().getBlockState(above).getBlock() == targetBlock
                 && isTreeLog(above)) {
-            List<BlockPos> component = FellSupport.collectConnectedLogs(above, this::isTargetLog, FELL_MAX_LOGS);
+            // NOTE: compare against targetBlock here - isTargetLog() uses
+            // fellLogBlock which is only set inside enterFellMode().
+            List<BlockPos> component = FellSupport.collectConnectedLogs(above,
+                p -> steve.level().getBlockState(p).getBlock() == targetBlock, FELL_MAX_LOGS);
             if (component.size() >= 2) { // trunk (or trunk+branches) = a tree, not a lone log
                 enterFellMode(component);
                 return;
