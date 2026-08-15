@@ -1,19 +1,13 @@
 package com.steve.ai.entity;
 
-import net.minecraft.SharedConstants;
-import net.minecraft.WorldVersion;
+import com.steve.ai.test.McTestBootstrap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.server.Bootstrap;
-import net.minecraft.server.packs.PackType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.storage.DataVersion;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,29 +15,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for SteveInventory (add/merge/capacity/NBT logic).
  *
  * Vanilla Items require Minecraft's registries, which are initialized via
- * SharedConstants.setVersion + Bootstrap.bootStrap() before the tests.
+ * {@link McTestBootstrap} before the tests.
  */
 class SteveInventoryTest {
 
     @BeforeAll
     static void bootstrap() {
-        SharedConstants.setVersion(new WorldVersion() {
-            @Override
-            public String getName() { return "1.20.1"; }
-            @Override
-            public String getId() { return "1.20.1"; }
-            @Override
-            public DataVersion getDataVersion() { return new DataVersion(3465); }
-            @Override
-            public int getProtocolVersion() { return 765; }
-            @Override
-            public int getPackVersion(PackType type) { return 15; }
-            @Override
-            public Date getBuildTime() { return new Date(0); }
-            @Override
-            public boolean isStable() { return true; }
-        });
-        Bootstrap.bootStrap();
+        McTestBootstrap.bootstrap();
     }
 
     @Test
