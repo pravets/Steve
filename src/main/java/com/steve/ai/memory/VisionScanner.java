@@ -10,6 +10,8 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -158,23 +160,41 @@ public final class VisionScanner {
 
     /**
      * Checks whether Steve has a clear line of sight to the given block.
+     * Leaves are treated as transparent for the sight ray (a trunk hidden
+     * behind the canopy is still a valid target) - everything else with a
+     * collision blocks the view.
      */
     public static boolean hasLineOfSight(SteveEntity steve, BlockPos target) {
         Level level = steve.level();
         Vec3 eye = steve.getEyePosition(1.0F);
         Vec3 to = Vec3.atCenterOf(target);
+        Vec3 dir = to.subtract(eye).normalize();
 
-        BlockHitResult hit = level.clip(new ClipContext(eye, to,
-            ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, steve));
+        // Step through leaves (they have a collision shape but should not
+        // hide ores/logs behind the canopy); hard cap on iterations.
+        for (int i = 0; i < 16; i++) {
+            BlockHitResult hit = level.clip(new ClipContext(eye, to,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, steve));
 
-        if (hit.getType() == HitResult.Type.MISS) {
-            return true;
+            if (hit.getType() == HitResult.Type.MISS) {
+                return true;
+            }
+            // Hit the target itself, or something at/behind it -> visible
+            if (hit.getBlockPos().equals(target)) {
+                return true;
+            }
+            if (eye.distanceToSqr(hit.getLocation()) >= eye.distanceToSqr(to) - 0.5) {
+                return true;
+            }
+            BlockState hitState = level.getBlockState(hit.getBlockPos());
+            if (hitState.getBlock() instanceof LeavesBlock) {
+                // leaves are transparent: continue the ray just past them
+                eye = hit.getLocation().add(dir.scale(0.2));
+                continue;
+            }
+            return false;
         }
-        // Hit the target itself, or something at/behind it -> visible
-        if (hit.getBlockPos().equals(target)) {
-            return true;
-        }
-        return eye.distanceToSqr(hit.getLocation()) >= eye.distanceToSqr(to) - 0.5;
+        return false;
     }
 
     /**

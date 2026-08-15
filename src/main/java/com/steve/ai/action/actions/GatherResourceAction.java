@@ -48,6 +48,7 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_MAX_LOGS = 200; // connected logs per tree (forest guard)
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
     private static final Block[] PILLAR_MATERIALS = {
+        net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
         net.minecraft.world.level.block.Blocks.STONE,
         net.minecraft.world.level.block.Blocks.COBBLESTONE,
@@ -269,10 +270,13 @@ public class GatherResourceAction extends BaseAction {
         ticksOnMine = 0;
 
         if (fellGatheringMaterial) {
-            // Pillar material gathered: switch back to logs and resume climbing
+            // Gather enough pillar material: switch back to logs only once a
+            // usable block is actually in the inventory (grass drops dirt)
             targetBlock = fellLogBlock;
             fellGatheringMaterial = false;
-            phase = Phase.FELL_ASCEND;
+            boolean havePillarBlock = !FellSupport.findSolidPillarBlock(steve.level(),
+                steve.blockPosition(), steve.getInventory(), fellLogBlock).isEmpty();
+            phase = havePillarBlock ? Phase.FELL_ASCEND : Phase.FELL_GATHER;
             return;
         }
 
@@ -457,12 +461,18 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private void phaseFellGatherMaterial() {
-        // Find a visible solid material to build the pillar from
+        // Find a visible solid material to build the pillar from - but never
+        // the block right under our feet (digging it would leave a hole)
+        BlockPos feet = steve.blockPosition().below();
         for (Block material : PILLAR_MATERIALS) {
             List<BlockPos> visible = VisionScanner.findVisible(steve, material);
-            if (!visible.isEmpty()) {
-                mineTarget = visible.get(0);
-                routeTarget = mineTarget;
+            BlockPos chosen = visible.stream()
+                .filter(p -> !p.equals(feet) && !p.equals(steve.blockPosition()))
+                .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                .orElse(null);
+            if (chosen != null) {
+                mineTarget = chosen;
+                routeTarget = chosen;
                 targetBlock = material;
                 fellGatheringMaterial = true;
                 phase = Phase.ROUTING;
