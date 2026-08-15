@@ -42,6 +42,13 @@ public record ClientboundInventoryPacket(String steveName, List<ItemStack> stack
     }
 
     public static ClientboundInventoryPacket fromInventory(String steveName, SteveInventory inventory) {
-        return new ClientboundInventoryPacket(steveName, new ArrayList<>(inventory.getStacks()));
+        // Deep-copy every stack: the packet must own independent ItemStack
+        // objects, because the live inventory can be mutated (grow/shrink) in
+        // the server tick while encode() runs later on the network thread
+        List<ItemStack> copy = new ArrayList<>(inventory.getStacks().size());
+        for (ItemStack stack : inventory.getStacks()) {
+            copy.add(stack.copy());
+        }
+        return new ClientboundInventoryPacket(steveName, copy);
     }
 }

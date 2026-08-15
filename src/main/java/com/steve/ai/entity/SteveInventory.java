@@ -7,6 +7,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -20,7 +21,6 @@ public class SteveInventory {
 
     public static final int DEFAULT_SIZE = 36;
     private static final String NBT_KEY = "Inventory";
-    private static final String NBT_SIZE = "Size";
 
     private final List<ItemStack> stacks;
     private final int maxSize;
@@ -123,8 +123,11 @@ public class SteveInventory {
         return maxSize;
     }
 
+    /**
+     * Read-only view of the stacks. Mutate only through the inventory methods.
+     */
     public List<ItemStack> getStacks() {
-        return stacks;
+        return Collections.unmodifiableList(stacks);
     }
 
     /**
@@ -142,13 +145,17 @@ public class SteveInventory {
             list.add(stack.save(new CompoundTag()));
         }
         tag.put(NBT_KEY, list);
-        tag.putInt(NBT_SIZE, maxSize);
     }
 
     public void loadFromNBT(CompoundTag tag) {
         stacks.clear();
         ListTag list = tag.getList(NBT_KEY, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
+            // Preserve the invariant stacks.size() <= maxSize even if the NBT
+            // holds more entries than the configured capacity
+            if (stacks.size() >= maxSize) {
+                break;
+            }
             ItemStack stack = ItemStack.of(list.getCompound(i));
             if (!stack.isEmpty()) {
                 stacks.add(stack);

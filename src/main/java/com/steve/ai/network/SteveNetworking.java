@@ -3,6 +3,8 @@ package com.steve.ai.network;
 import com.steve.ai.SteveMod;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
@@ -78,7 +80,8 @@ public final class SteveNetworking {
     private static void handleSteveList(ClientboundSteveListPacket packet,
                                         Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
-        ctx.enqueueWork(() -> com.steve.ai.client.SteveGUI.setSteveList(packet.steveNames()));
+        ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+            () -> () -> com.steve.ai.client.SteveGUI.setSteveList(packet.steveNames())));
         ctx.setPacketHandled(true);
     }
 
@@ -104,8 +107,8 @@ public final class SteveNetworking {
     private static void handleInventory(ClientboundInventoryPacket packet,
                                         Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
-        ctx.enqueueWork(() -> com.steve.ai.client.SteveGUI.setInventoryView(
-            packet.steveName(), packet.stacks()));
+        ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+            () -> () -> com.steve.ai.client.SteveGUI.setInventoryView(packet.steveName(), packet.stacks())));
         ctx.setPacketHandled(true);
     }
 }

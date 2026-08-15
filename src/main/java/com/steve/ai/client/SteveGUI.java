@@ -40,7 +40,6 @@ public class SteveGUI {
     private static List<String> steveNames = new ArrayList<>();
     private static String selectedSteve = null;
     private static List<ItemStack> inventoryStacks = new ArrayList<>();
-    private static long inventoryRequestedAt = 0;
 
     // Message history and scrolling
     private static List<ChatMessage> messages = new ArrayList<>();
@@ -188,7 +187,6 @@ public class SteveGUI {
     private static void requestInventory(String steveName) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            inventoryRequestedAt = System.currentTimeMillis();
             SteveNetworking.CHANNEL.sendToServer(new ServerboundRequestInventoryPacket(steveName));
         }
     }
@@ -497,8 +495,9 @@ public class SteveGUI {
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         int panelX = (int) (screenWidth - PANEL_WIDTH + slideOffset);
 
-        // Click on the header (title/tabs) toggles the view
-        if (mouseY < 35) {
+        // Click on the header (title/tabs) toggles the view - only within the
+        // panel's horizontal bounds (panelX..screenWidth), not anywhere on screen
+        if (mouseY < 35 && mouseX >= panelX && mouseX < screenWidth) {
             toggleView();
             return;
         }

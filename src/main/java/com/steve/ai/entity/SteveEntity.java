@@ -76,6 +76,20 @@ public class SteveEntity extends PathfinderMob {
     }
 
     @Override
+    public void remove(RemovalReason reason) {
+        // Drop the inventory into the world when Steve is killed or discarded
+        // (/kill, /steve remove) instead of silently losing the contents.
+        // Unloading/changing dimension must keep the inventory (it is in NBT).
+        if (!this.level().isClientSide && !inventory.isEmpty()
+                && (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED)) {
+            for (ItemStack stack : inventory.takeAll()) {
+                this.spawnAtLocation(stack);
+            }
+        }
+        super.remove(reason);
+    }
+
+    @Override
     public void tick() {
         super.tick();
         
@@ -102,6 +116,11 @@ public class SteveEntity extends PathfinderMob {
         List<ItemEntity> items = this.level().getEntitiesOfClass(ItemEntity.class, searchBox);
         for (ItemEntity item : items) {
             if (item.isRemoved() || !item.isAlive()) {
+                continue;
+            }
+            // Respect vanilla pickup delay: items thrown by a player (Q), tossed
+            // to teammates or dropped on death must not be vacuumed instantly
+            if (item.hasPickUpDelay()) {
                 continue;
             }
             ItemStack stack = item.getItem();
