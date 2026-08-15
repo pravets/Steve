@@ -87,6 +87,10 @@ public class CoreActionsPlugin implements ActionPlugin {
             (steve, task, ctx) -> new TeleportAction(steve, task),
             priority, PLUGIN_ID);
 
+        registry.register("stay",
+            (steve, task, ctx) -> new StayAction(steve, task),
+            priority, PLUGIN_ID);
+
         LOGGER.info("CoreActionsPlugin loaded {} actions", registry.getActionCount());
     }
 

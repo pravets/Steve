@@ -22,6 +22,7 @@ public class PromptBuilder {
             - mine: {"block": "iron", "quantity": 8} (resources: iron, diamond, coal, gold, copper, redstone, emerald)
             - follow: {"player": "NAME"}
             - teleport: {"player": "NAME"} (instantly move to the player; use for "come here", "come to me", "return to me", "teleport to me")
+            - stay: {} (stop moving and stay in place; use for "stay", "wait", "stop", "стой", "замри")
             - pathfind: {"x": 0, "y": 0, "z": 0}
             
             RULES:
@@ -34,6 +35,7 @@ public class PromptBuilder {
             7. Keep reasoning under 15 words
             8. COLLABORATIVE BUILDING: Multiple Steves can work on same structure simultaneously
             9. MINING: Can mine any ore (iron, diamond, coal, etc)
+            10. Commands addressed to ALL Steves ("all ...", "everyone ...", "все ...") are sent to every Steve - you MUST execute them too
             
             EXAMPLES (copy these formats exactly):
             
@@ -57,6 +59,9 @@ public class PromptBuilder {
 
             Input: "come to me" / "teleport to me"
             {"reasoning": "Player wants me nearby", "plan": "Teleport to player", "tasks": [{"action": "teleport", "parameters": {"player": "USE_NEARBY_PLAYER_NAME"}}]}
+
+            Input: "stay" / "стой" / "wait"
+            {"reasoning": "Player wants me to stop", "plan": "Stay in place", "tasks": [{"action": "stay", "parameters": {}}]}
             
             CRITICAL: Output ONLY valid JSON. No markdown, no explanations, no line breaks in JSON.
             """;

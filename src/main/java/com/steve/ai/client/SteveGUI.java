@@ -557,6 +557,18 @@ public class SteveGUI {
             return;
         }
 
+        String commandLower = com.steve.ai.chat.ChatCommandParser.normalize(command);
+
+        // Commands addressed to ALL Steves go through the server ("tell all"),
+        // so the full, up-to-date Steve list is used - not the client-side cache.
+        if (com.steve.ai.chat.ChatCommandParser.isAllCommand(commandLower)) {
+            if (mc.player != null) {
+                mc.player.connection.sendCommand("steve tell all " + command);
+                addSystemMessage("→ all Steves: " + command);
+            }
+            return;
+        }
+
         List<String> targetSteves = parseTargetSteves(command);
         
         if (targetSteves.isEmpty()) {
@@ -588,8 +600,7 @@ public class SteveGUI {
         List<String> targets = new ArrayList<>();
         String commandLower = command.toLowerCase();
         
-        if (commandLower.startsWith("all steves ") || commandLower.startsWith("all ") || 
-            commandLower.startsWith("everyone ") || commandLower.startsWith("everybody ")) {
+        if (com.steve.ai.chat.ChatCommandParser.isAllCommand(commandLower)) {
             return new ArrayList<>(steveNames);
         }
         

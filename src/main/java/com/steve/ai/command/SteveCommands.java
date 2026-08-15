@@ -4,6 +4,8 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.steve.ai.SteveMod;
+import com.steve.ai.action.ActionExecutor;
+import com.steve.ai.chat.ChatCommandParser;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
@@ -311,6 +313,7 @@ public class SteveCommands {
         
         if (steve != null) {
             steve.getActionExecutor().stopCurrentAction();
+            steve.getActionExecutor().setStaying(true);
             steve.getMemory().clearTaskQueue();
             source.sendSuccess(() -> Component.literal("Stopped Steve: " + name), true);
             return 1;
@@ -326,21 +329,55 @@ public class SteveCommands {
         CommandSourceStack source = context.getSource();
         
         SteveManager manager = SteveMod.getSteveManager();
+
+        // "all" (or Russian "все") - forward the command to every Steve
+        if ("all".equalsIgnoreCase(name) || "все".equalsIgnoreCase(name)) {
+            List<String> names = manager.getSteveNames();
+            if (names.isEmpty()) {
+                source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
+                return 0;
+            }
+            for (String steveName : names) {
+                SteveEntity steve = manager.getSteve(steveName);
+                if (steve != null) {
+                    deliverCommand(steve, command, source);
+                }
+            }
+            source.sendSuccess(() -> Component.literal("§7Command sent to " + names.size() + " Steve(s)"), false);
+            return 1;
+        }
+
         SteveEntity steve = manager.getSteve(name);
         
         if (steve != null) {
-            // Disabled command feedback message
-            // source.sendSuccess(() -> Component.literal("Instructing " + name + ": " + command), true);
-            
-            new Thread(() -> {
-                steve.getActionExecutor().processNaturalLanguageCommand(command);
-            }).start();
-            
+            deliverCommand(steve, command, source);
             return 1;
         } else {
             source.sendFailure(Component.literal("Steve not found: " + name));
             return 0;
         }
+    }
+
+    /**
+     * Delivers a chat command to one Steve. Stay/stop commands are handled
+     * deterministically (no LLM round-trip): the current action is cancelled,
+     * navigation stops, and the Steve stays in place until the next command.
+     */
+    private static void deliverCommand(SteveEntity steve, String command, CommandSourceStack source) {
+        String lower = ChatCommandParser.normalize(command);
+        if (ChatCommandParser.isStayCommand(lower)) {
+            ActionExecutor executor = steve.getActionExecutor();
+            executor.stopCurrentAction();
+            executor.setStaying(true);
+            steve.getNavigation().stop();
+            steve.getMemory().clearTaskQueue();
+            source.sendSuccess(() -> Component.literal("§7" + steve.getSteveName() + " stopped"), false);
+            return;
+        }
+
+        new Thread(() -> {
+            steve.getActionExecutor().processNaturalLanguageCommand(command);
+        }).start();
     }
 }
 
