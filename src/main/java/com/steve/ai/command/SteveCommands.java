@@ -4,6 +4,8 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.steve.ai.SteveMod;
+import com.steve.ai.action.ActionExecutor;
+import com.steve.ai.chat.ChatCommandParser;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
@@ -15,6 +17,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
@@ -45,7 +48,78 @@ public class SteveCommands {
             .then(Commands.literal("inventory")
                 .then(Commands.argument("name", StringArgumentType.string())
                     .executes(SteveCommands::showInventory)))
+            .then(Commands.literal("tp")
+                .then(Commands.argument("name", StringArgumentType.string())
+                    .executes(SteveCommands::tpSteve)))
         );
+    }
+
+    /**
+     * /steve tp <name|all> - instantly teleports the named Steve (or all
+     * Steves) to a safe spot near the commanding player.
+     */
+    private static int tpSteve(CommandContext<CommandSourceStack> context) {
+        String name = StringArgumentType.getString(context, "name");
+        CommandSourceStack source = context.getSource();
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("§cThis command must be run by a player"));
+            return 0;
+        }
+
+        SteveManager manager = SteveMod.getSteveManager();
+        AgentDebugBuffer.log(name, "COMMAND", "tp to " + player.getName().getString());
+
+        if ("all".equalsIgnoreCase(name)) {
+            List<String> names = manager.getSteveNames();
+            if (names.isEmpty()) {
+                source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
+                return 0;
+            }
+            int teleported = 0;
+            int wrongDimension = 0;
+            int noSpot = 0;
+            for (String steveName : names) {
+                SteveEntity steve = manager.getSteve(steveName);
+                if (steve == null) {
+                    continue;
+                }
+                if (steve.level().dimension() != player.level().dimension()) {
+                    wrongDimension++;
+                } else if (steve.teleportToPlayer(player)) {
+                    teleported++;
+                } else {
+                    noSpot++;
+                }
+            }
+            if (teleported == 0) {
+                String failure = "§cNo Steve teleported"
+                    + (wrongDimension > 0 ? " (" + wrongDimension + " in another dimension" : "")
+                    + (wrongDimension > 0 && noSpot > 0 ? ", " : "")
+                    + (noSpot > 0 ? noSpot + " no safe spot" : "")
+                    + (wrongDimension > 0 || noSpot > 0 ? ")" : "");
+                source.sendFailure(Component.literal(failure));
+                return 0;
+            }
+            String result = "§aTeleported " + teleported + "/" + names.size() + " Steve(s) to you";
+            source.sendSuccess(() -> Component.literal(result), false);
+            return 1;
+        }
+
+        SteveEntity steve = manager.getSteve(name);
+        if (steve == null) {
+            source.sendFailure(Component.literal("§cSteve not found: " + name));
+            return 0;
+        }
+        if (steve.level().dimension() != player.level().dimension()) {
+            source.sendFailure(Component.literal("§c" + name + " is in another dimension"));
+            return 0;
+        }
+        if (!steve.teleportToPlayer(player)) {
+            source.sendFailure(Component.literal("§cNo safe spot near you for " + name));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("§a" + name + " teleported to you"), false);
+        return 1;
     }
 
     private static int showInventory(CommandContext<CommandSourceStack> context) {
@@ -239,6 +313,7 @@ public class SteveCommands {
         
         if (steve != null) {
             steve.getActionExecutor().stopCurrentAction();
+            steve.getActionExecutor().setStaying(true);
             steve.getMemory().clearTaskQueue();
             source.sendSuccess(() -> Component.literal("Stopped Steve: " + name), true);
             return 1;
@@ -254,21 +329,55 @@ public class SteveCommands {
         CommandSourceStack source = context.getSource();
         
         SteveManager manager = SteveMod.getSteveManager();
+
+        // "all" (or Russian "все") - forward the command to every Steve
+        if ("all".equalsIgnoreCase(name) || "все".equalsIgnoreCase(name)) {
+            List<String> names = manager.getSteveNames();
+            if (names.isEmpty()) {
+                source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
+                return 0;
+            }
+            for (String steveName : names) {
+                SteveEntity steve = manager.getSteve(steveName);
+                if (steve != null) {
+                    deliverCommand(steve, command, source);
+                }
+            }
+            source.sendSuccess(() -> Component.literal("§7Command sent to " + names.size() + " Steve(s)"), false);
+            return 1;
+        }
+
         SteveEntity steve = manager.getSteve(name);
         
         if (steve != null) {
-            // Disabled command feedback message
-            // source.sendSuccess(() -> Component.literal("Instructing " + name + ": " + command), true);
-            
-            new Thread(() -> {
-                steve.getActionExecutor().processNaturalLanguageCommand(command);
-            }).start();
-            
+            deliverCommand(steve, command, source);
             return 1;
         } else {
             source.sendFailure(Component.literal("Steve not found: " + name));
             return 0;
         }
+    }
+
+    /**
+     * Delivers a chat command to one Steve. Stay/stop commands are handled
+     * deterministically (no LLM round-trip): the current action is cancelled,
+     * navigation stops, and the Steve stays in place until the next command.
+     */
+    private static void deliverCommand(SteveEntity steve, String command, CommandSourceStack source) {
+        String lower = ChatCommandParser.normalize(command);
+        if (ChatCommandParser.isStayCommand(lower)) {
+            ActionExecutor executor = steve.getActionExecutor();
+            executor.stopCurrentAction();
+            executor.setStaying(true);
+            steve.getNavigation().stop();
+            steve.getMemory().clearTaskQueue();
+            source.sendSuccess(() -> Component.literal("§7" + steve.getSteveName() + " stopped"), false);
+            return;
+        }
+
+        new Thread(() -> {
+            steve.getActionExecutor().processNaturalLanguageCommand(command);
+        }).start();
     }
 }
 

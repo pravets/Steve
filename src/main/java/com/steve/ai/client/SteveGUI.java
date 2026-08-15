@@ -557,6 +557,21 @@ public class SteveGUI {
             return;
         }
 
+        String commandLower = com.steve.ai.chat.ChatCommandParser.normalize(command);
+
+        // Commands addressed to ALL Steves go through the server ("tell all"),
+        // so the full, up-to-date Steve list is used - not the client-side cache.
+        // The addressing prefix is stripped: "all stay" -> "stay", otherwise the
+        // stay/stop trigger in deliverCommand would see "all" as the first word.
+        if (com.steve.ai.chat.ChatCommandParser.isAllCommand(commandLower)) {
+            if (mc.player != null) {
+                String payload = com.steve.ai.chat.ChatCommandParser.stripAllPrefix(command);
+                mc.player.connection.sendCommand("steve tell all " + payload);
+                addSystemMessage("→ all Steves: " + payload);
+            }
+            return;
+        }
+
         List<String> targetSteves = parseTargetSteves(command);
         
         if (targetSteves.isEmpty()) {
@@ -588,8 +603,9 @@ public class SteveGUI {
         List<String> targets = new ArrayList<>();
         String commandLower = command.toLowerCase();
         
-        if (commandLower.startsWith("all steves ") || commandLower.startsWith("all ") || 
-            commandLower.startsWith("everyone ") || commandLower.startsWith("everybody ")) {
+        // All-commands normally leave via "tell all" above; this branch is a
+        // defensive fallback (e.g. direct /steve tell with an all-prefix).
+        if (com.steve.ai.chat.ChatCommandParser.isAllCommand(commandLower)) {
             return new ArrayList<>(steveNames);
         }
         

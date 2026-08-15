@@ -1,0 +1,49 @@
+package com.steve.ai.action.actions;
+
+import com.steve.ai.action.ActionExecutor;
+import com.steve.ai.action.ActionResult;
+import com.steve.ai.action.Task;
+import com.steve.ai.entity.SteveEntity;
+
+/**
+ * Makes the Steve stay in place until the next command: stops navigation,
+ * clears pending tasks and disables idle-follow. The "staying" flag lives in
+ * {@link com.steve.ai.action.ActionExecutor} - a new command wakes the Steve
+ * up automatically.
+ *
+ * <p>Note: {@code stopCurrentAction()} must NOT be called from onStart -
+ * {@code currentAction} already points at this action by then (self-cancel).</p>
+ */
+public class StayAction extends BaseAction {
+
+    public StayAction(SteveEntity steve, Task task) {
+        super(steve, task);
+    }
+
+    @Override
+    protected void onStart() {
+        ActionExecutor executor = steve.getActionExecutor();
+        executor.setStaying(true);
+        // Drop pending tasks of a multi-task plan so the Steve does not
+        // execute the next task right after this one (memory queue is NOT
+        // the executor's queue).
+        executor.clearTaskQueue();
+        steve.getNavigation().stop();
+        result = ActionResult.success("Staying in place");
+    }
+
+    @Override
+    protected void onTick() {
+        // Instant action - nothing to do
+    }
+
+    @Override
+    protected void onCancel() {
+        // Nothing to cancel
+    }
+
+    @Override
+    public String getDescription() {
+        return "Stay in place";
+    }
+}

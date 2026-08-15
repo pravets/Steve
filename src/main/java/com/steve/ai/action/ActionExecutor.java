@@ -41,6 +41,8 @@ public class ActionExecutor {
     private String currentGoal;
     private int ticksSinceLastAction;
     private BaseAction idleFollowAction;  // Follow player when idle
+    /** When true the Steve stays in place (stay/stop command) until the next command. */
+    private volatile boolean staying = false;
 
     // NEW: Async planning support (non-blocking LLM calls)
     private CompletableFuture<ResponseParser.ParsedResponse> planningFuture;
@@ -118,6 +120,16 @@ public class ActionExecutor {
             SteveMod.LOGGER.warn("Steve '{}' is already planning, ignoring command: {}", steve.getSteveName(), command);
             sendToGUI(steve.getSteveName(), "Hold on, I'm still thinking about the previous command...");
             return;
+        }
+
+        // A new command wakes the Steve up from "stay in place".
+        // Mutate on the server thread: tick() reads this flag on the game
+        // thread and processNaturalLanguageCommand runs on a worker thread.
+        var server = steve.level().getServer();
+        if (server != null && !server.isSameThread()) {
+            server.execute(() -> staying = false);
+        } else {
+            staying = false;
         }
 
         // Cancel any current actions
@@ -296,7 +308,8 @@ public class ActionExecutor {
         }
         
         // When completely idle (no tasks, no goal), follow nearest player
-        if (taskQueue.isEmpty() && currentAction == null && currentGoal == null) {
+        // (unless told to stay in place)
+        if (taskQueue.isEmpty() && currentAction == null && currentGoal == null && !staying) {
             if (idleFollowAction == null) {
                 idleFollowAction = new IdleFollowAction(steve);
                 idleFollowAction.start();
@@ -383,6 +396,8 @@ public class ActionExecutor {
             case "craft" -> new CraftItemAction(steve, task);
             case "attack" -> new CombatAction(steve, task);
             case "follow" -> new FollowPlayerAction(steve, task);
+            case "teleport" -> new TeleportAction(steve, task);
+            case "stay" -> new StayAction(steve, task);
             case "gather" -> new GatherResourceAction(steve, task);
             case "build" -> new BuildStructureAction(steve, task);
             default -> {
@@ -390,6 +405,15 @@ public class ActionExecutor {
                 yield null;
             }
         };
+    }
+
+    /**
+     * Removes all pending tasks without cancelling the currently running
+     * action. Used by "stay": after the current task, the Steve must not
+     * continue executing a multi-task plan.
+     */
+    public void clearTaskQueue() {
+        taskQueue.clear();
     }
 
     public void stopCurrentAction() {
@@ -403,9 +427,24 @@ public class ActionExecutor {
         }
         taskQueue.clear();
         currentGoal = null;
-
         // Reset state machine
         stateMachine.reset();
+    }
+
+    /**
+     * Puts the Steve in (or out of) "stay in place" mode. While staying,
+     * no idle-follow is started and the Steve does not move; any new
+     * command wakes it up automatically.
+     */
+    public void setStaying(boolean staying) {
+        this.staying = staying;
+        if (staying) {
+            steve.getNavigation().stop();
+        }
+    }
+
+    public boolean isStaying() {
+        return staying;
     }
 
     public boolean isExecuting() {
