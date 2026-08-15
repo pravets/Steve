@@ -7,9 +7,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 import java.util.*;
@@ -17,7 +14,6 @@ import java.util.*;
 public class WorldKnowledge {
     private final SteveEntity steve;
     private final int scanRadius = 16;
-    private Map<Block, Integer> nearbyBlocks;
     private List<Entity> nearbyEntities;
     private String biomeName;
 
@@ -28,7 +24,6 @@ public class WorldKnowledge {
 
     private void scan() {
         scanBiome();
-        scanBlocks();
         scanEntities();
     }
 
@@ -47,26 +42,6 @@ public class WorldKnowledge {
         }
     }
 
-    private void scanBlocks() {
-        nearbyBlocks = new HashMap<>();
-        Level level = steve.level();
-        BlockPos stevePos = steve.blockPosition();
-        
-        for (int x = -scanRadius; x <= scanRadius; x += 2) {
-            for (int y = -scanRadius; y <= scanRadius; y += 2) {
-                for (int z = -scanRadius; z <= scanRadius; z += 2) {
-                    BlockPos checkPos = stevePos.offset(x, y, z);
-                    BlockState state = level.getBlockState(checkPos);
-                    Block block = state.getBlock();
-                    
-                    if (block != Blocks.AIR && block != Blocks.CAVE_AIR && block != Blocks.VOID_AIR) {
-                        nearbyBlocks.put(block, nearbyBlocks.getOrDefault(block, 0) + 1);
-                    }
-                }
-            }
-        }
-    }
-
     private void scanEntities() {
         Level level = steve.level();
         AABB searchBox = steve.getBoundingBox().inflate(scanRadius);
@@ -78,23 +53,8 @@ public class WorldKnowledge {
     }
 
     public String getNearbyBlocksSummary() {
-        if (nearbyBlocks.isEmpty()) {
-            return "none";
-        }
-        
-        List<Map.Entry<Block, Integer>> sorted = nearbyBlocks.entrySet().stream()
-            .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-            .limit(5)
-            .toList();
-        
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < sorted.size(); i++) {
-            if (i > 0) sb.append(", ");
-            Map.Entry<Block, Integer> entry = sorted.get(i);
-            sb.append(entry.getKey().getName().getString());
-        }
-        
-        return sb.toString();
+        // Honest vision: only visible blocks with line of sight
+        return VisionScanner.getVisibleSummary(steve);
     }
 
     public String getNearbyEntitiesSummary() {
@@ -118,14 +78,6 @@ public class WorldKnowledge {
         }
         
         return sb.toString();
-    }
-
-    public Map<Block, Integer> getNearbyBlocks() {
-        return nearbyBlocks;
-    }
-
-    public List<Entity> getNearbyEntities() {
-        return nearbyEntities;
     }
 
     public String getNearbyPlayerNames() {

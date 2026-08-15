@@ -66,7 +66,8 @@ public class PromptBuilder {
         prompt.append("Position: ").append(formatPosition(steve.blockPosition())).append("\n");
         prompt.append("Nearby Players: ").append(worldKnowledge.getNearbyPlayerNames()).append("\n");
         prompt.append("Nearby Entities: ").append(worldKnowledge.getNearbyEntitiesSummary()).append("\n");
-        prompt.append("Nearby Blocks: ").append(worldKnowledge.getNearbyBlocksSummary()).append("\n");
+        prompt.append("Visible blocks (what you can see with your own eyes, with distance and direction): ")
+            .append(worldKnowledge.getNearbyBlocksSummary()).append("\n");
         prompt.append("Biome: ").append(worldKnowledge.getBiomeName()).append("\n");
         
         prompt.append("\n=== PLAYER COMMAND ===\n");

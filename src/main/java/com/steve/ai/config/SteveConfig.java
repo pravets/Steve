@@ -12,6 +12,9 @@ public class SteveConfig {
     public static final ForgeConfigSpec.IntValue MAX_TOKENS;
     public static final ForgeConfigSpec.DoubleValue TEMPERATURE;
     public static final ForgeConfigSpec.IntValue LLM_TIMEOUT_SECONDS;
+    public static final ForgeConfigSpec.IntValue WORLD_SCAN_RADIUS;
+    public static final ForgeConfigSpec.IntValue WORLD_SCAN_STEP;
+    public static final ForgeConfigSpec.IntValue WORLD_SCAN_CACHE_TICKS;
     public static final ForgeConfigSpec.IntValue ACTION_TICK_DELAY;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CHAT_RESPONSES;
     public static final ForgeConfigSpec.IntValue MAX_ACTIVE_STEVES;
@@ -61,6 +64,27 @@ public class SteveConfig {
         LLM_TIMEOUT_SECONDS = builder
             .comment("Per-request timeout in seconds")
             .defineInRange("timeoutSeconds", 60, 5, 300);
+
+        builder.pop();
+
+        builder.comment("Steve Vision (world perception) Configuration",
+            "Steve scans the world around him to find blocks and entities. The scan is",
+            "honest: a block is only seen if there is a clear line of sight (no cheats).",
+            "Scans run on demand and results are cached for a few ticks.")
+            .push("vision");
+
+        WORLD_SCAN_RADIUS = builder
+            .comment("Vision radius in blocks (how far Steve can see)")
+            .defineInRange("scanRadius", 32, 8, 64);
+
+        WORLD_SCAN_STEP = builder
+            .comment("Scan grid step (1 = every block, 2 = every other block).",
+                "Lower = more precise but slower. 2 is fine for finding trees/ores/chests.")
+            .defineInRange("scanStep", 2, 1, 8);
+
+        WORLD_SCAN_CACHE_TICKS = builder
+            .comment("How many ticks a vision scan result is reused (20 ticks = 1 second)")
+            .defineInRange("scanCacheTicks", 20, 5, 200);
 
         builder.pop();
 
