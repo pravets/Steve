@@ -225,6 +225,8 @@ public class SteveEntity extends PathfinderMob {
         CompoundTag inventoryTag = new CompoundTag();
         this.inventory.saveToNBT(inventoryTag);
         tag.put("Inventory", inventoryTag);
+
+        tag.putBoolean("Staying", this.actionExecutor.isStaying());
     }
 
     @Override
@@ -240,6 +242,11 @@ public class SteveEntity extends PathfinderMob {
 
         if (tag.contains("Inventory")) {
             this.inventory.loadFromNBT(tag.getCompound("Inventory"));
+        }
+
+        if (tag.contains("Staying") && tag.getBoolean("Staying")) {
+            // Persist "stay in place" across restarts (guard post etc.)
+            this.actionExecutor.setStaying(true);
         }
     }
 
