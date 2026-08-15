@@ -42,7 +42,7 @@ public class ActionExecutor {
     private int ticksSinceLastAction;
     private BaseAction idleFollowAction;  // Follow player when idle
     /** When true the Steve stays in place (stay/stop command) until the next command. */
-    private boolean staying = false;
+    private volatile boolean staying = false;
 
     // NEW: Async planning support (non-blocking LLM calls)
     private CompletableFuture<ResponseParser.ParsedResponse> planningFuture;
@@ -122,8 +122,15 @@ public class ActionExecutor {
             return;
         }
 
-        // A new command wakes the Steve up from "stay in place"
-        staying = false;
+        // A new command wakes the Steve up from "stay in place".
+        // Mutate on the server thread: tick() reads this flag on the game
+        // thread and processNaturalLanguageCommand runs on a worker thread.
+        var server = steve.level().getServer();
+        if (server != null && !server.isSameThread()) {
+            server.execute(() -> staying = false);
+        } else {
+            staying = false;
+        }
 
         // Cancel any current actions
         if (currentAction != null) {
@@ -398,6 +405,15 @@ public class ActionExecutor {
                 yield null;
             }
         };
+    }
+
+    /**
+     * Removes all pending tasks without cancelling the currently running
+     * action. Used by "stay": after the current task, the Steve must not
+     * continue executing a multi-task plan.
+     */
+    public void clearTaskQueue() {
+        taskQueue.clear();
     }
 
     public void stopCurrentAction() {

@@ -53,4 +53,20 @@ public final class ChatCommandParser {
     public static String normalize(String command) {
         return command.toLowerCase(Locale.ROOT);
     }
+
+    /**
+     * Removes the "all ..." addressing prefix from a command, e.g.
+     * "all stay" / "все телепортируйтесь ко мне" -> "stay" / "телепортируйтесь ко мне".
+     * Used when forwarding to the server via "tell all", so the payload the
+     * Steves receive does not start with the addressing word.
+     */
+    public static String stripAllPrefix(String command) {
+        String lower = command.toLowerCase(Locale.ROOT);
+        for (String prefix : ALL_PREFIXES) {
+            if (lower.startsWith(prefix)) {
+                return command.substring(prefix.length()).trim();
+            }
+        }
+        return command;
+    }
 }

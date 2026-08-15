@@ -1,5 +1,6 @@
 package com.steve.ai.action.actions;
 
+import com.steve.ai.action.ActionExecutor;
 import com.steve.ai.action.ActionResult;
 import com.steve.ai.action.Task;
 import com.steve.ai.entity.SteveEntity;
@@ -21,9 +22,13 @@ public class StayAction extends BaseAction {
 
     @Override
     protected void onStart() {
-        steve.getActionExecutor().setStaying(true);
+        ActionExecutor executor = steve.getActionExecutor();
+        executor.setStaying(true);
+        // Drop pending tasks of a multi-task plan so the Steve does not
+        // execute the next task right after this one (memory queue is NOT
+        // the executor's queue).
+        executor.clearTaskQueue();
         steve.getNavigation().stop();
-        steve.getMemory().clearTaskQueue();
         result = ActionResult.success("Staying in place");
     }
 

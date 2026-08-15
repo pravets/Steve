@@ -66,33 +66,36 @@ public class TeleportAction extends BaseAction {
     }
 
     private void findPlayer() {
-        List<? extends Player> players = steve.level().players();
-
-        // First try exact name match
-        for (Player player : players) {
-            if (player.getName().getString().equalsIgnoreCase(playerName)) {
-                targetPlayer = player;
-                return;
+        // Explicit names are resolved across ALL dimensions (a player in
+        // another dimension must yield "another dimension", not "not found").
+        if (playerName != null && !playerName.isEmpty()
+            && !playerName.contains("PLAYER") && !playerName.contains("NAME")
+            && !playerName.equalsIgnoreCase("me") && !playerName.equalsIgnoreCase("you")) {
+            var server = steve.level().getServer();
+            if (server != null) {
+                ServerPlayer exact = server.getPlayerList().getPlayerByName(playerName);
+                if (exact != null) {
+                    targetPlayer = exact;
+                    return;
+                }
             }
         }
 
-        // Fallback: nearest player for "me"/"you"/"USE_NEARBY_PLAYER_NAME"/empty
-        if (playerName == null || playerName.isEmpty()
-            || playerName.contains("PLAYER") || playerName.contains("NAME")
-            || playerName.equalsIgnoreCase("me") || playerName.equalsIgnoreCase("you")) {
-            Player nearest = null;
-            double nearestDistance = Double.MAX_VALUE;
-
-            for (Player player : players) {
-                double distance = steve.distanceTo(player);
-                if (distance < nearestDistance) {
-                    nearest = player;
-                    nearestDistance = distance;
-                }
+        // Implicit targets ("me", "you", placeholders, empty) - nearest player
+        // in the Steve's dimension.
+        List<? extends Player> players = steve.level().players();
+        Player nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (Player player : players) {
+            double distance = steve.distanceTo(player);
+            if (distance < nearestDistance) {
+                nearest = player;
+                nearestDistance = distance;
             }
-
-            if (nearest != null) {
-                targetPlayer = nearest;
+        }
+        if (nearest != null) {
+            targetPlayer = nearest;
+            if (playerName == null || playerName.isEmpty()) {
                 playerName = nearest.getName().getString();
             }
         }

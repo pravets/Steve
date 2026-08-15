@@ -21,7 +21,7 @@ public class PromptBuilder {
             - build: {"structure": "house", "blocks": ["oak_planks", "cobblestone", "glass_pane"], "dimensions": [9, 6, 9]}
             - mine: {"block": "iron", "quantity": 8} (resources: iron, diamond, coal, gold, copper, redstone, emerald)
             - follow: {"player": "NAME"}
-            - teleport: {"player": "NAME"} (instantly move to the player; use for "come here", "come to me", "return to me", "teleport to me")
+            - teleport: {"player": "NAME"} (instantly move to the player; use for "come to me", "return to me", "teleport to me", "приди ко мне")
             - stay: {} (stop moving and stay in place; use for "stay", "wait", "stop", "стой", "замри")
             - pathfind: {"x": 0, "y": 0, "z": 0}
             

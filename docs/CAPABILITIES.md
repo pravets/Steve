@@ -17,7 +17,7 @@
 | **Построить здание** | «build a house», «построй замок», «make a tower» | `structure` (house/castle/tower/wall/platform/barn/modern/box), `blocks`, `dimensions` |
 | **Поставить блок** | «place a torch here», «put cobblestone at 100 64 -200» | `block`, `x`, `y`, `z` |
 | **Атаковать** | «attack that creeper», «kill zombies», «defend me» | `target` (hostile — любые враждебные) |
-| **Следовать за игроком** | «follow me», «come here» | `player` |
+| **Следовать за игроком** | «follow me» | `player` |
 | **Путь к точке** | «go to 100 64 -200» | `x`, `y`, `z` |
 | **Собрать ресурсы** | «gather wood», «collect stone» | `resource`, `quantity` |
 | **Craft (НЕ РАБОТАЕТ)** | «craft a pickaxe» | вернёт «Crafting not yet implemented» |
