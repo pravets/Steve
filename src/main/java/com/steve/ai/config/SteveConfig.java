@@ -18,6 +18,13 @@ public class SteveConfig {
     public static final ForgeConfigSpec.IntValue ACTION_TICK_DELAY;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CHAT_RESPONSES;
     public static final ForgeConfigSpec.IntValue MAX_ACTIVE_STEVES;
+    public static final ForgeConfigSpec.BooleanValue VOICE_ENABLED;
+    public static final ForgeConfigSpec.ConfigValue<String> STT_BASE_URL;
+    public static final ForgeConfigSpec.ConfigValue<String> STT_API_KEY;
+    public static final ForgeConfigSpec.ConfigValue<String> STT_MODEL;
+    public static final ForgeConfigSpec.ConfigValue<String> STT_LANGUAGE;
+    public static final ForgeConfigSpec.IntValue VOICE_MAX_RECORDING_SECONDS;
+    public static final ForgeConfigSpec.IntValue VOICE_CHUNK_SIZE;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -101,6 +108,45 @@ public class SteveConfig {
         MAX_ACTIVE_STEVES = builder
             .comment("Maximum number of Steves that can be active simultaneously")
             .defineInRange("maxActiveSteves", 10, 1, 50);
+
+        builder.pop();
+
+        builder.comment("Steve Voice Commands Configuration",
+            "Push-to-talk voice commands (key V): the client records the microphone",
+            "and sends the audio to the server, which transcribes it via ANY",
+            "OpenAI-compatible /audio/transcriptions endpoint and dispatches the",
+            "text as a normal chat command.").push("voice");
+
+        VOICE_ENABLED = builder
+            .comment("Enable voice commands (requires a microphone and an STT endpoint)")
+            .define("enabled", true);
+
+        STT_BASE_URL = builder
+            .comment("Base URL of an OpenAI-compatible STT endpoint.",
+                "Any provider works: set your own, e.g. https://routerai.ru/api/v1",
+                "The transcription call is POST {baseUrl}/audio/transcriptions")
+            .define("sttBaseUrl", "https://routerai.ru/api/v1");
+
+        STT_API_KEY = builder
+            .comment("API key for the STT endpoint (stored server-side only)")
+            .define("sttApiKey", "");
+
+        STT_MODEL = builder
+            .comment("STT model name (any model your endpoint supports)")
+            .define("sttModel", "openai/whisper-large-v3-turbo");
+
+        STT_LANGUAGE = builder
+            .comment("STT language hint; empty = auto-detect",
+                "e.g. \"ru\" for Russian commands, \"en\" for English")
+            .define("sttLanguage", "ru");
+
+        VOICE_MAX_RECORDING_SECONDS = builder
+            .comment("Maximum recording length in seconds (auto-stop)")
+            .defineInRange("maxRecordingSeconds", 10, 2, 60);
+
+        VOICE_CHUNK_SIZE = builder
+            .comment("Audio chunk size in bytes sent per network packet")
+            .defineInRange("chunkSize", 16384, 4096, 32767);
 
         builder.pop();
 

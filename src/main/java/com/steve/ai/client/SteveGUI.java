@@ -236,6 +236,10 @@ public class SteveGUI {
         String chatTab = showingInventory ? "§7[Chat]" : "§e[Chat]";
         String invTab = showingInventory ? "§e[Inv]" : "§7[Inv]";
         graphics.drawString(mc.font, chatTab + " " + invTab, panelX + PANEL_PADDING + 58, panelY + 6, TEXT_COLOR);
+        // Voice recording indicator (push-to-talk, key V)
+        if (VoiceRecorder.isRecording()) {
+            graphics.drawString(mc.font, "§c● REC", panelX + PANEL_WIDTH - 48, panelY + 6, 0xFFFF4444);
+        }
         graphics.drawString(mc.font, "§7ESC: close | Tab: view | Click name: select",
             panelX + PANEL_PADDING, panelY + 20, 0xFF888888);
 
@@ -612,13 +616,15 @@ public class SteveGUI {
         String[] parts = command.split(",");
         for (String part : parts) {
             String trimmed = part.trim();
-            String firstWord = trimmed.split(" ")[0].toLowerCase();
-            
-            for (String name : steveNames) {
-                if (name.toLowerCase().equals(firstWord)) {
-                    targets.add(name);
-                    break;
-                }
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            // Name matching tolerates Russian transcriptions ("алекс" -> Alex,
+            // "стиви" -> Steve) and case differences
+            String firstWord = trimmed.split(" ")[0];
+            String matched = com.steve.ai.chat.NameMatcher.matchName(firstWord, steveNames);
+            if (matched != null) {
+                targets.add(matched);
             }
         }
         
