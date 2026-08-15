@@ -49,4 +49,23 @@ class SteveTeleportUtilTest {
         BlockPos found = SteveTeleportUtil.findSafePos(center, (x, y, z) -> true);
         assertEquals(center.offset(-1, 0, -1), found);
     }
+
+    @Test
+    void findsSpotBelowWhenSameHeightBlocked() {
+        // Regression: flying player / pillar - spot 4 blocks below must be found,
+        // previously the vertical search was limited to +-1 and returned null.
+        BlockPos center = new BlockPos(10, 64, 10);
+        BlockPos found = SteveTeleportUtil.findSafePos(center, (x, y, z) ->
+            x == 10 && y == 60 && z == 11);
+        assertEquals(center.offset(0, -4, 1), found);
+    }
+
+    @Test
+    void prefersDownOverUp() {
+        BlockPos center = new BlockPos(10, 64, 10);
+        // Both one block below and one above are free: below wins
+        BlockPos found = SteveTeleportUtil.findSafePos(center, (x, y, z) ->
+            (x == 10 && z == 11) && (y == 63 || y == 65));
+        assertEquals(center.offset(0, -1, 1), found);
+    }
 }

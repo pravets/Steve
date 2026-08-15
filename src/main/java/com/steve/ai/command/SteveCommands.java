@@ -74,15 +74,33 @@ public class SteveCommands {
                 return 0;
             }
             int teleported = 0;
+            int wrongDimension = 0;
+            int noSpot = 0;
             for (String steveName : names) {
                 SteveEntity steve = manager.getSteve(steveName);
-                if (steve != null && steve.teleportToPlayer(player)) {
-                    teleported++;
+                if (steve == null) {
+                    continue;
                 }
+                if (steve.level().dimension() != player.level().dimension()) {
+                    wrongDimension++;
+                } else if (steve.teleportToPlayer(player)) {
+                    teleported++;
+                } else {
+                    noSpot++;
+                }
+            }
+            if (teleported == 0) {
+                String failure = "§cNo Steve teleported"
+                    + (wrongDimension > 0 ? " (" + wrongDimension + " in another dimension" : "")
+                    + (wrongDimension > 0 && noSpot > 0 ? ", " : "")
+                    + (noSpot > 0 ? noSpot + " no safe spot" : "")
+                    + (wrongDimension > 0 || noSpot > 0 ? ")" : "");
+                source.sendFailure(Component.literal(failure));
+                return 0;
             }
             String result = "§aTeleported " + teleported + "/" + names.size() + " Steve(s) to you";
             source.sendSuccess(() -> Component.literal(result), false);
-            return teleported > 0 ? 1 : 0;
+            return 1;
         }
 
         SteveEntity steve = manager.getSteve(name);

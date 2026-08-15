@@ -21,6 +21,7 @@ public class PromptBuilder {
             - build: {"structure": "house", "blocks": ["oak_planks", "cobblestone", "glass_pane"], "dimensions": [9, 6, 9]}
             - mine: {"block": "iron", "quantity": 8} (resources: iron, diamond, coal, gold, copper, redstone, emerald)
             - follow: {"player": "NAME"}
+            - teleport: {"player": "NAME"} (instantly move to the player; use for "come here", "come to me", "return to me", "teleport to me")
             - pathfind: {"x": 0, "y": 0, "z": 0}
             
             RULES:
@@ -53,6 +54,9 @@ public class PromptBuilder {
             
             Input: "follow me"
             {"reasoning": "Player needs me", "plan": "Follow player", "tasks": [{"action": "follow", "parameters": {"player": "USE_NEARBY_PLAYER_NAME"}}]}
+
+            Input: "come to me" / "teleport to me"
+            {"reasoning": "Player wants me nearby", "plan": "Teleport to player", "tasks": [{"action": "teleport", "parameters": {"player": "USE_NEARBY_PLAYER_NAME"}}]}
             
             CRITICAL: Output ONLY valid JSON. No markdown, no explanations, no line breaks in JSON.
             """;

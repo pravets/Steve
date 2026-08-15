@@ -383,6 +383,7 @@ public class ActionExecutor {
             case "craft" -> new CraftItemAction(steve, task);
             case "attack" -> new CombatAction(steve, task);
             case "follow" -> new FollowPlayerAction(steve, task);
+            case "teleport" -> new TeleportAction(steve, task);
             case "gather" -> new GatherResourceAction(steve, task);
             case "build" -> new BuildStructureAction(steve, task);
             default -> {

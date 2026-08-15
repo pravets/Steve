@@ -199,11 +199,13 @@ public class SteveEntity extends PathfinderMob {
 
     private boolean isSafeTeleportSpot(int x, int y, int z) {
         Level level = this.level();
-        BlockState ground = level.getBlockState(new BlockPos(x, y - 1, z));
+        BlockPos groundPos = new BlockPos(x, y - 1, z);
+        BlockState ground = level.getBlockState(groundPos);
         BlockState at = level.getBlockState(new BlockPos(x, y, z));
         BlockState above = level.getBlockState(new BlockPos(x, y + 1, z));
-        return !ground.isAir() && ground.isSolid()
-            && at.isAir() && !at.liquid()
+        // isValidSpawn rejects cacti, magma, powder snow etc. that isSolid() accepts
+        return ground.isValidSpawn(level, groundPos, this.getType())
+            && at.isAir()
             && above.isAir();
     }
 
