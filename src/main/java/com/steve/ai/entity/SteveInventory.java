@@ -14,8 +14,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Steve's inventory: a fixed array of slots (default 36, matching a player's
- * main inventory) with NBT persistence.
+ * Steve's inventory: a fixed array of slots (default 27, matching a vanilla
+ * single chest / the player's main grid) with NBT persistence.
  *
  * <p>Slot indices are stable ({@link ItemStack#EMPTY} fills empty slots), which
  * is required for the vanilla container menu contract: the menu addresses each

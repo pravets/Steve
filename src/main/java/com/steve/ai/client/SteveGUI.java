@@ -378,15 +378,15 @@ public class SteveGUI {
         graphics.drawString(mc.font, header, panelX + PANEL_PADDING, y, TEXT_COLOR);
         y += 12;
 
-        // Inventory grid: 9 columns x 4 rows
+        // Inventory grid: 9 columns x 3 rows (27 slots, matches the default capacity)
         int gridX = panelX + PANEL_PADDING + 2;
         int cols = 9;
         int index = 0;
         for (ItemStack stack : inventoryStacks) {
             int row = index / cols;
             int col = index % cols;
-            if (row >= 4) {
-                break; // Only render 36 slots
+            if (row >= 3) {
+                break; // Only render 27 slots
             }
             int slotX = gridX + col * SLOT_SIZE;
             int slotY = y + row * SLOT_SIZE;
@@ -397,7 +397,7 @@ public class SteveGUI {
             }
             index++;
         }
-        graphics.drawString(mc.font, "§8Items: " + totalItems(), panelX + PANEL_PADDING, y + 4 * SLOT_SIZE + 4, 0xFF777777);
+        graphics.drawString(mc.font, "§8Items: " + totalItems(), panelX + PANEL_PADDING, y + 3 * SLOT_SIZE + 4, 0xFF777777);
     }
 
     private static int totalItems() {
