@@ -70,6 +70,7 @@ public class GatherResourceAction extends BaseAction {
     private BlockPos routeTarget;
     private BlockPos mineTarget;
     private int ticksOnRoute;
+    private int waterHopTicks;
     private int ticksOnMine;
     private int ticksRunning;
 
@@ -235,6 +236,7 @@ public class GatherResourceAction extends BaseAction {
         BlockPos center = steve.blockPosition();
         BlockPos mine = all.stream()
             .filter(p -> !unreachableTargets.contains(p))
+            .filter(p -> !isUnderwaterTarget(p)) // swamp: never walk into water for a log
             .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
             .orElse(null);
         if (mine != null) {
@@ -266,6 +268,24 @@ public class GatherResourceAction extends BaseAction {
     private void phaseRouting() {
         steve.setFlying(false); // ground movement, always
         ticksOnRoute++;
+
+        // Stuck in a swamp pond: ground pathfinding does not work from
+        // inside water. Hop up (water drag then lets the mob rise) and steer
+        // toward the nearest dry spot; once on the surface the normal ground
+        // path to the route target builds again.
+        if (steve.isInWater()) {
+            waterHopTicks++;
+            BlockPos dry = findDrySpot(steve.blockPosition(), 8);
+            if (dry != null) {
+                steve.getNavigation().moveTo(dry.getX() + 0.5, dry.getY(), dry.getZ() + 0.5, 1.0);
+            }
+            if (waterHopTicks % 8 == 0) {
+                steve.setDeltaMovement(steve.getDeltaMovement().add(0, 0.35, 0));
+                debugLog("ROUTING", "stuck in water, hopping toward " + (dry != null ? dry : "surface"));
+            }
+            return;
+        }
+        waterHopTicks = 0;
 
         // Stations sit at origin.y + 5 (look-out altitude) but Steve walks on
         // the ground: arrival and stall checks use the HORIZONTAL distance.
@@ -416,17 +436,47 @@ public class GatherResourceAction extends BaseAction {
 
     private void enterFellMode(List<BlockPos> component) {
         fellMode = true;
+        // Keep only the logs ABOVE the water line: underwater trunk logs in
+        // swamps would make the bot walk into the pond to chop them.
+        List<BlockPos> aboveWater = component.stream()
+            .filter(p -> !isUnderwaterTarget(p))
+            .toList();
+        if (aboveWater.isEmpty()) {
+            return; // whole tree underwater - nothing to fell
+        }
         // Concrete log type: the exact target, or the type of the first
         // connected log when in any-log (wood) mode.
         fellLogBlock = targetBlock != null
             ? targetBlock
-            : steve.level().getBlockState(component.get(0)).getBlock();
+            : steve.level().getBlockState(aboveWater.get(0)).getBlock();
         fellHeight = 0;
         fellStallTicks = 0;
         fellLogs.clear();
-        fellLogs.addAll(component);
-        debugLog("FELL", "whole-tree felling: " + component.size() + " logs");
+        fellLogs.addAll(aboveWater);
+        debugLog("FELL", "whole-tree felling: " + aboveWater.size() + " logs (underwater: "
+            + (component.size() - aboveWater.size()) + " skipped)");
         phase = Phase.FELL_ASCEND;
+    }
+
+    /** Nearest spot (block below not water) within the radius, or null. */
+    private BlockPos findDrySpot(BlockPos center, int radius) {
+        net.minecraft.world.level.Level lvl = steve.level();
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                BlockPos probe = new BlockPos(center.getX() + dx, center.getY(), center.getZ() + dz);
+                if (!lvl.getFluidState(probe).is(net.minecraft.tags.FluidTags.WATER)
+                        && !lvl.getFluidState(probe.below()).is(net.minecraft.tags.FluidTags.WATER)) {
+                    double d = dx * dx + dz * dz;
+                    if (d < bestDist) {
+                        bestDist = d;
+                        best = probe;
+                    }
+                }
+            }
+        }
+        return best;
     }
 
     /** Whether the block at pos is the requested target, or ANY log in any-log mode. */
@@ -436,6 +486,17 @@ public class GatherResourceAction extends BaseAction {
             return block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
         }
         return block == targetBlock;
+    }
+
+    /**
+     * A log we would have to stand IN water to mine: either the block itself
+     * is waterlogged, or the ground below it is water. Swamp trees drop their
+     * lowest logs into the pond - skipping them keeps the bot dry.
+     */
+    private boolean isUnderwaterTarget(BlockPos pos) {
+        net.minecraft.world.level.Level lvl = steve.level();
+        return lvl.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)
+            || lvl.getFluidState(pos.below()).is(net.minecraft.tags.FluidTags.WATER);
     }
 
     private void exitFellMode() {
