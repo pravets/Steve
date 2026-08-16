@@ -18,7 +18,7 @@ public final class ChatCommandParser {
     /** First words that mean "stop / stay in place". */
     private static final List<String> STAY_WORDS = List.of(
         "stay", "stop", "wait", "freeze",
-        "стой", "замри", "остановись", "стоять", "жди"
+        "стой", "замри", "остановись", "стоять", "жди", "стоп"
     );
 
     private ChatCommandParser() {}
