@@ -47,10 +47,8 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_STALL_TICKS = 60; // no progress -> give up
     private static final int FELL_MAX_LOGS = 200; // connected logs per tree (forest guard)
     private static final int FELL_WAIT_TICKS = 25; // vacuum pickup grace period for pillar material
-    private static final int SEARCH_DEBUG_INTERVAL = 40; // ticks between SEARCH candidate logs
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
-    private static final int NEARBY_SCAN_RADIUS = 10; // no-line-of-sight fallback scan
-    private static final int NEARBY_SCAN_INTERVAL = 20; // ticks between cube scans
+    private static final int NEARBY_SCAN_RADIUS = 10; // cube scan around the bot (no line of sight)
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
@@ -65,8 +63,8 @@ public class GatherResourceAction extends BaseAction {
     private int gatheredCount;
     private boolean fillMode;
     private boolean anyLogMode;
-    private int nearbyScanCooldown;
-    private int searchDebugCooldown;
+    private int lastProgressCount;
+    private long lastProgressTick;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -129,6 +127,7 @@ public class GatherResourceAction extends BaseAction {
         // Ground movement only - never fly while gathering
         steve.setFlying(false);
         steve.getNavigation().stop();
+        lastProgressTick = steve.level().getGameTime();
 
         debugLog("GATHER", "search " + resourceLabel() + " x" + targetQuantity
             + " from " + origin);
@@ -141,8 +140,15 @@ public class GatherResourceAction extends BaseAction {
         }
         ticksRunning++;
 
-        if (ResourceSearchPlanner.isTimedOut(searchState, steve.level().getGameTime(),
-                SteveConfig.GATHER_SEARCH_TIMEOUT.get())) {
+        // Search timeout only counts from the last PROGRESS: a bot that
+        // keeps mining trees must never be killed by "Search timed out" -
+        // the clock resets on every felled log.
+        long now = steve.level().getGameTime();
+        if (gatheredCount != lastProgressCount) {
+            lastProgressCount = gatheredCount;
+            lastProgressTick = now;
+        }
+        if (now - lastProgressTick >= SteveConfig.GATHER_SEARCH_TIMEOUT.get()) {
             finish(false, "Search timed out - found " + gatheredCount + " " + resourceLabel());
             return;
         }
@@ -206,62 +212,42 @@ public class GatherResourceAction extends BaseAction {
     // ---- phases ----
 
     private void phaseSearch() {
+        // Nearest material wins. Merge ray-visible blocks with the
+        // no-line-of-sight nearby scan and pick the PHYSICALLY closest
+        // candidate - a tree hidden behind a canopy 3 blocks away must win
+        // over a visible one 30 blocks away (the bot used to skip nearby
+        // trees and walk off into the distance).
         List<BlockPos> visible = anyLogMode
             ? VisionScanner.findVisibleAnyLog(steve)
             : VisionScanner.findVisible(steve, targetBlock);
-        if (!visible.isEmpty()) {
-            // Nearest visible target wins - skip known-unreachable positions
-            // (cliff/lava ores would otherwise be re-picked forever). The
-            // isTreeLog filter (leaves nearby) applies ONLY to logs, so ores,
-            // stone etc. are never rejected for lacking leaves.
-            boolean logTarget = anyLogMode
-                || targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
-            List<BlockPos> candidates = visible.stream()
-                .filter(p -> !unreachableTargets.contains(p))
-                .filter(p -> !logTarget || isTreeLog(p))
-                .toList();
-            if (visible.size() != candidates.size() && --searchDebugCooldown <= 0) {
-                searchDebugCooldown = SEARCH_DEBUG_INTERVAL;
-                debugLog("SEARCH", "visible=" + visible.size() + ", candidates=" + candidates.size());
-            }
-            mineTarget = candidates.stream()
-                .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
-                .orElse(null);
-            if (mineTarget != null) {
-                routeTarget = mineTarget;
-                phase = Phase.ROUTING;
-                return;
-            }
+        boolean logTarget = anyLogMode
+            || (targetBlock != null && targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS));
+
+        List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, targetBlock);
+        if (logTarget) {
+            // lone logs of player buildings are not trees
+            nearby = nearby.stream().filter(this::isTreeLog).toList();
         }
 
-        // No target visible via ray scan: look around without line-of-sight
-        // (forest canopies block the view ray) - walk to the nearest log we
-        // find within NEARBY_SCAN_RADIUS. Cooldown keeps the cube scan cheap.
-        if (nearbyScanCooldown-- <= 0) {
-            nearbyScanCooldown = NEARBY_SCAN_INTERVAL;
-            boolean logTarget = anyLogMode
-                || (targetBlock != null && targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS));
-            List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, targetBlock);
-            if (logTarget) {
-                // lone logs of player buildings are not trees
-                nearby = nearby.stream().filter(this::isTreeLog).toList();
+        List<BlockPos> all = new java.util.ArrayList<>(visible.size() + nearby.size());
+        all.addAll(visible);
+        all.addAll(nearby);
+        BlockPos center = steve.blockPosition();
+        BlockPos mine = all.stream()
+            .filter(p -> !unreachableTargets.contains(p))
+            .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+            .orElse(null);
+        if (mine != null) {
+            if (!visible.contains(mine)) {
+                debugLog("SEARCH", "nearby target at " + mine + " (behind foliage)");
             }
-            if (!nearby.isEmpty()) {
-                BlockPos nearest = nearby.stream()
-                    .filter(p -> !unreachableTargets.contains(p))
-                    .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
-                    .orElse(null);
-                if (nearest != null) {
-                    debugLog("SEARCH", "nearby scan found log at " + nearest + " (no line of sight)");
-                    mineTarget = nearest;
-                    routeTarget = nearest;
-                    phase = Phase.ROUTING;
-                    return;
-                }
-            }
+            mineTarget = mine;
+            routeTarget = mine;
+            phase = Phase.ROUTING;
+            return;
         }
 
-        // No target visible: advance the route
+        // No target anywhere: advance the route
         if (!ResourceSearchPlanner.hasNext(searchState, SteveConfig.GATHER_SEARCH_RADIUS.get(),
                 SteveConfig.GATHER_RING_SPACING.get())) {
             finish(false, "Nothing found within " + SteveConfig.GATHER_SEARCH_RADIUS.get() + " blocks");
