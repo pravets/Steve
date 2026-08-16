@@ -95,35 +95,21 @@ public class SteveEntity extends PathfinderMob {
         }
         if (!this.level().isClientSide && forcedChunk != null) {
             // Release our chunk force-load so it does not linger after removal
-            com.steve.ai.SteveMod.getSteveManager().unforceChunk((net.minecraft.server.level.ServerLevel) this.level(), forcedChunk);
+            com.steve.ai.SteveMod.getSteveManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
             forcedChunk = null;
         }
         super.remove(reason);
     }
 
-    /** Chunk kept force-loaded while this Steve is alive (works without players). */
+    /** Chunk currently force-loaded for this Steve (tracked by SteveManager). */
     private net.minecraft.world.level.ChunkPos forcedChunk;
 
-    /**
-     * Keeps the chunk the Steve stands in force-loaded so it ticks even when
-     * no player is nearby (dedicated servers). Called from tick() every
-     * {@code FORCE_CHUNK_CHECK_INTERVAL} ticks.
-     */
-    private void updateForcedChunk() {
-        if (!com.steve.ai.config.SteveConfig.FORCE_LOAD_CHUNKS.get()) {
-            return;
-        }
-        net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(this.blockPosition());
-        if (current.equals(forcedChunk)) {
-            return;
-        }
-        com.steve.ai.SteveMod.getSteveManager()
-            .forceChunk((net.minecraft.server.level.ServerLevel) this.level(), current);
-        if (forcedChunk != null) {
-            com.steve.ai.SteveMod.getSteveManager()
-                .unforceChunk((net.minecraft.server.level.ServerLevel) this.level(), forcedChunk);
-        }
-        forcedChunk = current;
+    public net.minecraft.world.level.ChunkPos getForcedChunk() {
+        return forcedChunk;
+    }
+
+    public void setForcedChunk(net.minecraft.world.level.ChunkPos forcedChunk) {
+        this.forcedChunk = forcedChunk;
     }
 
     @Override
@@ -131,15 +117,10 @@ public class SteveEntity extends PathfinderMob {
         super.tick();
         
         if (!this.level().isClientSide) {
-            if (this.tickCount % FORCE_CHUNK_CHECK_INTERVAL == 0) {
-                updateForcedChunk();
-            }
             actionExecutor.tick();
             tickPickup();
         }
     }
-
-    private static final int FORCE_CHUNK_CHECK_INTERVAL = 40; // every 2 seconds
 
     /**
      * Periodically picks up nearby item entities into Steve's inventory.

@@ -108,17 +108,58 @@ public class SteveManager {
         }
     }
 
+    /**
+     * Drops a Steve's chunk force-load (on removal). The refcount keeps other
+     * Steves in the same chunk unaffected.
+     */
+    public void releaseChunk(SteveEntity steve, ServerLevel level) {
+        net.minecraft.world.level.ChunkPos chunkPos = steve.getForcedChunk();
+        if (chunkPos != null) {
+            unforceChunk(level, chunkPos);
+            steve.setForcedChunk(null);
+        }
+    }
+
+    /**
+     * Keeps every tracked Steve's current chunk force-loaded. Runs from the
+     * server tick event (NOT from the entity tick): an entity in an unloaded
+     * chunk never ticks, so it could never force its own chunk - the
+     * manager is the outside actor that breaks the deadlock.
+     */
+    private void updateForcedChunks(ServerLevel level) {
+        if (!SteveConfig.FORCE_LOAD_CHUNKS.get()) {
+            return;
+        }
+        for (SteveEntity steve : activeSteves.values()) {
+            if (steve.level() != level) {
+                continue;
+            }
+            net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(steve.blockPosition());
+            net.minecraft.world.level.ChunkPos old = steve.getForcedChunk();
+            if (current.equals(old)) {
+                continue;
+            }
+            forceChunk(level, current);
+            if (old != null) {
+                unforceChunk(level, old);
+            }
+            steve.setForcedChunk(current);
+        }
+    }
+
     public void tick(ServerLevel level) {
+        updateForcedChunks(level);
+
         // Clean up dead or removed Steves
         Iterator<Map.Entry<String, SteveEntity>> iterator = activeSteves.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, SteveEntity> entry = iterator.next();
             SteveEntity steve = entry.getValue();
-            
             if (!steve.isAlive() || steve.isRemoved()) {
+                releaseChunk(steve, level);
                 iterator.remove();
                 stevesByUUID.remove(steve.getUUID());
-                SteveMod.LOGGER.info("Cleaned up Steve: {}", entry.getKey());
+                SteveMod.LOGGER.info("Removed dead Steve: {}", entry.getKey());
             }
         }
     }
