@@ -236,7 +236,13 @@ public class GatherResourceAction extends BaseAction {
         // find within NEARBY_SCAN_RADIUS. Cooldown keeps the cube scan cheap.
         if (nearbyScanCooldown-- <= 0) {
             nearbyScanCooldown = NEARBY_SCAN_INTERVAL;
+            boolean logTarget = anyLogMode
+                || (targetBlock != null && targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS));
             List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, targetBlock);
+            if (logTarget) {
+                // lone logs of player buildings are not trees
+                nearby = nearby.stream().filter(this::isTreeLog).toList();
+            }
             if (!nearby.isEmpty()) {
                 BlockPos nearest = nearby.stream()
                     .filter(p -> !unreachableTargets.contains(p))
