@@ -3,11 +3,12 @@ package com.steve.ai.event;
 import com.steve.ai.SteveMod;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
-import com.steve.ai.memory.StructureRegistry;
 import com.steve.ai.memory.VisionScanner;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
@@ -19,13 +20,34 @@ public class ServerEventHandler {
     private static boolean stevesSpawned = false;
 
     /**
+     * Register every Steve that enters the world (fresh spawn, chunk load,
+     * dimension change) with the manager. Server-side only: client copies
+     * must not be tracked. Dedup of world-loaded duplicates happens here too.
+     */
+    @SubscribeEvent
+    public static void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        if (event.getEntity() instanceof SteveEntity steve) {
+            SteveMod.getSteveManager().adopt(steve);
+        }
+    }
+
+    /**
      * Drop the vision cache entry when a Steve leaves the level
      * (despawn, removal, dimension change) to avoid memory leaks.
+     * On a chunk unload also untrack it so the registry does not hold
+     * dead references; the bot is re-adopted when its chunk loads again.
      */
     @SubscribeEvent
     public static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
         if (event.getEntity() instanceof SteveEntity steve) {
             VisionScanner.forget(steve);
+            if (!event.getLevel().isClientSide()
+                    && steve.getRemovalReason() == Entity.RemovalReason.UNLOADED_TO_CHUNK) {
+                SteveMod.getSteveManager().onSteveUnload(steve);
+            }
         }
     }
 
@@ -42,38 +64,33 @@ public class ServerEventHandler {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerLevel level = (ServerLevel) player.level();
             SteveManager manager = SteveMod.getSteveManager();
-            if (!stevesSpawned) {                manager.clearAllSteves();
-                
-                // Clear structure registry for fresh spatial awareness
-                StructureRegistry.clear();
-                
-                // Then, remove ALL SteveEntity instances from the world (including ones loaded from NBT)
-                int removedCount = 0;
-                for (var entity : level.getAllEntities()) {
-                    if (entity instanceof SteveEntity) {
-                        entity.discard();
-                        removedCount++;
-                    }
-                }                Vec3 playerPos = player.position();
+            if (!stevesSpawned) {
+                // World-loaded Steves are already adopted by onEntityJoinLevel
+                // and keep their NBT state (inventory, memory). Spawn the
+                // default bots only for names that are not taken anywhere.
+                Vec3 playerPos = player.position();
                 Vec3 lookVec = player.getLookAngle();
-                
+
                 String[] names = {"Steve", "Alex", "Bob", "Charlie"};
-                
+
                 for (int i = 0; i < 4; i++) {
+                    if (manager.getSteve(names[i]) != null) {
+                        continue;
+                    }
                     double offsetX = lookVec.x * 5 + (lookVec.z * (i - 1.5) * 2);
                     double offsetZ = lookVec.z * 5 + (-lookVec.x * (i - 1.5) * 2);
-                    
+
                     Vec3 spawnPos = new Vec3(
                         playerPos.x + offsetX,
                         playerPos.y,
                         playerPos.z + offsetZ
                     );
-                    
-                    SteveEntity steve = manager.spawnSteve(level, spawnPos, names[i]);
-                    if (steve != null) {                    }
+
+                    manager.spawnSteve(level, spawnPos, names[i]);
                 }
-                
-                stevesSpawned = true;            }
+
+                stevesSpawned = true;
+            }
         }
     }
 
