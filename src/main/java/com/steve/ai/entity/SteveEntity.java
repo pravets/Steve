@@ -120,13 +120,13 @@ public class SteveEntity extends PathfinderMob {
     }
 
     /** Chunk currently force-loaded for this Steve (tracked by SteveManager). */
-    private net.minecraft.world.level.ChunkPos forcedChunk;
+    private ChunkForceTracker.ChunkKey forcedChunk;
 
-    public net.minecraft.world.level.ChunkPos getForcedChunk() {
+    public ChunkForceTracker.ChunkKey getForcedChunk() {
         return forcedChunk;
     }
 
-    public void setForcedChunk(net.minecraft.world.level.ChunkPos forcedChunk) {
+    public void setForcedChunk(ChunkForceTracker.ChunkKey forcedChunk) {
         this.forcedChunk = forcedChunk;
     }
 

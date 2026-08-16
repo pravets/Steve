@@ -315,12 +315,18 @@ public class SteveManager {
 
     /**
      * Drops a Steve's chunk force-load (on removal). The refcount keeps other
-     * Steves in the same chunk unaffected.
+     * Steves in the same chunk unaffected. Un-forces in the dimension the
+     * chunk actually belongs to (the Steve may have changed dimensions).
      */
     public void releaseChunk(SteveEntity steve, ServerLevel level) {
-        net.minecraft.world.level.ChunkPos chunkPos = steve.getForcedChunk();
-        if (chunkPos != null) {
-            unforceChunk(level, chunkPos);
+        ChunkForceTracker.ChunkKey chunkKey = steve.getForcedChunk();
+        if (chunkKey != null) {
+            ServerLevel ownerLevel = level.getServer() != null
+                ? level.getServer().getLevel(chunkKey.dimension())
+                : null;
+            if (ownerLevel != null) {
+                unforceChunk(ownerLevel, chunkKey.pos());
+            }
             steve.setForcedChunk(null);
         }
     }
@@ -333,20 +339,37 @@ public class SteveManager {
      */
     private void updateForcedChunks(ServerLevel level) {
         if (!SteveConfig.FORCE_LOAD_CHUNKS.get()) {
+            // Feature disabled at runtime: release everything we ever forced
+            // so no chunk stays force-loaded forever.
+            for (SteveEntity steve : activeSteves.values()) {
+                ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
+                if (old != null) {
+                    ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
+                    if (ownerLevel != null) {
+                        unforceChunk(ownerLevel, old.pos());
+                    }
+                    steve.setForcedChunk(null);
+                }
+            }
             return;
         }
         for (SteveEntity steve : activeSteves.values()) {
             if (steve.level() != level) {
                 continue;
             }
-            net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(steve.blockPosition());
-            net.minecraft.world.level.ChunkPos old = steve.getForcedChunk();
+            ChunkForceTracker.ChunkKey current = new ChunkForceTracker.ChunkKey(
+                level.dimension(), new net.minecraft.world.level.ChunkPos(steve.blockPosition()));
+            ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
             if (current.equals(old)) {
                 continue;
             }
-            forceChunk(level, current);
+            forceChunk(level, current.pos());
             if (old != null) {
-                unforceChunk(level, old);
+                // Un-force the previous chunk in ITS dimension (dimension change)
+                ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
+                if (ownerLevel != null) {
+                    unforceChunk(ownerLevel, old.pos());
+                }
             }
             steve.setForcedChunk(current);
         }
