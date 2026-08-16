@@ -31,8 +31,6 @@ public class SteveManager {
     private boolean adoptionDone = false;
 
     public SteveManager() {
-        this.activeSteves = new ConcurrentHashMap<>();
-        this.stevesByUUID = new ConcurrentHashMap<>();
     }
 
     public SteveEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
