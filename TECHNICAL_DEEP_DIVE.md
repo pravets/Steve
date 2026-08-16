@@ -1596,23 +1596,30 @@ static {
 public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
     dispatcher.register(Commands.literal("steve")
         .then(Commands.literal("spawn")
-            .then(Commands.argument("name", StringArgumentType.string())
+            .then(Commands.argument("name", SteveNameArgumentType.steveName())
                 .executes(SteveCommands::spawnSteve)))
         .then(Commands.literal("remove")
-            .then(Commands.argument("name", StringArgumentType.string())
+            .then(Commands.argument("name", SteveNameArgumentType.steveName())
                 .executes(SteveCommands::removeSteve)))
         .then(Commands.literal("list")
             .executes(SteveCommands::listSteves))
         .then(Commands.literal("stop")
-            .then(Commands.argument("name", StringArgumentType.string())
+            .then(Commands.argument("name", SteveNameArgumentType.steveName())
                 .executes(SteveCommands::stopSteve)))
         .then(Commands.literal("tell")
-            .then(Commands.argument("name", StringArgumentType.string())
+            .then(Commands.argument("name", SteveNameArgumentType.steveName())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .executes(SteveCommands::tellSteve))))
     );
 }
 ```
+
+**Name constraints**: since this change, all `/steve` commands accept only a strict
+`SteveName` instead of an arbitrary `StringArgumentType.string()` value. A name must
+contain only letters (any script, including Cyrillic), digits and `_ - . +`; spaces,
+quotes and any other character are rejected (quoted input is still parsed, but the
+name itself must match `[\p{L}\p{N}_.+-]+`). Steves created earlier with names outside
+this set can no longer be addressed by command.
 
 **Spawning Logic**:
 ```java

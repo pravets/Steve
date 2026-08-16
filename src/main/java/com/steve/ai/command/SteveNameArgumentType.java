@@ -16,17 +16,22 @@ import net.minecraft.network.chat.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 /**
- * Brigadier argument type for Steve names. Reads a single whitespace-free
- * token and accepts letters (any script, including Cyrillic), digits and the
- * extra characters {@code _ - . +}. Everything else is rejected, so names
- * like "Васян", "Steve_1" or "Майнер-2" work while quoted or multi-word
- * strings do not.
+ * Brigadier argument type for Steve names. Accepts a quoted or unquoted string
+ * and validates it against the allowed character set: letters (any script,
+ * including Cyrillic), digits and the extra characters {@code _ - . +}.
+ * Quoting (as with {@code StringArgumentType.string()}) is honoured so that
+ * names entered in quotes still parse, while multi-word or other invalid
+ * names are rejected.
  */
 public class SteveNameArgumentType implements ArgumentType<String> {
 
     private static final String ALLOWED_EXTRA = "_-.+";
+
+    private static final Pattern VALID_NAME =
+        Pattern.compile("[\\p{L}\\p{N}" + ALLOWED_EXTRA.replace("-", "\\-") + "]+");
 
     private static final DynamicCommandExceptionType INVALID_NAME = new DynamicCommandExceptionType(
         value -> Component.translatable("argument.steve.steve_name.invalid", value));
@@ -44,20 +49,32 @@ public class SteveNameArgumentType implements ArgumentType<String> {
 
     @Override
     public String parse(StringReader reader) throws CommandSyntaxException {
+        String value = readName(reader);
+        if (value.isEmpty() || !VALID_NAME.matcher(value).matches()) {
+            throw INVALID_NAME.createWithContext(reader, value);
+        }
+        return value;
+    }
+
+    /**
+     * Reads a Brigadier string, honouring quoted strings exactly like
+     * {@code StringArgumentType.string()} so names previously typed in quotes
+     * keep working. Unquoted input is read as a single whitespace-free token;
+     * the {@link #VALID_NAME} pattern then rejects anything outside the
+     * allowed character set (any-script letters, digits, {@code _ - . +}).
+     */
+    private static String readName(StringReader reader) throws CommandSyntaxException {
+        if (!reader.canRead()) {
+            return "";
+        }
+        if (StringReader.isQuotedStringStart(reader.peek())) {
+            return reader.readQuotedString();
+        }
         int start = reader.getCursor();
         while (reader.canRead() && !Character.isWhitespace(reader.peek())) {
             reader.skip();
         }
-        String value = reader.getString().substring(start, reader.getCursor());
-        if (value.isEmpty()) {
-            throw INVALID_NAME.createWithContext(reader, value);
-        }
-        for (int codePoint : value.codePoints().toArray()) {
-            if (!Character.isLetterOrDigit(codePoint) && ALLOWED_EXTRA.indexOf(codePoint) < 0) {
-                throw INVALID_NAME.createWithContext(reader, value);
-            }
-        }
-        return value;
+        return reader.getString().substring(start, reader.getCursor());
     }
 
     @Override
@@ -66,7 +83,11 @@ public class SteveNameArgumentType implements ArgumentType<String> {
         if (manager == null) {
             return builder.buildFuture();
         }
-        return SharedSuggestionProvider.suggest(manager.getSteveNames(), builder);
+        List<String> names = manager.getSteveNames();
+        if (names == null || names.isEmpty()) {
+            return builder.buildFuture();
+        }
+        return SharedSuggestionProvider.suggest(names, builder);
     }
 
     @Override

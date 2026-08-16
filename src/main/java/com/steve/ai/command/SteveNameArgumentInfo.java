@@ -10,7 +10,7 @@ import net.minecraft.network.FriendlyByteBuf;
  * (no parameters), so serialization is a no-op and both network and JSON
  * deserialization hand back the same singleton template.
  */
-public class SteveNameArgumentInfo implements ArgumentTypeInfo<SteveNameArgumentType, SteveNameArgumentInfo.Template> {
+public final class SteveNameArgumentInfo implements ArgumentTypeInfo<SteveNameArgumentType, SteveNameArgumentInfo.Template> {
 
     public static final SteveNameArgumentInfo INSTANCE = new SteveNameArgumentInfo();
 
@@ -45,7 +45,7 @@ public class SteveNameArgumentInfo implements ArgumentTypeInfo<SteveNameArgument
         }
 
         @Override
-        public ArgumentTypeInfo<SteveNameArgumentType, ?> type() {
+        public SteveNameArgumentInfo type() {
             return INSTANCE;
         }
     }

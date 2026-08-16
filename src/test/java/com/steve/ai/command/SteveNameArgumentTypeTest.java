@@ -3,7 +3,6 @@ package com.steve.ai.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * Verifies that all /steve commands accept Cyrillic Steve names. The default
@@ -19,8 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SteveNameArgumentTypeTest {
 
-    private static final CommandSourceStack SOURCE = new CommandSourceStack(
-        null, null, null, null, 0, "", Component.literal(""), null, null);
+    private static final CommandSourceStack SOURCE = mock(CommandSourceStack.class);
 
     private static CommandDispatcher<CommandSourceStack> dispatcher;
 
@@ -40,7 +39,9 @@ class SteveNameArgumentTypeTest {
 
     private static void assertRejected(String command) {
         ParseResults<CommandSourceStack> results = dispatcher.parse(command, SOURCE);
-        assertTrue(results.getContext().getCommand() == null || results.getReader().canRead(),
+        assertTrue(results.getReader().canRead()
+                || !results.getExceptions().isEmpty()
+                || results.getContext().getCommand() == null,
             "Command should fail to parse: " + command);
     }
 
@@ -63,12 +64,19 @@ class SteveNameArgumentTypeTest {
     }
 
     @Test
+    void acceptsQuotedNames() {
+        assertParses("steve spawn \"Васян\"");
+        assertParses("steve spawn 'Steve_1'");
+        assertParses("steve tell \"Майнер\" стой");
+    }
+
+    @Test
     void rejectsInvalidNames() {
         assertRejected("steve spawn");
         assertRejected("steve spawn Васян!");
         assertRejected("steve spawn Васян#");
         assertRejected("steve spawn Васян Петров");
-        assertRejected("steve spawn \"Васян\"");
+        assertRejected("steve spawn \"Васян Петров\"");
     }
 
     @Test
