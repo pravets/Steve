@@ -1,18 +1,11 @@
 package com.steve.ai.entity;
 
-import net.minecraft.SharedConstants;
-import net.minecraft.WorldVersion;
-import net.minecraft.server.Bootstrap;
+import com.steve.ai.testutil.AbstractMinecraftTest;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.packs.PackType;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.storage.DataVersion;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,39 +16,10 @@ import static org.mockito.Mockito.*;
  * Unit tests for the SteveManager lifecycle: dedup on adopt, NBT-loaded
  * preference, registry cleanup (leave/tick) and removeSteve world sweep.
  *
- * Minecraft's registries are bootstrapped like in SteveInventoryTest; entity
+ * Minecraft's registries are bootstrapped in AbstractMinecraftTest; entity
  * interactions are mocked (no running game server is needed).
  */
-class SteveManagerTest {
-
-    @BeforeAll
-    static void bootstrap() {
-        try {
-            SharedConstants.setVersion(new WorldVersion() {
-                @Override
-                public String getName() { return "1.20.1"; }
-                @Override
-                public String getId() { return "1.20.1"; }
-                @Override
-                public DataVersion getDataVersion() { return new DataVersion(3465); }
-                @Override
-                public int getProtocolVersion() { return 765; }
-                @Override
-                public int getPackVersion(PackType type) { return 15; }
-                @Override
-                public Date getBuildTime() { return new Date(0); }
-                @Override
-                public boolean isStable() { return true; }
-            });
-        } catch (IllegalStateException e) {
-            // Version already set by another test class in the same JVM.
-        }
-        try {
-            Bootstrap.bootStrap();
-        } catch (IllegalStateException e) {
-            // Already bootstrapped by another test class in the same JVM.
-        }
-    }
+class SteveManagerTest extends AbstractMinecraftTest {
 
     private static SteveEntity mockSteve(String name, UUID uuid) {
         SteveEntity steve = mock(SteveEntity.class);
@@ -97,7 +61,7 @@ class SteveManagerTest {
     }
 
     @Test
-    void adoptDiscardsDuplicateNewcomer() {
+    void adoptRejectsDuplicateNewcomer() {
         SteveManager manager = new SteveManager();
         SteveEntity original = mockSteve("Steve", UUID.randomUUID());
         SteveEntity duplicate = mockSteve("Steve", UUID.randomUUID());
@@ -107,8 +71,10 @@ class SteveManagerTest {
 
         assertSame(original, manager.getSteve("Steve"));
         assertNull(manager.getSteve(duplicate.getUUID()));
-        verify(duplicate).setSuppressInventoryDrop(true);
-        verify(duplicate).discard();
+        // The rejected duplicate has not entered the world yet - the caller
+        // (ServerEventHandler) cancels the join event instead of discarding.
+        verify(duplicate, never()).setSuppressInventoryDrop(true);
+        verify(duplicate, never()).discard();
         verify(original, never()).discard();
     }
 
@@ -146,8 +112,8 @@ class SteveManagerTest {
         assertNull(manager.adopt(b));
 
         assertSame(a, manager.getSteve("Steve"));
-        verify(b).setSuppressInventoryDrop(true);
-        verify(b).discard();
+        verify(b, never()).setSuppressInventoryDrop(true);
+        verify(b, never()).discard();
         verify(a, never()).discard();
     }
 

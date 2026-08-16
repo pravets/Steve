@@ -36,7 +36,14 @@ public class SteveManager {
      *
      * <p>Re-adopting the same instance is a no-op (idempotent).
      *
-     * @return the adopted instance, or null if it was discarded as a duplicate
+     * <p>A duplicate newcomer that is rejected is returned as null and is
+     * NOT discarded here: during an {@code EntityJoinLevelEvent} the entity
+     * has not entered the world yet, so {@code ServerEventHandler} cancels
+     * the join instead. {@code discard()} stays for instances that are
+     * already in the world (the NBT-vs-fresh replacement below) and for
+     * {@link #removeSteve(String, MinecraftServer)}.
+     *
+     * @return the adopted instance, or null if it was rejected as a duplicate
      */
     public SteveEntity adopt(SteveEntity steve) {
         if (steve == null) {
@@ -63,12 +70,11 @@ public class SteveManager {
                 activeSteves.remove(name);
                 stevesByUUID.remove(existing.getUUID());
             } else {
-                // Duplicate bot with the same name: discard the newcomer. Its
-                // NBT-inventory equals the survivor's, so suppress the drop to
-                // avoid an item-dupe exploit.
-                steve.setSuppressInventoryDrop(true);
-                steve.discard();
-                SteveMod.LOGGER.info("Dedup: discarded duplicate Steve '{}' ({}) - another live instance exists",
+                // Duplicate bot with the same name: reject the newcomer. It has
+                // not entered the world yet during an EntityJoinLevelEvent, so
+                // the join is canceled (see ServerEventHandler) instead of a
+                // discard that would drop the (identical, duplicated) contents.
+                SteveMod.LOGGER.info("Dedup: rejected duplicate Steve '{}' ({}) - another live instance exists",
                         name, steve.getUUID());
                 return null;
             }
@@ -180,6 +186,12 @@ public class SteveManager {
      * because a bot loaded from NBT may exist in a chunk without being
      * tracked in the maps (e.g. after the dedup auto-spawn regression).
      *
+     * <p>Note: {@link ServerLevel#getAllEntities()} only enumerates entities
+     * in <em>loaded</em> chunks. A bot whose chunk is unloaded is not visited
+     * by the sweep and will be re-adopted (and thus re-appear in the
+     * registry) via {@link #adopt(SteveEntity)} when its chunk loads again;
+     * run this command again after the chunk is loaded to remove it.
+     *
      * <p>When several same-named instances exist in the world (a bug), only
      * the tracked instance may drop its inventory; every other duplicate has
      * its inventory drop suppressed so the (identical, duplicated) contents
@@ -201,12 +213,12 @@ public class SteveManager {
                     }
                 }
             }
-            SteveEntity tracked = activeSteves.get(name);
+            SteveEntity trackedInWorldSweep = activeSteves.get(name);
             for (SteveEntity steve : matches) {
                 if (!steve.isAlive() || steve.isRemoved()) {
                     continue;
                 }
-                if (steve != tracked) {
+                if (steve != trackedInWorldSweep) {
                     // Same-named duplicate: dropping its (identical) contents
                     // would dupe items, so suppress the drop for non-tracked
                     // copies. The tracked instance keeps the normal drop.
