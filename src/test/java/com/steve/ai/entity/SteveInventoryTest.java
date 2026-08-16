@@ -27,23 +27,31 @@ class SteveInventoryTest {
 
     @BeforeAll
     static void bootstrap() {
-        SharedConstants.setVersion(new WorldVersion() {
-            @Override
-            public String getName() { return "1.20.1"; }
-            @Override
-            public String getId() { return "1.20.1"; }
-            @Override
-            public DataVersion getDataVersion() { return new DataVersion(3465); }
-            @Override
-            public int getProtocolVersion() { return 765; }
-            @Override
-            public int getPackVersion(PackType type) { return 15; }
-            @Override
-            public Date getBuildTime() { return new Date(0); }
-            @Override
-            public boolean isStable() { return true; }
-        });
-        Bootstrap.bootStrap();
+        try {
+            SharedConstants.setVersion(new WorldVersion() {
+                @Override
+                public String getName() { return "1.20.1"; }
+                @Override
+                public String getId() { return "1.20.1"; }
+                @Override
+                public DataVersion getDataVersion() { return new DataVersion(3465); }
+                @Override
+                public int getProtocolVersion() { return 765; }
+                @Override
+                public int getPackVersion(PackType type) { return 15; }
+                @Override
+                public Date getBuildTime() { return new Date(0); }
+                @Override
+                public boolean isStable() { return true; }
+            });
+        } catch (IllegalStateException e) {
+            // Version already set by another test class in the same JVM.
+        }
+        try {
+            Bootstrap.bootStrap();
+        } catch (IllegalStateException e) {
+            // Already bootstrapped by another test class in the same JVM.
+        }
     }
 
     @Test

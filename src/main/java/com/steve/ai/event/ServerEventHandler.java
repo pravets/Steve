@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -35,19 +36,31 @@ public class ServerEventHandler {
     }
 
     /**
-     * Drop the vision cache entry when a Steve leaves the level
-     * (despawn, removal, dimension change) to avoid memory leaks.
-     * On a chunk unload also untrack it so the registry does not hold
-     * dead references; the bot is re-adopted when its chunk loads again.
+     * Drop the vision cache entry when a Steve leaves the level (despawn,
+     * removal, dimension change) to avoid memory leaks. Untrack it from the
+     * registries for every removal reason except a dimension change: a
+     * CHANGED_DIMENSION bot is still alive (just in another level) and is
+     * re-adopted idempotently when it joins the new level.
      */
     @SubscribeEvent
     public static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
         if (event.getEntity() instanceof SteveEntity steve) {
             VisionScanner.forget(steve);
             if (!event.getLevel().isClientSide()
-                    && steve.getRemovalReason() == Entity.RemovalReason.UNLOADED_TO_CHUNK) {
+                    && steve.getRemovalReason() != Entity.RemovalReason.CHANGED_DIMENSION) {
                 SteveMod.getSteveManager().onSteveUnload(steve);
             }
+        }
+    }
+
+    /**
+     * Periodic safety net: the manager cleans dead/removed Steve entries that
+     * were not untracked by any leave-level event.
+     */
+    @SubscribeEvent
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            SteveMod.getSteveManager().tick();
         }
     }
 
