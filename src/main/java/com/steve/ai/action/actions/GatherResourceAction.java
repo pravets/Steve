@@ -48,6 +48,8 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_MAX_LOGS = 200; // connected logs per tree (forest guard)
     private static final int FELL_WAIT_TICKS = 25; // vacuum pickup grace period for pillar material
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
+    private static final int NEARBY_SCAN_RADIUS = 10; // no-line-of-sight fallback scan
+    private static final int NEARBY_SCAN_INTERVAL = 20; // ticks between cube scans
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
@@ -62,6 +64,7 @@ public class GatherResourceAction extends BaseAction {
     private int gatheredCount;
     private boolean fillMode;
     private boolean anyLogMode;
+    private int nearbyScanCooldown;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -225,6 +228,27 @@ public class GatherResourceAction extends BaseAction {
                 routeTarget = mineTarget;
                 phase = Phase.ROUTING;
                 return;
+            }
+        }
+
+        // No target visible via ray scan: look around without line-of-sight
+        // (forest canopies block the view ray) - walk to the nearest log we
+        // find within NEARBY_SCAN_RADIUS. Cooldown keeps the cube scan cheap.
+        if (nearbyScanCooldown-- <= 0) {
+            nearbyScanCooldown = NEARBY_SCAN_INTERVAL;
+            List<BlockPos> nearby = VisionScanner.findNearbyLogs(steve, NEARBY_SCAN_RADIUS, targetBlock);
+            if (!nearby.isEmpty()) {
+                BlockPos nearest = nearby.stream()
+                    .filter(p -> !unreachableTargets.contains(p))
+                    .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                    .orElse(null);
+                if (nearest != null) {
+                    debugLog("SEARCH", "nearby scan found log at " + nearest + " (no line of sight)");
+                    mineTarget = nearest;
+                    routeTarget = nearest;
+                    phase = Phase.ROUTING;
+                    return;
+                }
             }
         }
 
