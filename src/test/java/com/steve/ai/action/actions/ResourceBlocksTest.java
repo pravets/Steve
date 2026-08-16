@@ -1,21 +1,14 @@
 package com.steve.ai.action.actions;
 
-import com.steve.ai.test.McTestBootstrap;
-import net.minecraft.server.Bootstrap;
+import com.steve.ai.testutil.AbstractMinecraftTest;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class ResourceBlocksTest {
-
-    @BeforeAll
-    static void bootstrap() {
-        McTestBootstrap.bootstrap();
-    }
+class ResourceBlocksTest extends AbstractMinecraftTest {
 
     @Test
     void resolvesOreShorthand() {

@@ -1,12 +1,11 @@
 package com.steve.ai.entity;
 
-import com.steve.ai.test.McTestBootstrap;
+import com.steve.ai.testutil.AbstractMinecraftTest;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,14 +14,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for SteveInventory (add/merge/capacity/NBT logic).
  *
  * Vanilla Items require Minecraft's registries, which are initialized via
- * {@link McTestBootstrap} before the tests.
+ * SharedConstants.setVersion + Bootstrap.bootStrap() in AbstractMinecraftTest.
  */
-class SteveInventoryTest {
-
-    @BeforeAll
-    static void bootstrap() {
-        McTestBootstrap.bootstrap();
-    }
+class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemMergesIntoExistingStack() {

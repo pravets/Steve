@@ -1,12 +1,11 @@
 package com.steve.ai.action.actions;
 
 import com.steve.ai.entity.SteveInventory;
-import com.steve.ai.test.McTestBootstrap;
+import com.steve.ai.testutil.AbstractMinecraftTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,12 +13,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class FellSupportTest {
-
-    @BeforeAll
-    static void bootstrap() {
-        McTestBootstrap.bootstrap();
-    }
+class FellSupportTest extends AbstractMinecraftTest {
 
     // ---- findSolidPillarBlock ----
 
