@@ -29,7 +29,7 @@ public class SteveNameArgumentType implements ArgumentType<String> {
     private static final String ALLOWED_EXTRA = "_-.+";
 
     private static final DynamicCommandExceptionType INVALID_NAME = new DynamicCommandExceptionType(
-        value -> Component.literal("Invalid Steve name: '" + value + "'"));
+        value -> Component.translatable("argument.steve.steve_name.invalid", value));
 
     SteveNameArgumentType() {
     }
@@ -52,9 +52,8 @@ public class SteveNameArgumentType implements ArgumentType<String> {
         if (value.isEmpty()) {
             throw INVALID_NAME.createWithContext(reader, value);
         }
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (!Character.isLetterOrDigit(c) && ALLOWED_EXTRA.indexOf(c) < 0) {
+        for (int codePoint : value.codePoints().toArray()) {
+            if (!Character.isLetterOrDigit(codePoint) && ALLOWED_EXTRA.indexOf(codePoint) < 0) {
                 throw INVALID_NAME.createWithContext(reader, value);
             }
         }

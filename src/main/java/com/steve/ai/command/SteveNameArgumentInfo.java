@@ -19,10 +19,6 @@ public class SteveNameArgumentInfo implements ArgumentTypeInfo<SteveNameArgument
     private SteveNameArgumentInfo() {
     }
 
-    public static SteveNameArgumentInfo getInstance() {
-        return INSTANCE;
-    }
-
     @Override
     public void serializeToNetwork(Template template, FriendlyByteBuf buffer) {
     }

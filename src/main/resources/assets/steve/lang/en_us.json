@@ -1,5 +1,6 @@
 {
   "key.categories.steve": "Steve AI",
-  "key.steve.toggle_gui": "Toggle Steve Panel"
+  "key.steve.toggle_gui": "Toggle Steve Panel",
+  "argument.steve.steve_name.invalid": "Invalid Steve name: '%s'"
 }
 
