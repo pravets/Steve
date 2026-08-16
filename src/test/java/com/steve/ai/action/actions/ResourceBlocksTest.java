@@ -11,6 +11,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class ResourceBlocksTest extends AbstractMinecraftTest {
 
     @Test
+    void stackSizeForMatchesItemStackSize() {
+        assertEquals(64, ResourceBlocks.stackSizeFor(Blocks.OAK_LOG));
+        assertEquals(64, ResourceBlocks.stackSizeFor(Blocks.BIRCH_LOG));
+        assertEquals(64, ResourceBlocks.stackSizeFor(Blocks.COBBLESTONE));
+        assertEquals(16, ResourceBlocks.stackSizeFor(Blocks.OAK_SIGN), "signs stack to 16");
+        assertEquals(64, ResourceBlocks.stackSizeFor(null));
+    }
+
+    @Test
     void resolvesOreShorthand() {
         assertEquals(Blocks.IRON_ORE, ResourceBlocks.parseBlock("iron"));
         assertEquals(Blocks.DIAMOND_ORE, ResourceBlocks.parseBlock("diamond"));

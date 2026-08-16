@@ -57,4 +57,16 @@ public final class ResourceBlocks {
         Block block = BuiltInRegistries.BLOCK.get(location);
         return block == Blocks.AIR ? null : block;
     }
+
+    /**
+     * Max stack size of the item this block drops as (oak_log=64,
+     * ender_pearl=16, ...). Used to resolve "добудь стак" deterministically.
+     */
+    public static int stackSizeFor(Block block) {
+        if (block == null) {
+            return 64;
+        }
+        net.minecraft.world.item.Item item = block.asItem();
+        return item == net.minecraft.world.item.Items.AIR ? 64 : new net.minecraft.world.item.ItemStack(item).getMaxStackSize();
+    }
 }

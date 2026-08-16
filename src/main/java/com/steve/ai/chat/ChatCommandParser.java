@@ -39,6 +39,21 @@ public final class ChatCommandParser {
         return FILL_MARKERS.stream().anyMatch(trimmed::contains);
     }
 
+    /** Substrings that mean "one full stack of the resource" ("стак"). */
+    private static final List<String> STACK_MARKERS = List.of("стак", "stack of", " stack");
+
+    /** Whether the command asks for exactly one full stack of the resource. */
+    public static boolean isStackCommand(String lowerCommand) {
+        if (lowerCommand == null) {
+            return false;
+        }
+        String trimmed = lowerCommand.trim().toLowerCase(java.util.Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        return STACK_MARKERS.stream().anyMatch(trimmed::contains);
+    }
+
     private ChatCommandParser() {}
 
     /**

@@ -71,6 +71,14 @@ class ChatCommandParserTest {
     }
 
     @Test
+    void stackCommands() {
+        assertTrue(ChatCommandParser.isStackCommand(normalize("добудь стак дерева")));
+        assertTrue(ChatCommandParser.isStackCommand(normalize("a stack of oak logs")));
+        assertFalse(ChatCommandParser.isStackCommand(normalize("добудь 50 дерева")));
+        assertFalse(ChatCommandParser.isStackCommand(normalize("stay")));
+    }
+
+    @Test
     void nonStayCommandsAreRejected() {
         assertFalse(isStayCommand(normalize("mine iron")));
         assertFalse(isStayCommand(normalize("иди копай")));

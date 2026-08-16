@@ -125,6 +125,24 @@ public class TaskPlanner {
                         SteveMod.LOGGER.info("[Async] Fill-inventory mode applied to gather tasks");
                     }
 
+                    // "One full stack" (стак) is deterministic too: replace the
+                    // LLM's quantity with the resource's real stack size.
+                    if (ChatCommandParser.isStackCommand(command)) {
+                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                            if ("gather".equals(task.getAction())) {
+                                String resource = task.getStringParameter("resource");
+                                if (resource == null) {
+                                    resource = task.getStringParameter("block");
+                                }
+                                net.minecraft.world.level.block.Block block =
+                                    com.steve.ai.action.actions.ResourceBlocks.parseBlock(resource);
+                                int stackSize = com.steve.ai.action.actions.ResourceBlocks.stackSizeFor(block);
+                                task.getParameters().put("quantity", stackSize);
+                                SteveMod.LOGGER.info("[Async] Stack size {} applied to gather task '{}'", stackSize, resource);
+                            }
+                        }
+                    }
+
                     return parsed;
                 })
                 .exceptionally(throwable -> {
