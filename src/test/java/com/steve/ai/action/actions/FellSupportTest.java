@@ -29,11 +29,28 @@ class FellSupportTest extends AbstractMinecraftTest {
     }
 
     @Test
-    void refusesToBurnLogs() {
+    void fallsBackToHarvestedLogs() {
+        // Only felled logs in the inventory: the pillar must be built from
+        // them (a log pillar is dismantled and re-collected on the way down,
+        // so it is not a loss). Without this the bot stalls under the tree.
         SteveInventory inventory = new SteveInventory(9);
-        inventory.addItem(new ItemStack(Items.OAK_LOG, 32));
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 4));
 
-        assertTrue(FellSupport.findSolidPillarBlock(null, null, inventory, Blocks.OAK_LOG).isEmpty());
+        ItemStack pillar = FellSupport.findSolidPillarBlock(null, null, inventory, Blocks.OAK_LOG);
+
+        assertFalse(pillar.isEmpty(), "felled logs must be usable as pillar fallback");
+        assertEquals(Items.OAK_LOG, pillar.getItem());
+    }
+
+    @Test
+    void prefersBuildBlocksOverHarvestedLogs() {
+        SteveInventory inventory = new SteveInventory(9);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 4));
+        inventory.addItem(new ItemStack(Items.DIRT, 8));
+
+        ItemStack pillar = FellSupport.findSolidPillarBlock(null, null, inventory, Blocks.OAK_LOG);
+
+        assertEquals(Items.DIRT, pillar.getItem(), "dirt is preferred over burning the harvest");
     }
 
     @Test

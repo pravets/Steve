@@ -32,25 +32,35 @@ public final class FellSupport {
 
     /**
      * Finds the first usable block stack for the pillar: a solid full-block
-     * (collision shape) block item that is NOT the target block (never burn
-     * the logs we are harvesting). Returns EMPTY if there is nothing usable.
+     * (collision shape) block item. Prefers anything EXCEPT the target block
+     * (dirt, cobble, ...), but falls back to the harvested logs themselves -
+     * a log pillar is NOT a loss: it is dismantled and re-collected on the
+     * way down. Without this fallback the bot stalls under the tree when it
+     * has felled 3-4 logs but no dirt to climb with.
+     * Returns EMPTY if there is nothing usable.
      */
     public static ItemStack findSolidPillarBlock(Level level, BlockPos standPos,
                                                  SteveInventory inventory, Block targetBlock) {
+        ItemStack logFallback = ItemStack.EMPTY;
         for (ItemStack stack : inventory.getStacks()) {
             if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem blockItem)) {
                 continue;
             }
             Block block = blockItem.getBlock();
-            if (block == targetBlock) {
-                continue; // don't burn logs
-            }
             BlockState state = block.defaultBlockState();
-            if (!state.isAir() && !state.liquid() && state.isCollisionShapeFullBlock(level, standPos)) {
-                return stack;
+            if (state.isAir() || state.liquid() || !state.isCollisionShapeFullBlock(level, standPos)) {
+                continue;
             }
+            if (block == targetBlock) {
+                // remember as fallback, but prefer building blocks first
+                if (logFallback.isEmpty()) {
+                    logFallback = stack;
+                }
+                continue;
+            }
+            return stack;
         }
-        return ItemStack.EMPTY;
+        return logFallback;
     }
 
     /** Squared horizontal distance from one block position to another. */
