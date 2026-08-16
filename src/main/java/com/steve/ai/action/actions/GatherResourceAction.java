@@ -47,6 +47,7 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_STALL_TICKS = 60; // no progress -> give up
     private static final int FELL_MAX_LOGS = 200; // connected logs per tree (forest guard)
     private static final int FELL_WAIT_TICKS = 25; // vacuum pickup grace period for pillar material
+    private static final int SEARCH_DEBUG_INTERVAL = 40; // ticks between SEARCH candidate logs
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
     private static final int NEARBY_SCAN_RADIUS = 10; // no-line-of-sight fallback scan
     private static final int NEARBY_SCAN_INTERVAL = 20; // ticks between cube scans
@@ -65,6 +66,7 @@ public class GatherResourceAction extends BaseAction {
     private boolean fillMode;
     private boolean anyLogMode;
     private int nearbyScanCooldown;
+    private int searchDebugCooldown;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -218,7 +220,8 @@ public class GatherResourceAction extends BaseAction {
                 .filter(p -> !unreachableTargets.contains(p))
                 .filter(p -> !logTarget || isTreeLog(p))
                 .toList();
-            if (visible.size() != candidates.size()) {
+            if (visible.size() != candidates.size() && --searchDebugCooldown <= 0) {
+                searchDebugCooldown = SEARCH_DEBUG_INTERVAL;
                 debugLog("SEARCH", "visible=" + visible.size() + ", candidates=" + candidates.size());
             }
             mineTarget = candidates.stream()
@@ -347,8 +350,10 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
-        // Target block gone (already mined by someone else / dropped)
-        if (steve.level().getBlockState(mineTarget).getBlock() != targetBlock) {
+        // Target block gone (already mined by someone else / dropped).
+        // NOTE: in any-log mode targetBlock is null, so compare via
+        // isLogBlockAt (LOGS tag) - block != null would always be true.
+        if (!isLogBlockAt(mineTarget)) {
             mineTarget = null;
             ticksOnMine = 0;
             phase = Phase.SEARCH;
