@@ -15,6 +15,7 @@ public class KeyBindings {
     public static final String KEY_CATEGORY = "key.categories.steve";
     
     public static KeyMapping TOGGLE_GUI;
+    public static KeyMapping VOICE_PTT;
 
     @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
@@ -24,7 +25,15 @@ public class KeyBindings {
             GLFW.GLFW_KEY_K, // K key
             KEY_CATEGORY
         );
-        
-        event.register(TOGGLE_GUI);    }
+        event.register(TOGGLE_GUI);
+
+        VOICE_PTT = new KeyMapping(
+            "key.steve.voice_ptt",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_V, // V key - push-to-talk
+            KEY_CATEGORY
+        );
+        event.register(VOICE_PTT);
+    }
 }
 

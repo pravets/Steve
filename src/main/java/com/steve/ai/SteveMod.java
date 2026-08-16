@@ -11,10 +11,12 @@ import com.steve.ai.menu.SteveMenus;
 import com.steve.ai.network.SteveNetworking;
 import net.minecraft.commands.synchronization.ArgumentTypeInfo;
 import net.minecraft.commands.synchronization.ArgumentTypeInfos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -87,6 +89,15 @@ public class SteveMod {
 
     @SubscribeEvent
     public void onCommandRegister(RegisterCommandsEvent event) {        SteveCommands.register(event.getDispatcher());    }
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && steveManager != null && event.getServer() != null) {
+            for (ServerLevel level : event.getServer().getAllLevels()) {
+                steveManager.tick(level);
+            }
+        }
+    }
 
     public static SteveManager getSteveManager() {
         return steveManager;

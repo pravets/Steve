@@ -60,6 +60,25 @@ public final class SteveNetworking {
             ClientboundSteveListPacket::decode,
             SteveNetworking::handleSteveList,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        CHANNEL.registerMessage(id++,
+            ServerboundVoiceChunkPacket.class,
+            ServerboundVoiceChunkPacket::encode,
+            ServerboundVoiceChunkPacket::decode,
+            SteveNetworking::handleVoiceChunk,
+            Optional.of(NetworkDirection.PLAY_TO_SERVER));
+    }
+
+    private static void handleVoiceChunk(ServerboundVoiceChunkPacket packet,
+                                         Supplier<NetworkEvent.Context> contextSupplier) {
+        NetworkEvent.Context ctx = contextSupplier.get();
+        ctx.enqueueWork(() -> {
+            ServerPlayer sender = ctx.getSender();
+            if (sender != null) {
+                com.steve.ai.voice.VoiceCommandHandler.onChunk(sender, packet.chunk, packet.seq, packet.last);
+            }
+        });
+        ctx.setPacketHandled(true);
     }
 
     private static void handleRequestSteveList(ServerboundRequestSteveListPacket packet,
