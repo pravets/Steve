@@ -54,6 +54,7 @@ class ChatCommandParserTest {
         assertTrue(isStayCommand(normalize("стой на месте")));
         assertTrue(isStayCommand(normalize("замри")));
         assertTrue(isStayCommand(normalize("остановись")));
+        assertTrue(isStayCommand(normalize("стоп")));
         assertTrue(isStayCommand(normalize("стоять")));
         assertTrue(isStayCommand(normalize("жди меня")));
     }

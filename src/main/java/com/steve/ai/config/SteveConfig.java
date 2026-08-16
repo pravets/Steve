@@ -25,6 +25,7 @@ public class SteveConfig {
     public static final ForgeConfigSpec.ConfigValue<String> STT_LANGUAGE;
     public static final ForgeConfigSpec.IntValue VOICE_MAX_RECORDING_SECONDS;
     public static final ForgeConfigSpec.IntValue VOICE_CHUNK_SIZE;
+    public static final ForgeConfigSpec.BooleanValue FORCE_LOAD_CHUNKS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -108,6 +109,11 @@ public class SteveConfig {
         MAX_ACTIVE_STEVES = builder
             .comment("Maximum number of Steves that can be active simultaneously")
             .defineInRange("maxActiveSteves", 10, 1, 50);
+
+        FORCE_LOAD_CHUNKS = builder
+            .comment("Keep the chunk each Steve stands in force-loaded so Steves",
+                "keep working on a dedicated server even when no player is online")
+            .define("forceLoadChunks", true);
 
         builder.pop();
 

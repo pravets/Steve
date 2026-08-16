@@ -282,7 +282,7 @@ public class SteveCommands {
         CommandSourceStack source = context.getSource();
         
         SteveManager manager = SteveMod.getSteveManager();
-        if (manager.removeSteve(name)) {
+        if (manager.removeSteve(name, source.getServer())) {
             source.sendSuccess(() -> Component.literal("Removed Steve: " + name), true);
             return 1;
         } else {
