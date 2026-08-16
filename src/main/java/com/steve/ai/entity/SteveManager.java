@@ -294,4 +294,101 @@ public class SteveManager {
     public int getActiveCount() {
         return activeSteves.size();
     }
+
+    // ---- chunk force-loading (work without players) ----
+
+    private final ChunkForceTracker chunkForceTracker = new ChunkForceTracker();
+
+    /** Force-loads a chunk while a Steve is in it (refcounted across Steves). */
+    public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
+        if (chunkForceTracker.force(level.dimension(), chunkPos)) {
+            level.setChunkForced(chunkPos.x, chunkPos.z, true);
+        }
+    }
+
+    /** Releases a chunk force-load; the chunk unloads when the last Steve leaves. */
+    public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
+        if (chunkForceTracker.unforce(level.dimension(), chunkPos)) {
+            level.setChunkForced(chunkPos.x, chunkPos.z, false);
+        }
+    }
+
+    /**
+     * Drops a Steve's chunk force-load (on removal). The refcount keeps other
+     * Steves in the same chunk unaffected. Un-forces in the dimension the
+     * chunk actually belongs to (the Steve may have changed dimensions).
+     */
+    public void releaseChunk(SteveEntity steve, ServerLevel level) {
+        ChunkForceTracker.ChunkKey chunkKey = steve.getForcedChunk();
+        if (chunkKey != null) {
+            ServerLevel ownerLevel = level.getServer() != null
+                ? level.getServer().getLevel(chunkKey.dimension())
+                : null;
+            if (ownerLevel != null) {
+                unforceChunk(ownerLevel, chunkKey.pos());
+            }
+            steve.setForcedChunk(null);
+        }
+    }
+
+    /**
+     * Keeps every tracked Steve's current chunk force-loaded. Runs from the
+     * server tick event (NOT from the entity tick): an entity in an unloaded
+     * chunk never ticks, so it could never force its own chunk - the
+     * manager is the outside actor that breaks the deadlock.
+     */
+    private void updateForcedChunks(ServerLevel level) {
+        if (!SteveConfig.FORCE_LOAD_CHUNKS.get()) {
+            // Feature disabled at runtime: release everything we ever forced
+            // so no chunk stays force-loaded forever.
+            for (SteveEntity steve : activeSteves.values()) {
+                ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
+                if (old != null) {
+                    ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
+                    if (ownerLevel != null) {
+                        unforceChunk(ownerLevel, old.pos());
+                    }
+                    steve.setForcedChunk(null);
+                }
+            }
+            return;
+        }
+        for (SteveEntity steve : activeSteves.values()) {
+            if (steve.level() != level) {
+                continue;
+            }
+            ChunkForceTracker.ChunkKey current = new ChunkForceTracker.ChunkKey(
+                level.dimension(), new net.minecraft.world.level.ChunkPos(steve.blockPosition()));
+            ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
+            if (current.equals(old)) {
+                continue;
+            }
+            forceChunk(level, current.pos());
+            if (old != null) {
+                // Un-force the previous chunk in ITS dimension (dimension change)
+                ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
+                if (ownerLevel != null) {
+                    unforceChunk(ownerLevel, old.pos());
+                }
+            }
+            steve.setForcedChunk(current);
+        }
+    }
+
+    public void tick(ServerLevel level) {
+        updateForcedChunks(level);
+
+        // Clean up dead or removed Steves
+        Iterator<Map.Entry<String, SteveEntity>> iterator = activeSteves.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, SteveEntity> entry = iterator.next();
+            SteveEntity steve = entry.getValue();
+            if (!steve.isAlive() || steve.isRemoved()) {
+                releaseChunk(steve, level);
+                iterator.remove();
+                stevesByUUID.remove(steve.getUUID());
+                SteveMod.LOGGER.info("Removed dead Steve: {}", entry.getKey());
+            }
+        }
+    }
 }

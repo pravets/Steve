@@ -9,7 +9,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -58,15 +57,9 @@ public class ServerEventHandler {
     }
 
     /**
-     * Periodic safety net: the manager cleans dead/removed Steve entries that
-     * were not untracked by any leave-level event.
+     * Periodic safety net (dead/removed cleanup + chunk force-loading) runs
+     * from SteveMod.onServerTick - once per level, with the level parameter.
      */
-    @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) {
-            SteveMod.getSteveManager().tick();
-        }
-    }
 
     /**
      * Clear all vision caches on server shutdown.

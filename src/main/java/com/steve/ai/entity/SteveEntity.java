@@ -110,7 +110,24 @@ public class SteveEntity extends PathfinderMob {
                 this.spawnAtLocation(stack);
             }
         }
+        if (!this.level().isClientSide && forcedChunk != null
+                && com.steve.ai.SteveMod.getSteveManager() != null) {
+            // Release our chunk force-load so it does not linger after removal
+            com.steve.ai.SteveMod.getSteveManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
+            forcedChunk = null;
+        }
         super.remove(reason);
+    }
+
+    /** Chunk currently force-loaded for this Steve (tracked by SteveManager). */
+    private ChunkForceTracker.ChunkKey forcedChunk;
+
+    public ChunkForceTracker.ChunkKey getForcedChunk() {
+        return forcedChunk;
+    }
+
+    public void setForcedChunk(ChunkForceTracker.ChunkKey forcedChunk) {
+        this.forcedChunk = forcedChunk;
     }
 
     public void setSuppressInventoryDrop(boolean suppress) {
