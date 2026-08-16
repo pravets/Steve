@@ -79,6 +79,16 @@ class ChatCommandParserTest {
     }
 
     @Test
+    void woodCommands() {
+        assertTrue(ChatCommandParser.isWoodCommand(normalize("добудь дерева")));
+        assertTrue(ChatCommandParser.isWoodCommand(normalize("добудь 50 брёвен")));
+        assertTrue(ChatCommandParser.isWoodCommand(normalize("gather wood")));
+        assertTrue(ChatCommandParser.isWoodCommand(normalize("chop trees")));
+        assertFalse(ChatCommandParser.isWoodCommand(normalize("добудь железо")));
+        assertFalse(ChatCommandParser.isWoodCommand(normalize("mine iron ore")));
+    }
+
+    @Test
     void nonStayCommandsAreRejected() {
         assertFalse(isStayCommand(normalize("mine iron")));
         assertFalse(isStayCommand(normalize("иди копай")));

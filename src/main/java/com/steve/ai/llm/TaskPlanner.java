@@ -143,6 +143,19 @@ public class TaskPlanner {
                         }
                     }
 
+                    // "Gather wood/trees" means ANY log type: the user's words
+                    // win over whatever single log type the LLM named.
+                    if (ChatCommandParser.isWoodCommand(command)) {
+                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                            if ("gather".equals(task.getAction())
+                                    && com.steve.ai.action.actions.ResourceBlocks.isWoodRequest(
+                                        task.getStringParameter("resource"))) {
+                                task.getParameters().put("resource", "wood");
+                                SteveMod.LOGGER.info("[Async] Wood request normalized to any-log mode");
+                            }
+                        }
+                    }
+
                     return parsed;
                 })
                 .exceptionally(throwable -> {

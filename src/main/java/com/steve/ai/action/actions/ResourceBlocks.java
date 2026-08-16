@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -69,4 +70,38 @@ public final class ResourceBlocks {
         net.minecraft.world.item.Item item = block.asItem();
         return item == net.minecraft.world.item.Items.AIR ? 64 : new net.minecraft.world.item.ItemStack(item).getMaxStackSize();
     }
+
+    /** Whether the request means "any logs" (wood/tree), not one specific block. */
+    public static boolean isWoodRequest(String resource) {
+        if (resource == null) {
+            return false;
+        }
+        String normalized = resource.toLowerCase(Locale.ROOT).replace("_", " ").trim();
+        // Exact generic words are always wood requests, even though the
+        // shorthand map aliases "wood" to oak_log.
+        if (WOOD_EXACT.contains(normalized)) {
+            return true;
+        }
+        // A concrete block name (oak_log, birch_wood) is NOT a wood request,
+        // even though it contains the word "log".
+        if (parseBlock(resource) != null) {
+            return false;
+        }
+        for (String wood : WOOD_SYNONYMS) {
+            if (normalized.contains(wood)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final java.util.Set<String> WOOD_EXACT = java.util.Set.of(
+        "wood", "tree", "trees", "log", "logs", "timber",
+        "дерево", "дерева", "брёвна", "бревна", "брёвен", "бревен", "лес", "дрова", "древесина"
+    );
+
+    private static final List<String> WOOD_SYNONYMS = List.of(
+        "wood", "tree", "log", "timber",
+        "дерев", "брев", "брёв", "лес", "дров", "древесин"
+    );
 }

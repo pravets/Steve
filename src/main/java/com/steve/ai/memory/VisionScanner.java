@@ -117,6 +117,25 @@ public final class VisionScanner {
     }
 
     /**
+     * Finds visible blocks of ANY log type (BlockTags.LOGS): used by the
+     * "gather wood" mode where the bot must chop birch, spruce etc., not just
+     * the single oak type the LLM happened to name.
+     */
+    public static List<BlockPos> findVisibleAnyLog(SteveEntity steve) {
+        Map<Block, List<BlockPos>> visible = scan(steve);
+        List<BlockPos> found = new java.util.ArrayList<>();
+        for (Map.Entry<Block, List<BlockPos>> entry : visible.entrySet()) {
+            if (entry.getKey().builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)) {
+                found.addAll(entry.getValue());
+            }
+        }
+        BlockPos center = steve.blockPosition();
+        return found.stream()
+            .sorted(Comparator.comparingDouble(p -> p.distSqr(center)))
+            .toList();
+    }
+
+    /**
      * Finds the nearest visible block of the given type, or null.
      */
     public static BlockPos findNearestVisible(SteveEntity steve, Block target) {

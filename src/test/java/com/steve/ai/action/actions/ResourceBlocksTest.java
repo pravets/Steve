@@ -6,7 +6,9 @@ import net.minecraft.world.level.block.Blocks;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourceBlocksTest extends AbstractMinecraftTest {
 
@@ -17,6 +19,20 @@ class ResourceBlocksTest extends AbstractMinecraftTest {
         assertEquals(64, ResourceBlocks.stackSizeFor(Blocks.COBBLESTONE));
         assertEquals(16, ResourceBlocks.stackSizeFor(Blocks.OAK_SIGN), "signs stack to 16");
         assertEquals(64, ResourceBlocks.stackSizeFor(null));
+    }
+
+    @Test
+    void woodRequestsAreDetected() {
+        assertTrue(ResourceBlocks.isWoodRequest("wood"));
+        assertTrue(ResourceBlocks.isWoodRequest("tree"));
+        assertTrue(ResourceBlocks.isWoodRequest("logs"));
+        assertTrue(ResourceBlocks.isWoodRequest("дерево"));
+        assertTrue(ResourceBlocks.isWoodRequest("брёвна"));
+        assertFalse(ResourceBlocks.isWoodRequest("iron_ore"));
+        assertFalse(ResourceBlocks.isWoodRequest("oak_log"), "concrete log type is NOT a wood request");
+        assertFalse(ResourceBlocks.isWoodRequest("birch_wood"), "concrete wood block is NOT a wood request");
+        assertFalse(ResourceBlocks.isWoodRequest("cobblestone"));
+        assertFalse(ResourceBlocks.isWoodRequest(null));
     }
 
     @Test

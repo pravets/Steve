@@ -54,6 +54,28 @@ public final class ChatCommandParser {
         return STACK_MARKERS.stream().anyMatch(trimmed::contains);
     }
 
+    /** Whether the command asks for wood/trees in general (any log type). */
+    public static boolean isWoodCommand(String lowerCommand) {
+        if (lowerCommand == null) {
+            return false;
+        }
+        String trimmed = lowerCommand.trim().toLowerCase(java.util.Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        for (String wood : WOOD_MARKERS) {
+            if (trimmed.contains(wood)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final List<String> WOOD_MARKERS = List.of(
+        "wood", "tree", "trees", "logs", "log", "timber",
+        "дерев", "брев", "брёв", "лес", "дров"
+    );
+
     private ChatCommandParser() {}
 
     /**

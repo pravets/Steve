@@ -61,6 +61,7 @@ public class GatherResourceAction extends BaseAction {
     private int targetQuantity;
     private int gatheredCount;
     private boolean fillMode;
+    private boolean anyLogMode;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -98,8 +99,11 @@ public class GatherResourceAction extends BaseAction {
         targetQuantity = task.getIntParameter("quantity", 16);
         fillMode = "true".equalsIgnoreCase(String.valueOf(task.getParameters().getOrDefault("fill", "false")));
 
-        targetBlock = ResourceBlocks.parseBlock(blockName);
-        if (targetBlock == null) {
+        // "Gather wood/tree" means ANY log (oak, birch, spruce...) - the LLM
+        // may name a single type, but the user asked for wood in general.
+        anyLogMode = ResourceBlocks.isWoodRequest(blockName);
+        targetBlock = anyLogMode ? null : ResourceBlocks.parseBlock(blockName);
+        if (!anyLogMode && targetBlock == null) {
             result = ActionResult.failure("Unknown resource: " + blockName);
             return;
         }
@@ -121,7 +125,7 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false);
         steve.getNavigation().stop();
 
-        debugLog("GATHER", "search " + targetBlock.getName().getString() + " x" + targetQuantity
+        debugLog("GATHER", "search " + resourceLabel() + " x" + targetQuantity
             + " from " + origin);
     }
 
@@ -134,15 +138,19 @@ public class GatherResourceAction extends BaseAction {
 
         if (ResourceSearchPlanner.isTimedOut(searchState, steve.level().getGameTime(),
                 SteveConfig.GATHER_SEARCH_TIMEOUT.get())) {
-            finish(false, "Search timed out - found " + gatheredCount + " " + targetBlock.getName().getString());
+            finish(false, "Search timed out - found " + gatheredCount + " " + resourceLabel());
             return;
         }
 
         if (fillMode) {
             // Fill mode: keep mining while there is any room left for the
             // requested resource (empty slot or a partially filled stack).
-            if (!steve.getInventory().hasSpaceFor(currentTargetItem())) {
-                finish(true, "Inventory full - gathered " + gatheredCount + " " + targetBlock.getName().getString());
+            // In any-log mode any free slot counts (mixed log types).
+            boolean hasRoom = anyLogMode
+                ? steve.getInventory().hasFreeSpace()
+                : steve.getInventory().hasSpaceFor(currentTargetItem());
+            if (!hasRoom) {
+                finish(true, "Inventory full - gathered " + gatheredCount + " " + resourceLabel());
                 return;
             }
         } else if (!steve.getInventory().hasFreeSpace()) {
@@ -155,7 +163,7 @@ public class GatherResourceAction extends BaseAction {
         // 30 oak logs and the player asks for 50, exactly 50 more are mined
         // (80 total) - comparing the inventory would stop at 20 (bug).
         if (gatheredCount >= targetQuantity) {
-            finish(true, "Gathered " + gatheredCount + " " + targetBlock.getName().getString());
+            finish(true, "Gathered " + gatheredCount + " " + resourceLabel());
             return;
         }
 
@@ -173,19 +181,36 @@ public class GatherResourceAction extends BaseAction {
 
     /** The item we are actually counting: logs while felling, else the target block. */
     private net.minecraft.world.item.Item currentTargetItem() {
-        return fellMode ? fellLogBlock.asItem() : targetBlock.asItem();
+        if (fellMode && fellLogBlock != null) {
+            return fellLogBlock.asItem();
+        }
+        if (anyLogMode || targetBlock == null) {
+            return net.minecraft.world.item.Items.OAK_LOG;
+        }
+        return targetBlock.asItem();
+    }
+
+    /** Human-readable resource name ("Oak Log" or "Wood" in any-log mode). */
+    private String resourceLabel() {
+        if (anyLogMode) {
+            return "Wood";
+        }
+        return targetBlock != null ? targetBlock.getName().getString() : "?";
     }
 
     // ---- phases ----
 
     private void phaseSearch() {
-        List<BlockPos> visible = VisionScanner.findVisible(steve, targetBlock);
+        List<BlockPos> visible = anyLogMode
+            ? VisionScanner.findVisibleAnyLog(steve)
+            : VisionScanner.findVisible(steve, targetBlock);
         if (!visible.isEmpty()) {
             // Nearest visible target wins - skip known-unreachable positions
             // (cliff/lava ores would otherwise be re-picked forever). The
             // isTreeLog filter (leaves nearby) applies ONLY to logs, so ores,
             // stone etc. are never rejected for lacking leaves.
-            boolean logTarget = targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+            boolean logTarget = anyLogMode
+                || targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
             List<BlockPos> candidates = visible.stream()
                 .filter(p -> !unreachableTargets.contains(p))
                 .filter(p -> !logTarget || isTreeLog(p))
@@ -302,7 +327,7 @@ public class GatherResourceAction extends BaseAction {
         }
 
         gatheredCount++;
-        debugLog("MINE", targetBlock.getName().getString() + " at " + mineTarget
+        debugLog("MINE", resourceLabel() + " at " + mineTarget
             + " (" + gatheredCount + "/" + targetQuantity + ")");
 
         // Enter whole-tree felling: a log above the mined one means a tree
@@ -310,12 +335,12 @@ public class GatherResourceAction extends BaseAction {
         // never be felled, even if built from logs)
         BlockPos above = mineTarget.above();
         mineTarget = null;
-        if (!fellMode && steve.level().getBlockState(above).getBlock() == targetBlock
+        if (!fellMode && isLogBlockAt(above)
                 && isTreeLog(above)) {
             // NOTE: compare against targetBlock here - isTargetLog() uses
             // fellLogBlock which is only set inside enterFellMode().
             List<BlockPos> component = FellSupport.collectConnectedLogs(above,
-                p -> steve.level().getBlockState(p).getBlock() == targetBlock, FELL_MAX_LOGS);
+                this::isLogBlockAt, FELL_MAX_LOGS);
             if (component.size() >= 2) { // trunk (or trunk+branches) = a tree, not a lone log
                 enterFellMode(component);
                 return;
@@ -334,13 +359,26 @@ public class GatherResourceAction extends BaseAction {
 
     private void enterFellMode(List<BlockPos> component) {
         fellMode = true;
-        fellLogBlock = targetBlock;
+        // Concrete log type: the exact target, or the type of the first
+        // connected log when in any-log (wood) mode.
+        fellLogBlock = targetBlock != null
+            ? targetBlock
+            : steve.level().getBlockState(component.get(0)).getBlock();
         fellHeight = 0;
         fellStallTicks = 0;
         fellLogs.clear();
         fellLogs.addAll(component);
         debugLog("FELL", "whole-tree felling: " + component.size() + " logs");
         phase = Phase.FELL_ASCEND;
+    }
+
+    /** Whether the block at pos is the requested target, or ANY log in any-log mode. */
+    private boolean isLogBlockAt(BlockPos pos) {
+        Block block = steve.level().getBlockState(pos).getBlock();
+        if (anyLogMode) {
+            return block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+        }
+        return block == targetBlock;
     }
 
     private void exitFellMode() {
@@ -601,7 +639,7 @@ public class GatherResourceAction extends BaseAction {
 
     @Override
     public String getDescription() {
-        return "Gather " + targetQuantity + " " + (targetBlock != null ? targetBlock.getName().getString() : "?")
+        return "Gather " + targetQuantity + " " + resourceLabel()
             + " (" + gatheredCount + " found)";
     }
 }
