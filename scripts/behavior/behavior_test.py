@@ -45,7 +45,10 @@ class RCON:
         self.sock.settimeout(30)
         buf = b""
         while True:
-            buf += self.sock.recv(4096)
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("RCON connection closed while reading response")
+            buf += chunk
             if len(buf) >= 4:
                 length = struct.unpack("<i", buf[:4])[0]
                 if len(buf) >= 4 + length:
@@ -65,8 +68,8 @@ class RCON:
 
     def _auth(self, password):
         rid, ptype, _ = self._send(3, password)
-        if ptype != 2:
-            raise ConnectionError(f"RCON auth failed (type={ptype})")
+        if rid == -1 or ptype != 2:
+            raise ConnectionError(f"RCON auth failed (id={rid}, type={ptype})")
         # Forge needs a beat after auth before it processes commands -
         # a command sent immediately can be dropped (no response at all).
         time.sleep(1.0)
@@ -114,6 +117,15 @@ def main():
     if os.path.exists(log_path):
         os.remove(log_path)
 
+    # Fresh world every run: a previous run leaves adopted Steve entities in
+    # the world files, and adopt-on-join would then reject the spawn
+    # ("Steve name already exists").
+    for stale in ("world", "world_nether", "world_the_end"):
+        p = os.path.join(args.dir, stale)
+        if os.path.isdir(p):
+            import shutil
+            shutil.rmtree(p)
+
     print("Starting server...")
     proc = start_server(args.dir, args.jar, log_path)
     try:
@@ -129,39 +141,54 @@ def main():
             if not wait_for(log_path, r"Spawned Steve: Bob", 30, "spawn"):
                 return 1
 
-            # Extract Bob's UUID for the /tp
-            uuid_m = None
+            # Extract Bob's UUID and actual spawn position for the /tp
             with open(log_path, "r", errors="replace") as f:
-                m = re.search(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", f.read())
-                if m:
-                    uuid_m = m.group(1)
+                log_text = f.read()
+            uuid_m = None
+            m = re.search(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", log_text)
+            if m:
+                uuid_m = m.group(1)
             if not uuid_m:
                 print("  [FAIL] Bob UUID not found in log")
                 return 1
             print(f"  Bob UUID: {uuid_m}")
 
-            # 2. Teleport outside spawn chunks. Spawn is at ~(230, 67, -32)
-            #    (chunk 14); x=300 is chunk 18 - outside spawn chunks but no
-            #    heavy far-region generation. y=4 = flat surface: teleporting
-            #    high up makes the bot fall for ages and stalls the server.
-            print("Teleporting Bob to (300, 4, 0)...")
-            rcon.command(f"tp {uuid_m} 300 4 0")
+            # 2. Find Bob's ACTUAL spawn position (world spawn is not fixed:
+            #    no level-seed is set, the spawn chunk varies). Teleport him
+            #    to a chunk more than 9 chunks away from the spawn chunk -
+            #    Minecraft 1.20.1 keeps a 19x19 spawn-tick area around world
+            #    spawn, so anything within 9 chunks ticks even without our
+            #    force-loading. y=4 = flat surface: teleporting high up makes
+            #    the bot fall for ages and stalls the 1-core runner.
+            spawn_pos = re.search(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
+            if not spawn_pos:
+                print("  [FAIL] Bob spawn position not found in log")
+                return 1
+            spawn_x = float(spawn_pos.group(1))
+            spawn_z = float(spawn_pos.group(3))
+            far_x = int(spawn_x) + 10 * 16 + 8  # +10 chunks east, block coords
+            print(f"Teleporting Bob from spawn ({spawn_x:.0f}, {spawn_z:.0f}) to ({far_x}, 4, 0)...")
+            rcon.command(f"tp {uuid_m} {far_x} 4 0")
             if not wait_for(log_path, r"Teleported", 30, "teleport"):
                 return 1
 
-            # 3. Give the chunk force-load a few seconds (manager tick forces it)
+            # 3. Give the chunk force-load a few seconds. SteveMod.onServerTick
+            #    calls updateForcedChunks every tick, so the force flag is set
+            #    almost immediately - the sleep is just buffer for chunk I/O.
             print("Waiting for chunk force-load...")
             time.sleep(12)
 
             # 4. The chunk must be marked as force-loaded (block coords in the
-            #    query: chunk [18,0] = block (288, 0)). Vanilla forceload
-            #    sends its reply to the RCON client only - check the body.
+            #    query: chunk = block >> 4). Vanilla forceload sends its reply
+            #    to the RCON client only - check the body.
+            far_chunk_x = far_x >> 4
             print("Checking force-load status...")
-            fl_response = rcon.command("forceload query 288 0")
+            fl_response = rcon.command(f"forceload query {far_x} 0")
             print(f"  forceload query: {fl_response}")
-            if "marked for force loading" not in fl_response:
+            if f"marked for force loading" not in fl_response:
                 print("  -> chunk force-load failed")
                 return 1
+            print(f"  -> chunk [{far_chunk_x}, 0] force-loaded")
 
             # 5. Give a gather command. The LLM endpoint is unreachable by
             #    design, so the fallback handler produces a deterministic task
