@@ -287,7 +287,29 @@ public class GatherResourceAction extends BaseAction {
         }
 
         if (!steve.getNavigation().isInProgress()) {
-            steve.getNavigation().moveTo(routeTarget.getX() + 0.5, routeTarget.getY(), routeTarget.getZ() + 0.5, 1.0);
+            // Target the GROUND below the route point, not the air above it:
+            // routeTarget is a log/station block whose y is usually above
+            // ground level. GroundPathNavigation cannot build a path to an
+            // airborne point, so the bot "stands on the pumpkin next to the
+            // tree" forever - it CAN step off, the path just never exists.
+            // Walk down from the route point to the first solid block
+            // (leaves/air/water are skipped) - this is the standing spot.
+            net.minecraft.world.level.Level lvl = steve.level();
+            BlockPos probe = routeTarget;
+            int groundY = routeTarget.getY();
+            while (groundY > lvl.getMinBuildHeight()) {
+                BlockPos below = probe.below();
+                BlockState belowState = lvl.getBlockState(below);
+                if (!belowState.isAir()
+                        && !(belowState.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock)
+                        && !belowState.liquid()
+                        && belowState.isCollisionShapeFullBlock(lvl, below)) {
+                    break;
+                }
+                probe = below;
+                groundY--;
+            }
+            steve.getNavigation().moveTo(routeTarget.getX() + 0.5, groundY, routeTarget.getZ() + 0.5, 1.0);
         }
 
         // Path cannot be built / blocked: skip this target after a grace
