@@ -200,6 +200,14 @@ public class SteveGUI {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
+        // Global voice recording indicator: shown regardless of the panel
+        if (VoiceRecorder.isRecording()) {
+            GuiGraphics gfx = event.getGuiGraphics();
+            int w = mc.getWindow().getGuiScaledWidth();
+            gfx.fill(w - 70, 4, w - 4, 24, 0xAA000000);
+            gfx.drawString(mc.font, "§c● REC §7(V: stop)", w - 64, 8, 0xFFFF4444);
+        }
+
         if (isOpen && slideOffset > 0) {
             slideOffset = Math.max(0, slideOffset - ANIMATION_SPEED);
         } else if (!isOpen && slideOffset < PANEL_WIDTH) {

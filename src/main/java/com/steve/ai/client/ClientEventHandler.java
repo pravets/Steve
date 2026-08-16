@@ -35,7 +35,11 @@ public class ClientEventHandler {
 
         // Voice push-to-talk (V): toggle recording, then auto-stop on timeout
         if (KeyBindings.VOICE_PTT != null && KeyBindings.VOICE_PTT.consumeClick()) {
-            if (!VoiceRecorder.toggle() && mc.player != null) {
+            if (!com.steve.ai.config.SteveConfig.VOICE_ENABLED.get()) {
+                mc.player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal(
+                        "§cVoice commands disabled - enable [voice] enabled=true and set sttApiKey in config"), false);
+            } else if (!VoiceRecorder.toggle() && mc.player != null) {
                 mc.player.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§cVoice: microphone unavailable"), false);
             }
