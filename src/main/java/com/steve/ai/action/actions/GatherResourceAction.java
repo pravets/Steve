@@ -46,6 +46,7 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_MAX_HEIGHT = 64; // world height - pillar can reach any tree top
     private static final int FELL_STALL_TICKS = 60; // no progress -> give up
     private static final int FELL_MAX_LOGS = 200; // connected logs per tree (forest guard)
+    private static final int FELL_WAIT_TICKS = 25; // vacuum pickup grace period for pillar material
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
@@ -77,8 +78,9 @@ public class GatherResourceAction extends BaseAction {
     private final List<BlockPos> fellLogs = new ArrayList<>();
     private int fellHeight;
     private int fellStallTicks;
+    private int fellWaitTicks;
 
-    private enum Phase { SEARCH, ROUTING, MINING, FELL_ASCEND, FELL_DESCEND, FELL_GATHER, FINISHED }
+    private enum Phase { SEARCH, ROUTING, MINING, FELL_ASCEND, FELL_DESCEND, FELL_GATHER, FELL_WAIT, FINISHED }
 
     private Phase phase = Phase.SEARCH;
 
@@ -154,6 +156,7 @@ public class GatherResourceAction extends BaseAction {
             case FELL_ASCEND -> phaseFellAscend();
             case FELL_DESCEND -> phaseFellDescend();
             case FELL_GATHER -> phaseFellGatherMaterial();
+            case FELL_WAIT -> phaseFellWaitPickup();
             default -> { }
         }
     }
@@ -276,12 +279,13 @@ public class GatherResourceAction extends BaseAction {
 
         if (fellGatheringMaterial) {
             // Gather enough pillar material: switch back to logs only once a
-            // usable block is actually in the inventory (grass drops dirt)
+            // usable block is actually in the inventory. The drop needs a few
+            // ticks to be vacuumed - wait instead of digging forever.
             targetBlock = fellLogBlock;
             fellGatheringMaterial = false;
             boolean havePillarBlock = !FellSupport.findSolidPillarBlock(steve.level(),
                 steve.blockPosition(), steve.getInventory(), fellLogBlock).isEmpty();
-            phase = havePillarBlock ? Phase.FELL_ASCEND : Phase.FELL_GATHER;
+            phase = havePillarBlock ? Phase.FELL_ASCEND : Phase.FELL_WAIT;
             return;
         }
 
@@ -371,6 +375,10 @@ public class GatherResourceAction extends BaseAction {
                 fellStallTicks = 0;
                 debugLog("FELL", "felled " + fellLogBlock.getName().getString() + " at " + reachable
                     + " (" + gatheredCount + "/" + targetQuantity + ")");
+            } else {
+                // The log vanished (already broken elsewhere): stop retrying it
+                fellLogs.remove(reachable);
+                debugLog("FELL", "log at " + reachable + " already gone, skipping");
             }
             return;
         }
@@ -496,6 +504,26 @@ public class GatherResourceAction extends BaseAction {
             }
         }
         finish(false, "No blocks left to climb the tree with");
+    }
+
+    /**
+     * After mining a material block the drop needs a few ticks to be vacuumed
+     * into the inventory. Wait briefly instead of mining another block (which
+     * previously looped forever when the drop never arrived).
+     */
+    private void phaseFellWaitPickup() {
+        fellWaitTicks++;
+        boolean havePillarBlock = !FellSupport.findSolidPillarBlock(steve.level(),
+            steve.blockPosition(), steve.getInventory(), fellLogBlock).isEmpty();
+        if (havePillarBlock) {
+            fellWaitTicks = 0;
+            phase = Phase.FELL_ASCEND;
+            return;
+        }
+        if (fellWaitTicks > FELL_WAIT_TICKS) {
+            fellWaitTicks = 0;
+            phase = Phase.FELL_GATHER; // try mining another material block
+        }
     }
 
     // ---- helpers ----
