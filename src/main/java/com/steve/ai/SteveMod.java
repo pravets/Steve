@@ -2,11 +2,13 @@ package com.steve.ai;
 
 import com.mojang.logging.LogUtils;
 import com.steve.ai.command.SteveCommands;
+import com.steve.ai.command.SteveNameArgumentInfo;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
 import com.steve.ai.menu.SteveMenus;
 import com.steve.ai.network.SteveNetworking;
+import net.minecraft.commands.synchronization.ArgumentTypeInfo;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.common.MinecraftForge;
@@ -38,6 +40,13 @@ public class SteveMod {
             .clientTrackingRange(10)
             .build("steve"));
 
+    public static final DeferredRegister<ArgumentTypeInfo<?, ?>> COMMAND_ARGUMENT_TYPES =
+        DeferredRegister.create(ForgeRegistries.COMMAND_ARGUMENT_TYPES, MODID);
+
+    static {
+        COMMAND_ARGUMENT_TYPES.register("steve_name", () -> SteveNameArgumentInfo.INSTANCE);
+    }
+
     private static SteveManager steveManager;
 
     public SteveMod() {
@@ -46,6 +55,7 @@ public class SteveMod {
         SteveNetworking.register();
 
         ENTITIES.register(modEventBus);
+        COMMAND_ARGUMENT_TYPES.register(modEventBus);
         SteveMenus.MENUS.register(modEventBus);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SteveConfig.SPEC);
