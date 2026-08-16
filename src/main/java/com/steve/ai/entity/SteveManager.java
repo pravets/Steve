@@ -2,18 +2,23 @@ package com.steve.ai.entity;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.config.SteveConfig;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,14 +26,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * Tracks active Steve entities. The tracking map is in-memory only, while the
  * Steve entities themselves persist in world chunks via NBT (issue #9): on
  * world load they resurrect on their own. This manager therefore ADOPTS
- * world-loaded Steves into the map (once) and deduplicates same-name
- * duplicates left behind by older saves.
+ * world-loaded Steves into the map (once per dimension) and deduplicates
+ * same-name duplicates left behind by older saves.
+ *
+ * <p>Names are stored under a case-normalized key (Locale.ROOT) so that
+ * "Steve" and "steve" can never coexist - see {@link #normalize(String)}.</p>
  */
 public class SteveManager {
 
+    /** Covers the whole world (-30M .. +30M) since AABB.infinite() does not exist in 1.20.1. */
+    private static final AABB WORLD_AABB = AABB.ofSize(Vec3.ZERO, 60_000_000, 60_000_000, 60_000_000);
+
     private final Map<String, SteveEntity> activeSteves = new ConcurrentHashMap<>();
     private final Map<UUID, SteveEntity> stevesByUUID = new ConcurrentHashMap<>();
-    private boolean adoptionDone = false;
+    private final Set<ResourceKey<Level>> adoptedDimensions = new HashSet<>();
 
     public SteveManager() {
     }
@@ -36,7 +47,7 @@ public class SteveManager {
     public SteveEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
         SteveMod.LOGGER.info("Current active Steves: {}", activeSteves.size());
 
-        if (activeSteves.containsKey(name)) {
+        if (activeSteves.containsKey(normalize(name))) {
             SteveMod.LOGGER.warn("Steve name '{}' already exists", name);
             return null;
         }
@@ -83,7 +94,7 @@ public class SteveManager {
     }
 
     public SteveEntity getSteve(String name) {
-        return activeSteves.get(name);
+        return activeSteves.get(normalize(name));
     }
 
     public SteveEntity getSteve(UUID uuid) {
@@ -101,7 +112,7 @@ public class SteveManager {
                 }
             }
         }
-        SteveEntity tracked = activeSteves.remove(name);
+        SteveEntity tracked = activeSteves.remove(normalize(name));
         if (tracked != null) {
             stevesByUUID.remove(tracked.getUUID());
             removed = true;
@@ -123,12 +134,11 @@ public class SteveManager {
 
     /**
      * Called every server tick per level: adopts world-loaded Steves into the
-     * map (once per server run) and deduplicates same-name leftovers from old
+     * map (once per dimension) and deduplicates same-name leftovers from old
      * saves - the map is the single source of truth afterwards.
      */
     public void tick(ServerLevel level) {
-        if (!adoptionDone && level.dimension() == ServerLevel.OVERWORLD) {
-            adoptionDone = true;
+        if (adoptedDimensions.add(level.dimension())) {
             adoptFromWorld(level);
         }
 
@@ -151,7 +161,7 @@ public class SteveManager {
             if (name == null || name.isBlank()) {
                 continue;
             }
-            SteveEntity known = activeSteves.get(name);
+            SteveEntity known = activeSteves.get(normalize(name));
             if (known != null && known != steve) {
                 // Same-name duplicate from an old save: keep the first one
                 SteveMod.LOGGER.warn("Deduplicating Steve '{}' - discarding extra entity {}", name, steve.getUUID());
@@ -166,13 +176,17 @@ public class SteveManager {
     }
 
     private void track(SteveEntity steve) {
-        activeSteves.put(steve.getSteveName(), steve);
+        activeSteves.put(normalize(steve.getSteveName()), steve);
         stevesByUUID.put(steve.getUUID(), steve);
     }
 
+    /** Case-insensitive map key (Locale.ROOT - locale-independent). */
+    private static String normalize(String name) {
+        return name.toLowerCase(Locale.ROOT);
+    }
+
     private static List<SteveEntity> worldSteves(ServerLevel level) {
-        return level.getEntitiesOfClass(SteveEntity.class, AABB.ofSize(
-            level.getSharedSpawnPos().getCenter(), 6000, 6000, 6000), EntitySelector.NO_SPECTATORS);
+        return level.getEntitiesOfClass(SteveEntity.class, WORLD_AABB, EntitySelector.NO_SPECTATORS);
     }
 
     private static SteveEntity findInWorld(ServerLevel level, String name) {
