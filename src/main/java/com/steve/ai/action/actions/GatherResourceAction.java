@@ -262,6 +262,7 @@ public class GatherResourceAction extends BaseAction {
         BlockPos station = ResourceSearchPlanner.stationFor(searchState,
             SteveConfig.GATHER_RING_SPACING.get(), SteveConfig.GATHER_STATIONS_PER_RING.get());
         searchState = ResourceSearchPlanner.next(searchState, SteveConfig.GATHER_STATIONS_PER_RING.get());
+        debugLog("SEARCH", "no target visible, next station " + station);
 
         routeTarget = station;
         phase = Phase.ROUTING;
@@ -289,13 +290,26 @@ public class GatherResourceAction extends BaseAction {
             steve.getNavigation().moveTo(routeTarget.getX() + 0.5, routeTarget.getY(), routeTarget.getZ() + 0.5, 1.0);
         }
 
-        // Path cannot be built / blocked: skip this station after a grace period
+        // Path cannot be built / blocked: skip this target after a grace
+        // period. Remember it as unreachable so the next scan does not pick
+        // the SAME block again (infinite silent loop: reachable-block ->
+        // stall 60 ticks -> same block -> ...).
         if (ticksOnRoute > ROUTE_STALL_TICKS
                 && steve.getNavigation().isDone()
                 && horizontalDistanceSqr(routeTarget) > ARRIVED_DISTANCE_SQ) {
             ticksOnRoute = 0;
             steve.getNavigation().stop();
-            phase = Phase.SEARCH; // next station
+            if (mineTarget != null && routeTarget.equals(mineTarget)) {
+                unreachableTargets.add(mineTarget);
+                if (unreachableTargets.size() > UNREACHABLE_TARGETS_LIMIT) {
+                    unreachableTargets.clear();
+                }
+                debugLog("ROUTING", "target unreachable, skipping " + mineTarget);
+                mineTarget = null;
+            } else {
+                debugLog("ROUTING", "station unreachable, next station");
+            }
+            phase = Phase.SEARCH; // next station / other candidate
         }
     }
 
