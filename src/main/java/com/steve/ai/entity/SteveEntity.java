@@ -43,6 +43,21 @@ public class SteveEntity extends PathfinderMob {
     private int pickupCooldown = 0;
     private boolean isFlying = false;
     private boolean isInvulnerable = false;
+    /**
+     * When true, remove() must not drop the inventory into the world. Used when
+     * discarding a duplicate bot so its NBT-inventory is not duped as items.
+     * Intentionally NOT reset after remove(): the entity is being discarded and
+     * will never tick or be reused again, so there is no stale state to clear.
+     */
+    private boolean suppressInventoryDrop = false;
+
+    /**
+     * True when this instance was deserialized from NBT (chunk load / dimension
+     * load) and therefore carries persisted state (inventory, memory). Freshly
+     * spawned instances keep this false. Used by the manager dedup to prefer a
+     * chunk-loaded bot over an empty fresh spawn with the same name.
+     */
+    private boolean loadedFromNbt = false;
 
     /** Pickup radius for items lying on the ground, in blocks. */
     private static final double PICKUP_RADIUS = 3.0;
@@ -87,13 +102,24 @@ public class SteveEntity extends PathfinderMob {
         // Drop the inventory into the world when Steve is killed or discarded
         // (/kill, /steve remove) instead of silently losing the contents.
         // Unloading/changing dimension must keep the inventory (it is in NBT).
-        if (!this.level().isClientSide && !inventory.isEmpty()
+        // Dedup discards of duplicate bots must NOT drop: the duplicate carries
+        // the same NBT inventory, so dropping it would be an item-dupe exploit.
+        if (!this.level().isClientSide && !suppressInventoryDrop && !inventory.isEmpty()
                 && (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED)) {
             for (ItemStack stack : inventory.takeAll()) {
                 this.spawnAtLocation(stack);
             }
         }
         super.remove(reason);
+    }
+
+    public void setSuppressInventoryDrop(boolean suppress) {
+        this.suppressInventoryDrop = suppress;
+    }
+
+    /** True when this instance was loaded from NBT (persisted state). */
+    public boolean isLoadedFromNbt() {
+        return this.loadedFromNbt;
     }
 
     @Override
@@ -232,6 +258,7 @@ public class SteveEntity extends PathfinderMob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        this.loadedFromNbt = true;
         if (tag.contains("SteveName")) {
             this.setSteveName(tag.getString("SteveName"));
         }
