@@ -2,6 +2,7 @@ package com.steve.ai.llm;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.action.Task;
+import com.steve.ai.chat.ChatCommandParser;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
@@ -111,6 +112,18 @@ public class TaskPlanner {
                         response.isFromCache());
                     AgentDebugBuffer.log(steve.getSteveName(), "PARSE",
                         "ok, " + parsed.getTasks().size() + " tasks, plan=\"" + truncate(parsed.getPlan(), 200) + "\"");
+
+                    // "Gather until the inventory is full" is deterministic:
+                    // mark every gather task with fill=true (the LLM does not
+                    // get to decide the quantity for this quantifier).
+                    if (ChatCommandParser.isFillCommand(command)) {
+                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                            if ("gather".equals(task.getAction())) {
+                                task.getParameters().put("fill", true);
+                            }
+                        }
+                        SteveMod.LOGGER.info("[Async] Fill-inventory mode applied to gather tasks");
+                    }
 
                     return parsed;
                 })

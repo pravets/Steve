@@ -21,6 +21,24 @@ public final class ChatCommandParser {
         "стой", "замри", "остановись", "стоять", "жди", "стоп"
     );
 
+    /** Substrings that mean "gather until the inventory is full". */
+    private static final List<String> FILL_MARKERS = List.of(
+        "full inventory", "fill inventory", "fill", "until full", "до полного инвентаря",
+        "полный инвентарь", "заполни инвентарь", "до упора", "по максимуму", "под завязку"
+    );
+
+    /** Whether the command asks the bot to gather until the inventory is full. */
+    public static boolean isFillCommand(String lowerCommand) {
+        if (lowerCommand == null) {
+            return false;
+        }
+        String trimmed = lowerCommand.trim().toLowerCase(java.util.Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        return FILL_MARKERS.stream().anyMatch(trimmed::contains);
+    }
+
     private ChatCommandParser() {}
 
     /**

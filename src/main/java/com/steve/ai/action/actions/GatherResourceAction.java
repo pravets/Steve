@@ -60,6 +60,7 @@ public class GatherResourceAction extends BaseAction {
     private Block targetBlock;
     private int targetQuantity;
     private int gatheredCount;
+    private boolean fillMode;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -95,6 +96,7 @@ public class GatherResourceAction extends BaseAction {
             blockName = task.getStringParameter("block");
         }
         targetQuantity = task.getIntParameter("quantity", 16);
+        fillMode = "true".equalsIgnoreCase(String.valueOf(task.getParameters().getOrDefault("fill", "false")));
 
         targetBlock = ResourceBlocks.parseBlock(blockName);
         if (targetBlock == null) {
@@ -136,15 +138,23 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
-        if (!steve.getInventory().hasFreeSpace()) {
-            // Auto-return is handled by the planner in the next Stage-3 commit
+        if (fillMode) {
+            // Fill mode: keep mining while there is any room left for the
+            // requested resource (empty slot or a partially filled stack).
+            if (!steve.getInventory().hasSpaceFor(currentTargetItem())) {
+                finish(true, "Inventory full - gathered " + gatheredCount + " " + targetBlock.getName().getString());
+                return;
+            }
+        } else if (!steve.getInventory().hasFreeSpace()) {
             finish(true, "Inventory full");
             return;
         }
 
-        // Completion is measured by what actually reached the inventory
-        // (drop -> vacuum pickup), not by how many blocks were broken.
-        if (steve.getInventory().countItem(currentTargetItem()) >= targetQuantity) {
+        // Completion is measured by blocks actually mined this session
+        // (gatheredCount), NOT by the whole inventory: if the bot already had
+        // 30 oak logs and the player asks for 50, exactly 50 more are mined
+        // (80 total) - comparing the inventory would stop at 20 (bug).
+        if (gatheredCount >= targetQuantity) {
             finish(true, "Gathered " + gatheredCount + " " + targetBlock.getName().getString());
             return;
         }

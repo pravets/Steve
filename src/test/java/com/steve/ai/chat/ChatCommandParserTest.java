@@ -60,6 +60,17 @@ class ChatCommandParserTest {
     }
 
     @Test
+    void fillCommands() {
+        assertTrue(ChatCommandParser.isFillCommand(normalize("добудь дерево до полного инвентаря")));
+        assertTrue(ChatCommandParser.isFillCommand(normalize("заполни инвентарь деревом")));
+        assertTrue(ChatCommandParser.isFillCommand(normalize("fill inventory with wood")));
+        assertTrue(ChatCommandParser.isFillCommand(normalize("gather until full")));
+        assertFalse(ChatCommandParser.isFillCommand(normalize("добудь 50 дерева")));
+        assertFalse(ChatCommandParser.isFillCommand(normalize("stay")));
+        assertFalse(ChatCommandParser.isFillCommand(null));
+    }
+
+    @Test
     void nonStayCommandsAreRejected() {
         assertFalse(isStayCommand(normalize("mine iron")));
         assertFalse(isStayCommand(normalize("иди копай")));

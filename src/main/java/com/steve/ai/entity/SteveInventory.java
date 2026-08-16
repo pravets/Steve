@@ -108,6 +108,24 @@ public class SteveInventory implements Container {
         return false;
     }
 
+    /**
+     * Whether this specific item can still be stored: an empty slot or a
+     * partially filled stack of the same item. Used by the "fill inventory"
+     * gather mode - the bot keeps mining until there is no room left for the
+     * requested resource.
+     */
+    public boolean hasSpaceFor(Item item) {
+        for (int i = 0; i < maxSize; i++) {
+            if (slots[i].isEmpty()) {
+                return true;
+            }
+            if (slots[i].is(item) && slots[i].getCount() < slots[i].getMaxStackSize()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public boolean isEmpty() {
         for (ItemStack slot : slots) {
