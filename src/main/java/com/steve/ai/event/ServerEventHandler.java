@@ -42,38 +42,34 @@ public class ServerEventHandler {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerLevel level = (ServerLevel) player.level();
             SteveManager manager = SteveMod.getSteveManager();
-            if (!stevesSpawned) {                manager.clearAllSteves();
-                
-                // Clear structure registry for fresh spatial awareness
+            if (!stevesSpawned) {
+                // Issue #9: NEVER wipe world Steves on login - that left
+                // duplicates in chunks that were not loaded at this moment.
+                // Adopt what the world already has (done by manager.tick),
+                // and only spawn the default squad when no Steves exist.
                 StructureRegistry.clear();
-                
-                // Then, remove ALL SteveEntity instances from the world (including ones loaded from NBT)
-                int removedCount = 0;
-                for (var entity : level.getAllEntities()) {
-                    if (entity instanceof SteveEntity) {
-                        entity.discard();
-                        removedCount++;
+                if (manager.getActiveCount() == 0) {
+                    Vec3 playerPos = player.position();
+                    Vec3 lookVec = player.getLookAngle();
+
+                    String[] names = {"Steve", "Alex", "Bob", "Charlie"};
+
+                    for (int i = 0; i < 4; i++) {
+                        double offsetX = lookVec.x * 5 + (lookVec.z * (i - 1.5) * 2);
+                        double offsetZ = lookVec.z * 5 + (-lookVec.x * (i - 1.5) * 2);
+
+                        Vec3 spawnPos = new Vec3(
+                            playerPos.x + offsetX,
+                            playerPos.y,
+                            playerPos.z + offsetZ
+                        );
+
+                        manager.spawnSteve(level, spawnPos, names[i]);
                     }
-                }                Vec3 playerPos = player.position();
-                Vec3 lookVec = player.getLookAngle();
-                
-                String[] names = {"Steve", "Alex", "Bob", "Charlie"};
-                
-                for (int i = 0; i < 4; i++) {
-                    double offsetX = lookVec.x * 5 + (lookVec.z * (i - 1.5) * 2);
-                    double offsetZ = lookVec.z * 5 + (-lookVec.x * (i - 1.5) * 2);
-                    
-                    Vec3 spawnPos = new Vec3(
-                        playerPos.x + offsetX,
-                        playerPos.y,
-                        playerPos.z + offsetZ
-                    );
-                    
-                    SteveEntity steve = manager.spawnSteve(level, spawnPos, names[i]);
-                    if (steve != null) {                    }
                 }
-                
-                stevesSpawned = true;            }
+
+                stevesSpawned = true;
+            }
         }
     }
 
