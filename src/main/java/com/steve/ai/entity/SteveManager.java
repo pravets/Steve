@@ -90,6 +90,24 @@ public class SteveManager {
         return activeSteves.size();
     }
 
+    // ---- chunk force-loading (work without players) ----
+
+    private final ChunkForceTracker chunkForceTracker = new ChunkForceTracker();
+
+    /** Force-loads a chunk while a Steve is in it (refcounted across Steves). */
+    public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
+        if (chunkForceTracker.force(chunkPos)) {
+            level.setChunkForced(chunkPos.x, chunkPos.z, true);
+        }
+    }
+
+    /** Releases a chunk force-load; the chunk unloads when the last Steve leaves. */
+    public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
+        if (chunkForceTracker.unforce(chunkPos)) {
+            level.setChunkForced(chunkPos.x, chunkPos.z, false);
+        }
+    }
+
     public void tick(ServerLevel level) {
         // Clean up dead or removed Steves
         Iterator<Map.Entry<String, SteveEntity>> iterator = activeSteves.entrySet().iterator();
