@@ -172,16 +172,18 @@ public class GatherResourceAction extends BaseAction {
         List<BlockPos> visible = VisionScanner.findVisible(steve, targetBlock);
         if (!visible.isEmpty()) {
             // Nearest visible target wins - skip known-unreachable positions
-            // (cliff/lava ores would otherwise be re-picked forever) and logs
-            // that are NOT part of a tree (player structures stay untouched)
-            List<BlockPos> treeLogs = visible.stream()
+            // (cliff/lava ores would otherwise be re-picked forever). The
+            // isTreeLog filter (leaves nearby) applies ONLY to logs, so ores,
+            // stone etc. are never rejected for lacking leaves.
+            boolean logTarget = targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+            List<BlockPos> candidates = visible.stream()
                 .filter(p -> !unreachableTargets.contains(p))
-                .filter(this::isTreeLog)
+                .filter(p -> !logTarget || isTreeLog(p))
                 .toList();
-            if (visible.size() != treeLogs.size()) {
-                debugLog("SEARCH", "visible=" + visible.size() + ", tree logs=" + treeLogs.size());
+            if (visible.size() != candidates.size()) {
+                debugLog("SEARCH", "visible=" + visible.size() + ", candidates=" + candidates.size());
             }
-            mineTarget = treeLogs.stream()
+            mineTarget = candidates.stream()
                 .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (mineTarget != null) {
