@@ -236,7 +236,7 @@ public class GatherResourceAction extends BaseAction {
         // find within NEARBY_SCAN_RADIUS. Cooldown keeps the cube scan cheap.
         if (nearbyScanCooldown-- <= 0) {
             nearbyScanCooldown = NEARBY_SCAN_INTERVAL;
-            List<BlockPos> nearby = VisionScanner.findNearbyLogs(steve, NEARBY_SCAN_RADIUS, targetBlock);
+            List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, targetBlock);
             if (!nearby.isEmpty()) {
                 BlockPos nearest = nearby.stream()
                     .filter(p -> !unreachableTargets.contains(p))
@@ -559,7 +559,7 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private void phaseFellGatherMaterial() {
-        // Find a visible solid material to build the pillar from - but never
+        // Find a solid material to build the pillar from - but never
         // the block right under our feet (digging it would leave a hole)
         BlockPos feet = steve.blockPosition().below();
         for (Block material : PILLAR_MATERIALS) {
@@ -569,6 +569,26 @@ public class GatherResourceAction extends BaseAction {
                 .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (chosen != null) {
+                mineTarget = chosen;
+                routeTarget = chosen;
+                targetBlock = material;
+                fellGatheringMaterial = true;
+                phase = Phase.ROUTING;
+                return;
+            }
+        }
+
+        // Nothing visible via ray scan (forest canopy, swamp reeds, water):
+        // brute-force cube scan - grass/dirt is almost always right next to
+        // the bot, it just cannot "see" it through the leaves.
+        for (Block material : PILLAR_MATERIALS) {
+            List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, material);
+            BlockPos chosen = nearby.stream()
+                .filter(p -> !p.equals(feet) && !p.equals(steve.blockPosition()))
+                .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                .orElse(null);
+            if (chosen != null) {
+                debugLog("FELL", "material found by nearby scan: " + material.getName().getString() + " at " + chosen);
                 mineTarget = chosen;
                 routeTarget = chosen;
                 targetBlock = material;

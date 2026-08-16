@@ -136,14 +136,15 @@ public final class VisionScanner {
     }
 
     /**
-     * Brute-force scan for log blocks within a cube around the bot, WITHOUT
-     * line-of-sight checks. In a forest the view ray gets blocked by other
-     * trunks and dense canopies, so the bot could stand next to trees and
-     * never "see" them - this scan finds logs it can walk to directly.
+     * Brute-force scan for blocks of a given type within a cube around the
+     * bot, WITHOUT line-of-sight checks. In a forest the view ray gets
+     * blocked by other trunks and dense canopies, so the bot could stand
+     * next to trees and never "see" them - this scan finds blocks it can
+     * walk to directly.
      *
      * @param target the exact block to look for, or null for ANY log type
      */
-    public static List<BlockPos> findNearbyLogs(SteveEntity steve, int radius, Block target) {
+    public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Block target) {
         BlockPos center = steve.blockPosition();
         List<BlockPos> found = new java.util.ArrayList<>();
         net.minecraft.world.level.Level level = steve.level();
