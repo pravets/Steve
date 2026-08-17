@@ -110,6 +110,13 @@ public class TaskPlanner {
                         response.getLatencyMs(),
                         response.getTokensUsed(),
                         response.isFromCache());
+                    // Tell the player visibly when the LLM was down and a
+                    // local fallback plan was used, so a wrong-looking
+                    // behavior (e.g. follow instead of gather) is explained.
+                    if ("fallback".equals(response.getProviderId())) {
+                        steve.sendChatMessage("⚠️ LLM недоступен (" + response.getModel()
+                            + ") — запасной план: " + parsed.getPlan());
+                    }
                     AgentDebugBuffer.log(steve.getSteveName(), "PARSE",
                         "ok, " + parsed.getTasks().size() + " tasks, plan=\"" + truncate(parsed.getPlan(), 200) + "\"");
 

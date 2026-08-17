@@ -110,6 +110,28 @@ public class LLMFallbackHandler {
 
         String lowerPrompt = prompt.toLowerCase();
 
+        // Wood/tree gathering, RU + EN, with an optional quantity:
+        // "накопай 100 дерева" / "руби берёзу" / "chop 20 wood". Falls back
+        // to gather-any-log (wood) instead of the generic "follow" default.
+        java.util.regex.Matcher wood = java.util.regex.Pattern.compile(
+            "(?i).*(копай|копать|руби|рубить|добудь|накопай|собери|наруби|нарезать|gather|chop|collect).*"
+            + "(\\d+)?\\s*"
+            + "(дерев|wood|бр[её]вн|б[её]вен|лес|дров|log)s?.*").matcher(lowerPrompt);
+        if (wood.matches()) {
+            int qty = 50;
+            java.util.regex.Matcher num = java.util.regex.Pattern.compile("\\d+").matcher(lowerPrompt);
+            if (num.find()) {
+                try {
+                    qty = Integer.parseInt(num.group());
+                } catch (NumberFormatException ignored) {
+                    // keep default
+                }
+            }
+            LOGGER.info("Fallback -> gather wood x{}", qty);
+            return "{\"reasoning\":\"[Fallback] Wood gathering detected\",\"plan\":\"Gather wood\","
+                + "\"tasks\":[{\"action\":\"gather\",\"parameters\":{\"resource\":\"wood\",\"quantity\":" + qty + "}}]}";
+        }
+
         for (Map.Entry<Pattern, String> entry : PATTERN_RESPONSES.entrySet()) {
             if (entry.getKey().matcher(lowerPrompt).matches()) {
                 LOGGER.debug("Matched pattern: {}", entry.getKey().pattern());
