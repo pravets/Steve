@@ -302,29 +302,17 @@ public class GatherResourceAction extends BaseAction {
         }
 
         if (!steve.getNavigation().isInProgress()) {
-            // Target the GROUND below the route point, not the air above it:
-            // routeTarget is a log/station block whose y is usually above
-            // ground level. GroundPathNavigation cannot build a path to an
-            // airborne point, so the bot "stands on the pumpkin next to the
-            // tree" forever - it CAN step off, the path just never exists.
-            // Walk down from the route point to the first solid block
-            // (leaves/air/water are skipped) - this is the standing spot.
-            net.minecraft.world.level.Level lvl = steve.level();
-            BlockPos probe = routeTarget;
-            int groundY = routeTarget.getY();
-            while (groundY > lvl.getMinBuildHeight()) {
-                BlockPos below = probe.below();
-                BlockState belowState = lvl.getBlockState(below);
-                if (!belowState.isAir()
-                        && !(belowState.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock)
-                        && !belowState.liquid()
-                        && belowState.isCollisionShapeFullBlock(lvl, below)) {
-                    break;
-                }
-                probe = below;
-                groundY--;
+            // Target a dry, standable cell NEAR the route point: routeTarget
+            // is a log/station block whose XZ may sit in a swamp pond - a
+            // path to a point under water never builds (the bot then marks
+            // every log of the tree unreachable and gives up).
+            BlockPos land = findDrySpotNear(routeTarget, 4);
+            if (land == null) {
+                // entirely surrounded by water - nothing to walk to
+                ticksOnRoute = ROUTE_STALL_TICKS + 1; // force the stall branch below
+                return;
             }
-            steve.getNavigation().moveTo(routeTarget.getX() + 0.5, groundY, routeTarget.getZ() + 0.5, 1.0);
+            steve.getNavigation().moveTo(land.getX() + 0.5, land.getY(), land.getZ() + 0.5, 1.0);
         }
 
         // Path cannot be built / blocked: skip this target after a grace
@@ -456,6 +444,40 @@ public class GatherResourceAction extends BaseAction {
         debugLog("FELL", "whole-tree felling: " + aboveWater.size() + " logs (underwater: "
             + (component.size() - aboveWater.size()) + " skipped)");
         phase = Phase.FELL_ASCEND;
+    }
+
+    /** Nearest dry standable cell within the radius of center, or null. */
+    private BlockPos findDrySpotNear(BlockPos center, int radius) {
+        net.minecraft.world.level.Level lvl = steve.level();
+        BlockPos best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                int x = center.getX() + dx;
+                int z = center.getZ() + dz;
+                int surfaceY = lvl.getHeightmapPos(
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    new BlockPos(x, center.getY(), z)).getY();
+                BlockPos stand = new BlockPos(x, surfaceY, z);
+                // Surface itself must not be a log/leaves (a trunk column
+                // would put the goal ON TOP of the tree) and must not be
+                // water; the block below must be solid, not air/water.
+                Block surface = lvl.getBlockState(stand).getBlock();
+                if (surface.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)
+                        || surface instanceof net.minecraft.world.level.block.LeavesBlock
+                        || lvl.getFluidState(stand).is(net.minecraft.tags.FluidTags.WATER)
+                        || lvl.getFluidState(stand.below()).is(net.minecraft.tags.FluidTags.WATER)
+                        || lvl.getBlockState(stand.below()).isAir()) {
+                    continue;
+                }
+                int dist = Math.abs(dx) + Math.abs(dz);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = stand;
+                }
+            }
+        }
+        return best;
     }
 
     /** Nearest spot (block below not water) within the radius, or null. */
