@@ -14,7 +14,9 @@ import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +51,7 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_WAIT_TICKS = 25; // vacuum pickup grace period for pillar material
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
     private static final int NEARBY_SCAN_RADIUS = 10; // cube scan around the bot (no line of sight)
+    private static final int REACH_SEARCH_RANGE = 20; // blood-style dry-land reachability radius
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
@@ -65,6 +68,8 @@ public class GatherResourceAction extends BaseAction {
     private boolean anyLogMode;
     private int lastProgressCount;
     private long lastProgressTick;
+    private Set<BlockPos> reachableCache;
+    private long reachableCacheTick;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -237,6 +242,7 @@ public class GatherResourceAction extends BaseAction {
         BlockPos mine = all.stream()
             .filter(p -> !unreachableTargets.contains(p))
             .filter(p -> !isUnderwaterTarget(p)) // swamp: never walk into water for a log
+            .filter(p -> hasReachableLandNear(p)) // skip island trees unreachable by land
             .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
             .orElse(null);
         if (mine != null) {
@@ -248,6 +254,15 @@ public class GatherResourceAction extends BaseAction {
             phase = Phase.ROUTING;
             return;
         }
+
+        // A target existed but all were unreachable by land (swamp islands):
+        // blacklist them so we do not re-pick and re-walk into the water.
+        for (BlockPos p : all) {
+            if (!unreachableTargets.contains(p) && isUnderwaterTarget(p)) {
+                unreachableTargets.add(p);
+            }
+        }
+        unreachableTargets.retainAll(all); // keep the set small
 
         // No target anywhere: advance the route
         if (!ResourceSearchPlanner.hasNext(searchState, SteveConfig.GATHER_SEARCH_RADIUS.get(),
@@ -499,6 +514,101 @@ public class GatherResourceAction extends BaseAction {
             }
         }
         return best;
+    }
+
+    /** Is (x, y, z) a dry walkable surface cell (not log/leaves/water, solid below). */
+    private boolean isDrySurface(int x, int y, int z) {
+        net.minecraft.world.level.Level lvl = steve.level();
+        BlockPos stand = new BlockPos(x, y, z);
+        Block surface = lvl.getBlockState(stand).getBlock();
+        if (surface.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)
+                || surface instanceof net.minecraft.world.level.block.LeavesBlock) {
+            return false;
+        }
+        if (lvl.getFluidState(stand).is(net.minecraft.tags.FluidTags.WATER)
+                || lvl.getFluidState(stand.below()).is(net.minecraft.tags.FluidTags.WATER)
+                || lvl.getBlockState(stand.below()).isAir()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * BFS over dry walkable cells starting from the bot, up to {@code range}
+     * blocks away in X/Z. Returns the set of dry surface positions reachable
+     * over land. Used to reject island trees (a swamp pond around a log means
+     * the ground path never reaches it).
+     */
+    private Set<BlockPos> reachableDry(int range) {
+        int y = steve.blockPosition().getY();
+        Set<BlockPos> reachable = new HashSet<>();
+        Deque<BlockPos> queue = new ArrayDeque<>();
+        BlockPos start = steve.blockPosition();
+        if (!isDrySurface(start.getX(), y, start.getZ())) {
+            // bot currently not on a dry cell (e.g. in water): find the
+            // nearest dry cell to seed the flood fill
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    if (isDrySurface(start.getX() + dx, y, start.getZ() + dz)) {
+                        start = new BlockPos(start.getX() + dx, y, start.getZ() + dz);
+                        dx = dz = 99;
+                        break;
+                    }
+                }
+            }
+            if (!isDrySurface(start.getX(), y, start.getZ())) {
+                return reachable; // fully in water - nothing reachable by land
+            }
+        }
+        queue.add(start);
+        reachable.add(start);
+        Set<BlockPos> visited = new HashSet<>();
+        visited.add(start);
+        int[] dxs = {1, -1, 0, 0};
+        int[] dzs = {0, 0, 1, -1};
+        while (!queue.isEmpty()) {
+            BlockPos cur = queue.poll();
+            for (int i = 0; i < 4; i++) {
+                int nx = cur.getX() + dxs[i];
+                int nz = cur.getZ() + dzs[i];
+                if (Math.max(Math.abs(nx - start.getX()), Math.abs(nz - start.getZ())) > range) {
+                    continue;
+                }
+                BlockPos next = new BlockPos(nx, y, nz);
+                if (visited.contains(next)) {
+                    continue;
+                }
+                visited.add(next);
+                if (isDrySurface(nx, y, nz)) {
+                    reachable.add(next);
+                    queue.add(next);
+                }
+            }
+        }
+        return reachable;
+    }
+
+    /** Whether a dry land cell lies within {@code near} blocks (X/Z) of the
+     * target. Swamp trees on islands have no land adjacent within reach, so
+     * they are skipped instead of running into the pond forever. The BFS is
+     * cached for this tick (several candidates ask in the same iteration).
+     */
+    private boolean hasReachableLandNear(BlockPos target) {
+        long now = steve.level().getGameTime();
+        if (reachableCache == null || now != reachableCacheTick) {
+            reachableCache = reachableDry(REACH_SEARCH_RANGE);
+            reachableCacheTick = now;
+        }
+        if (reachableCache == null || reachableCache.isEmpty()) {
+            return false; // bot is in the middle of a pond - nothing by land
+        }
+        for (BlockPos land : reachableCache) {
+            if (Math.abs(land.getX() - target.getX()) <= 2
+                    && Math.abs(land.getZ() - target.getZ()) <= 2) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether the block at pos is the requested target, or ANY log in any-log mode. */
