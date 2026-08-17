@@ -52,6 +52,7 @@ public class GatherResourceAction extends BaseAction {
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
     private static final int NEARBY_SCAN_RADIUS = 10; // cube scan around the bot (no line of sight)
     private static final int REACH_SEARCH_RANGE = 20; // blood-style dry-land reachability radius
+    private static final int STATUS_INTERVAL = 40; // ticks between STATUS debug pings (20s @ 2TPS)
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
@@ -75,9 +76,11 @@ public class GatherResourceAction extends BaseAction {
     private BlockPos routeTarget;
     private BlockPos mineTarget;
     private int ticksOnRoute;
+    private int waterStuckTicks;
     private int waterHopTicks;
     private int ticksOnMine;
     private int ticksRunning;
+    private int statusCooldown;
 
     /** Visible-but-unreachable targets: skip them instead of looping forever. */
     private final Set<BlockPos> unreachableTargets = new HashSet<>();
@@ -194,6 +197,21 @@ public class GatherResourceAction extends BaseAction {
             case FELL_WAIT -> phaseFellWaitPickup();
             default -> { }
         }
+
+        // Periodic STATUS ping so /steve debug shows what the bot is doing
+        // even in silently-looped phases (stuck in water, circling a tree).
+        if (--statusCooldown <= 0) {
+            statusCooldown = STATUS_INTERVAL;
+            BlockPos p = routeTarget;
+            debugLog("STATUS",
+                "phase=" + phase
+                + " pos=" + steve.blockPosition()
+                + " route=" + (p != null ? p : "-")
+                + " dist=" + (p != null ? Math.round(Math.sqrt(horizontalDistanceSqr(p))) + "b" : "-")
+                + " " + (steve.isInWater() ? "WATER " : "")
+                + " nav=" + (steve.getNavigation().isInProgress() ? "moving" : "stopped")
+                + " " + gatheredCount + "/" + targetQuantity);
+        }
     }
 
     /** The item we are actually counting: logs while felling, else the target block. */
@@ -284,22 +302,45 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false); // ground movement, always
         ticksOnRoute++;
 
-        // Stuck in a swamp pond: ground pathfinding does not work from
-        // inside water. Hop up (water drag then lets the mob rise) and steer
-        // toward the nearest dry spot; once on the surface the normal ground
-        // path to the route target builds again.
+        // Stuck / standing in a swamp pond. Ground pathfinding does not work
+        // from inside water (the nav node is a water node it cannot leave),
+        // so actively swim toward the nearest dry land: horizontal push +
+        // constant upward bob overrides the water drag. If that still does
+        // not get out within ~3s, teleport to the nearest dry spot - a
+        // permanently stuck bot is worse than a 2-block hop.
         if (steve.isInWater()) {
-            waterHopTicks++;
+            waterStuckTicks++;
             BlockPos dry = findDrySpot(steve.blockPosition(), 8);
-            if (dry != null) {
-                steve.getNavigation().moveTo(dry.getX() + 0.5, dry.getY(), dry.getZ() + 0.5, 1.0);
+            if (dry == null) {
+                dry = findDrySpot(steve.blockPosition(), 16);
             }
-            if (waterHopTicks % 8 == 0) {
-                steve.setDeltaMovement(steve.getDeltaMovement().add(0, 0.35, 0));
-                debugLog("ROUTING", "stuck in water, hopping toward " + (dry != null ? dry : "surface"));
+            if (dry != null && waterStuckTicks < 20 * 3) {
+                net.minecraft.world.phys.Vec3 move = steve.getDeltaMovement();
+                double dx = dry.getX() + 0.5 - steve.getX();
+                double dz = dry.getZ() + 0.5 - steve.getZ();
+                double len = Math.sqrt(dx * dx + dz * dz);
+                if (len > 0.5) {
+                    move = move.add(dx / len * 0.3, 0, dz / len * 0.3);
+                }
+                move = move.add(0, 0.12, 0);
+                steve.setDeltaMovement(move);
+                steve.getNavigation().stop();
+                if (waterStuckTicks % 20 == 0) {
+                    debugLog("ROUTING", "swimming out of water toward " + dry);
+                }
+            } else if (dry != null) {
+                // gave the swim a fair chance - fish him out
+                int sy = steve.level().getHeightmapPos(
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    dry).getY();
+                steve.teleportTo(dry.getX() + 0.5, sy + 1, dry.getZ() + 0.5);
+                steve.getNavigation().stop();
+                waterStuckTicks = 0;
+                debugLog("ROUTING", "fished out of water to " + dry);
             }
             return;
         }
+        waterStuckTicks = 0;
         waterHopTicks = 0;
 
         // Stations sit at origin.y + 5 (look-out altitude) but Steve walks on
