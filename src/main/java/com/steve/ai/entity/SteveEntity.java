@@ -60,7 +60,7 @@ public class SteveEntity extends PathfinderMob {
     private boolean loadedFromNbt = false;
 
     /** Pickup radius for items lying on the ground, in blocks. */
-    private static final double PICKUP_RADIUS = 3.0;
+    private static final double PICKUP_RADIUS = 5.0;
     /** Pickup scan every N ticks (20 ticks = 1 second). */
     private static final int PICKUP_INTERVAL = 10;
 

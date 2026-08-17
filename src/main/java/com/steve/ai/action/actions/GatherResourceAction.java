@@ -71,6 +71,7 @@ public class GatherResourceAction extends BaseAction {
     private long lastProgressTick;
     private Set<BlockPos> reachableCache;
     private long reachableCacheTick;
+    private int expandDir;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
     private BlockPos routeTarget;
@@ -285,7 +286,14 @@ public class GatherResourceAction extends BaseAction {
         // No target anywhere: advance the route
         if (!ResourceSearchPlanner.hasNext(searchState, SteveConfig.GATHER_SEARCH_RADIUS.get(),
                 SteveConfig.GATHER_RING_SPACING.get())) {
-            finish(false, "Nothing found within " + SteveConfig.GATHER_SEARCH_RADIUS.get() + " blocks");
+            // Origin rings exhausted: keep searching outward - walk away from
+            // spawn in a compass sweep, widening each full turn, instead of
+            // giving up ("Nothing found") or standing still forever.
+            expandDir++;
+            BlockPos station = expandStation();
+            debugLog("SEARCH", "no targets locally, expanding outward to " + station);
+            routeTarget = station;
+            phase = Phase.ROUTING;
             return;
         }
 
@@ -364,8 +372,20 @@ public class GatherResourceAction extends BaseAction {
             // every log of the tree unreachable and gives up).
             BlockPos land = findDrySpotNear(routeTarget, 4);
             if (land == null) {
-                // entirely surrounded by water - nothing to walk to
-                ticksOnRoute = ROUTE_STALL_TICKS + 1; // force the stall branch below
+                // No dry cell within 4 of the target: if it sits across a
+                // swamp pond, try building a bridge - fill the water cell in
+                // front (toward the target) with a carried dirt/stone/log
+                // block, ONE step at a time, as long as we have the material.
+                if (tryBridgeToward(routeTarget)) {
+                    return; // block placed - path can advance next tick
+                }
+                // The route point (station/log) sits in water with no dry
+                // cell within 4 - there is nothing to walk to. Skip it right
+                // away instead of force-stalling: the previous `return` here
+                // skipped the stall check below and looped forever.
+                debugLog("ROUTING", "target has no walkable land, next");
+                ticksOnRoute = 0;
+                phase = Phase.SEARCH;
                 return;
             }
             steve.getNavigation().moveTo(land.getX() + 0.5, land.getY(), land.getZ() + 0.5, 1.0);
@@ -555,6 +575,77 @@ public class GatherResourceAction extends BaseAction {
             }
         }
         return best;
+    }
+
+    /**
+     * Tries to place one carried block (dirt/stone/log) into the water cell
+     * just in front of the bot, in the direction of {@code target}, so the
+     * ground path can advance one more step across a swamp pond. Only works
+     * if there is usable block material in the inventory; the bridge is left
+     * in place (no need to remove it afterwards). Returns true if a block was
+     * placed.
+     */
+    private boolean tryBridgeToward(BlockPos target) {
+        net.minecraft.world.level.Level lvl = steve.level();
+        double dxs = target.getX() + 0.5 - steve.getX();
+        double dzs = target.getZ() + 0.5 - steve.getZ();
+        double len = Math.sqrt(dxs * dxs + dzs * dzs);
+        if (len < 0.5) {
+            return false;
+        }
+        double ux = dxs / len;
+        double uz = dzs / len;
+        int ax = (int) Math.floor(steve.getX() + 0.5 + ux * 1.4 - 0.5);
+        int az = (int) Math.floor(steve.getZ() + 0.5 + uz * 1.4 - 0.5);
+
+        // find the water surface level in that column (stopping above ground)
+        BlockPos ahead = null;
+        for (int dy = 2; dy >= -3; dy--) {
+            BlockPos probe = new BlockPos(ax, steve.blockPosition().getY() + dy, az);
+            if (lvl.getFluidState(probe).is(net.minecraft.tags.FluidTags.WATER)
+                    && lvl.getBlockState(probe).canBeReplaced()) {
+                ahead = probe;
+                break;
+            }
+        }
+        if (ahead == null) {
+            return false; // nothing to fill ahead
+        }
+
+        // need material; prefer non-resource (dirt/stone), logs as fallback
+        ItemStack mat = FellSupport.findSolidPillarBlock(lvl, ahead, steve.getInventory(), targetBlock);
+        if (mat.isEmpty()) {
+            return false; // no blocks to build with
+        }
+        Block block = ((net.minecraft.world.item.BlockItem) mat.getItem()).getBlock();
+        lvl.setBlock(ahead, block.defaultBlockState(), 3);
+        for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
+            ItemStack slot = steve.getInventory().getItem(i);
+            if (!slot.isEmpty() && slot.getItem() == mat.getItem()) {
+                steve.getInventory().removeItem(i, 1);
+                break;
+            }
+        }
+        steve.getNavigation().stop();
+        debugLog("ROUTING", "bridged water at " + ahead + " (" + block.getName().getString() + ")");
+        return true;
+    }
+
+    /**
+     * Outward search station: compass sweep around the origin, widening by
+     * 16 blocks per full turn. Used once the near rings are exhausted so the
+     * bot keeps moving to find resources instead of giving up.
+     */
+    private BlockPos expandStation() {
+        double angle = (expandDir % 8) * Math.PI / 4;
+        int ring = expandDir / 8;
+        int radius = SteveConfig.GATHER_SEARCH_RADIUS.get() + 16 * (ring + 1);
+        int x = origin.getX() + (int) Math.round(radius * Math.cos(angle));
+        int z = origin.getZ() + (int) Math.round(radius * Math.sin(angle));
+        int y = steve.level().getHeightmapPos(
+            net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+            new BlockPos(x, origin.getY(), z)).getY();
+        return new BlockPos(x, y, z);
     }
 
     /** Is (x, y, z) a dry walkable surface cell (not log/leaves/water, solid below). */
