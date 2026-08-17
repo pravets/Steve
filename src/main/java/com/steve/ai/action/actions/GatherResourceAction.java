@@ -310,6 +310,14 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false); // ground movement, always
         ticksOnRoute++;
 
+        // Bridge FIRST, before the water branch: while building a bridge we
+        // are usually standing on/next to water, and the water branch would
+        // otherwise seize control and never advance the bridge. Lay one block
+        // toward the target and step onto it each tick.
+        if (routeTarget != null && tryBridgeStep()) {
+            return;
+        }
+
         // Stuck / standing in a swamp pond. Ground pathfinding does not work
         // from inside water (the nav node is a water node it cannot leave),
         // so actively swim toward the nearest dry land: horizontal push +
@@ -372,17 +380,10 @@ public class GatherResourceAction extends BaseAction {
             // every log of the tree unreachable and gives up).
             BlockPos land = findDrySpotNear(routeTarget, 4);
             if (land == null) {
-                // No dry cell within 4 of the target: if it sits across a
-                // swamp pond, try building a bridge - fill the water cell in
-                // front (toward the target) with a carried dirt/stone/log
-                // block, ONE step at a time, as long as we have the material.
-                if (tryBridgeToward(routeTarget)) {
-                    return; // block placed - path can advance next tick
-                }
                 // The route point (station/log) sits in water with no dry
-                // cell within 4 - there is nothing to walk to. Skip it right
-                // away instead of force-stalling: the previous `return` here
-                // skipped the stall check below and looped forever.
+                // cell within 4 - there is nothing to walk to. (Bridge
+                // building is handled by the priority tryBridgeStep() at the
+                // top of this phase; if it could not lay blocks, skip.)
                 debugLog("ROUTING", "target has no walkable land, next");
                 ticksOnRoute = 0;
                 phase = Phase.SEARCH;
@@ -578,47 +579,48 @@ public class GatherResourceAction extends BaseAction {
     }
 
     /**
-     * Tries to place one carried block (dirt/stone/log) into the water cell
-     * just in front of the bot, in the direction of {@code target}, so the
-     * ground path can advance one more step across a swamp pond. Only works
-     * if there is usable block material in the inventory; the bridge is left
-     * in place (no need to remove it afterwards). Returns true if a block was
-     * placed.
+     * Lays ONE bridge block toward {@code target} and steps onto it, so the
+     * bot advances across a swamp pond one cell per tick (continuous bridge)
+     * instead of placing a single block and stalling. Only works if there is
+     * usable block material in the inventory; stops when ahead turns to dry
+     * land or material runs out. Returns true if a block was placed+stepped.
      */
-    private boolean tryBridgeToward(BlockPos target) {
+    private boolean tryBridgeStep() {
         net.minecraft.world.level.Level lvl = steve.level();
-        double dxs = target.getX() + 0.5 - steve.getX();
-        double dzs = target.getZ() + 0.5 - steve.getZ();
+
+        // Look ahead in the XZ direction of the target.
+        double dxs = routeTarget.getX() + 0.5 - steve.getX();
+        double dzs = routeTarget.getZ() + 0.5 - steve.getZ();
         double len = Math.sqrt(dxs * dxs + dzs * dzs);
         if (len < 0.5) {
             return false;
         }
         double ux = dxs / len;
         double uz = dzs / len;
-        int ax = (int) Math.floor(steve.getX() + 0.5 + ux * 1.4 - 0.5);
-        int az = (int) Math.floor(steve.getZ() + 0.5 + uz * 1.4 - 0.5);
+        int ax = (int) Math.floor(steve.getX() + 0.5 + ux * 1.3 - 0.5);
+        int az = (int) Math.floor(steve.getZ() + 0.5 + uz * 1.3 - 0.5);
 
-        // find the water surface level in that column (stopping above ground)
-        BlockPos ahead = null;
-        for (int dy = 2; dy >= -3; dy--) {
-            BlockPos probe = new BlockPos(ax, steve.blockPosition().getY() + dy, az);
-            if (lvl.getFluidState(probe).is(net.minecraft.tags.FluidTags.WATER)
-                    && lvl.getBlockState(probe).canBeReplaced()) {
-                ahead = probe;
-                break;
-            }
-        }
-        if (ahead == null) {
-            return false; // nothing to fill ahead
+        // The bridge cell sits at the bot's feet level; it must currently be
+        // water (or replaceable/air above water). Only bridge while the way
+        // forward is actually wet - once we hit dry land, stop.
+        int by = steve.blockPosition().getY();
+        BlockPos ahead = new BlockPos(ax, by, az);
+        boolean aheadWet = lvl.getFluidState(ahead).is(net.minecraft.tags.FluidTags.WATER)
+            || lvl.getBlockState(ahead).getBlock().defaultBlockState().canBeReplaced()
+                && lvl.getFluidState(ahead.below()).is(net.minecraft.tags.FluidTags.WATER);
+        if (!aheadWet) {
+            return false; // dry ahead (or no water to fill) - normal walking
         }
 
         // need material; prefer non-resource (dirt/stone), logs as fallback
         ItemStack mat = FellSupport.findSolidPillarBlock(lvl, ahead, steve.getInventory(), targetBlock);
         if (mat.isEmpty()) {
-            return false; // no blocks to build with
+            return false; // no blocks left to build with
         }
         Block block = ((net.minecraft.world.item.BlockItem) mat.getItem()).getBlock();
         lvl.setBlock(ahead, block.defaultBlockState(), 3);
+        // step onto the new block so the next cell can be laid
+        steve.setPos(ahead.getX() + 0.5, ahead.getY() + 1, ahead.getZ() + 0.5);
         for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
             ItemStack slot = steve.getInventory().getItem(i);
             if (!slot.isEmpty() && slot.getItem() == mat.getItem()) {
@@ -627,7 +629,7 @@ public class GatherResourceAction extends BaseAction {
             }
         }
         steve.getNavigation().stop();
-        debugLog("ROUTING", "bridged water at " + ahead + " (" + block.getName().getString() + ")");
+        debugLog("ROUTING", "bridge step " + ahead + " (" + block.getName().getString() + ")");
         return true;
     }
 
