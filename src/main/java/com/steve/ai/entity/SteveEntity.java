@@ -84,6 +84,17 @@ public class SteveEntity extends PathfinderMob {
             .add(Attributes.FOLLOW_RANGE, 48.0D);
     }
 
+    /**
+     * Amphibious navigation: walks on land AND swims across water. The
+     * default GroundPathNavigation treats water as a hard obstacle (no path
+     * into/through it), which forced bridge-building hacks and swamp
+     * workarounds; swimming removes that whole problem class.
+     */
+    @Override
+    protected net.minecraft.world.entity.ai.navigation.PathNavigation createNavigation(Level level) {
+        return new net.minecraft.world.entity.ai.navigation.AmphibiousPathNavigation(this, level);
+    }
+
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));

@@ -14,9 +14,7 @@ import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
-import java.util.ArrayDeque;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,10 +22,10 @@ import java.util.Set;
 /**
  * Resource gathering by ROUTING, not tunnel-digging.
  *
- * <p>The Steve walks (ground navigation, never flying) a spiral of look-out
- * stations around the start point, scanning with vision at each station
- * ({@link VisionScanner#findVisible}) and mining ONLY visible target blocks.
- * No tunnels are ever dug.</p>
+ * <p>The Steve walks a spiral of look-out stations around the start point
+ * (amphibious navigation: walks on land, swims across water - never flies),
+ * scanning with vision at each station ({@link VisionScanner#findVisible})
+ * and mining ONLY visible target blocks. No tunnels are ever dug.</p>
  *
  * <p><b>Whole-tree felling:</b> when a mined log has a log above it, the Steve
  * enters fell mode - it collects the whole connected log component (BFS) and
@@ -51,8 +49,9 @@ public class GatherResourceAction extends BaseAction {
     private static final int FELL_WAIT_TICKS = 25; // vacuum pickup grace period for pillar material
     private static final int UNREACHABLE_TARGETS_LIMIT = 32;
     private static final int NEARBY_SCAN_RADIUS = 10; // cube scan around the bot (no line of sight)
-    private static final int REACH_SEARCH_RANGE = 20; // blood-style dry-land reachability radius
     private static final int STATUS_INTERVAL = 40; // ticks between STATUS debug pings (20s @ 2TPS)
+    private static final double PROGRESS_MOVE_DISTANCE_SQ = 8.0 * 8.0; // moving this far = progress
+    private static final int WATER_FISH_OUT_TICKS = 120; // 6s in water with no path -> teleport out
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
@@ -63,14 +62,18 @@ public class GatherResourceAction extends BaseAction {
     };
 
     private Block targetBlock;
+    /** The original requested resource (never overwritten by pillar material runs). */
+    private Block resourceBlock;
     private int targetQuantity;
     private int gatheredCount;
     private boolean fillMode;
     private boolean anyLogMode;
+    /** Resource count in the inventory at action start - quota is a delta over this. */
+    private int startResourceCount;
     private int lastProgressCount;
     private long lastProgressTick;
-    private Set<BlockPos> reachableCache;
-    private long reachableCacheTick;
+    /** Position of the last progress event - moving away from it also resets the timeout. */
+    private BlockPos lastProgressPos;
     private int expandDir;
     private BlockPos origin;
     private ResourceSearchPlanner.SearchState searchState;
@@ -78,7 +81,6 @@ public class GatherResourceAction extends BaseAction {
     private BlockPos mineTarget;
     private int ticksOnRoute;
     private int waterStuckTicks;
-    private int waterHopTicks;
     private int ticksOnMine;
     private int ticksRunning;
     private int statusCooldown;
@@ -120,8 +122,12 @@ public class GatherResourceAction extends BaseAction {
             result = ActionResult.failure("Unknown resource: " + blockName);
             return;
         }
+        resourceBlock = targetBlock;
 
         gatheredCount = 0;
+        // Quota counts what actually reaches the inventory (pickup fact),
+        // as a delta over what was already there ("mine 50 MORE logs").
+        startResourceCount = countResource();
         ticksRunning = 0;
         ticksOnRoute = 0;
         ticksOnMine = 0;
@@ -138,6 +144,7 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false);
         steve.getNavigation().stop();
         lastProgressTick = steve.level().getGameTime();
+        lastProgressPos = steve.blockPosition();
 
         debugLog("GATHER", "search " + resourceLabel() + " x" + targetQuantity
             + " from " + origin);
@@ -150,13 +157,25 @@ public class GatherResourceAction extends BaseAction {
         }
         ticksRunning++;
 
+        // The quota counts what actually reached the INVENTORY (pickup
+        // fact), not what was broken: drops lost in water/lava and logs
+        // currently spent on a pillar must not inflate the count.
+        gatheredCount = Math.max(0, countResource() - startResourceCount);
+
         // Search timeout only counts from the last PROGRESS: a bot that
         // keeps mining trees must never be killed by "Search timed out" -
-        // the clock resets on every felled log.
+        // the clock resets on every gathered log. Long walks/swims between
+        // trees and stations (40-50s across a swamp, no chop) are progress
+        // too: only a truly idle bot times out.
         long now = steve.level().getGameTime();
         if (gatheredCount != lastProgressCount) {
             lastProgressCount = gatheredCount;
             lastProgressTick = now;
+            lastProgressPos = steve.blockPosition();
+        } else if (lastProgressPos != null
+                && steve.blockPosition().distSqr(lastProgressPos) >= PROGRESS_MOVE_DISTANCE_SQ) {
+            lastProgressTick = now;
+            lastProgressPos = steve.blockPosition();
         }
         if (now - lastProgressTick >= SteveConfig.GATHER_SEARCH_TIMEOUT.get()) {
             finish(false, "Search timed out - found " + gatheredCount + " " + resourceLabel());
@@ -237,6 +256,12 @@ public class GatherResourceAction extends BaseAction {
     // ---- phases ----
 
     private void phaseSearch() {
+        if (fellGatheringMaterial) {
+            // A material run gone sideways must never look for the resource
+            // itself (targetBlock is temporarily a material like dirt).
+            phase = Phase.FELL_GATHER;
+            return;
+        }
         // Nearest material wins. Merge ray-visible blocks with the
         // no-line-of-sight nearby scan and pick the PHYSICALLY closest
         // candidate - a tree hidden behind a canopy 3 blocks away must win
@@ -260,8 +285,7 @@ public class GatherResourceAction extends BaseAction {
         BlockPos center = steve.blockPosition();
         BlockPos mine = all.stream()
             .filter(p -> !unreachableTargets.contains(p))
-            .filter(p -> !isUnderwaterTarget(p)) // swamp: never walk into water for a log
-            .filter(p -> hasReachableLandNear(p)) // skip island trees unreachable by land
+            .filter(p -> !isUnderwaterTarget(p)) // swamp: never dive for a log (drop loss, air)
             .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
             .orElse(null);
         if (mine != null) {
@@ -310,54 +334,35 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false); // ground movement, always
         ticksOnRoute++;
 
-        // Bridge FIRST, before the water branch: while building a bridge we
-        // are usually standing on/next to water, and the water branch would
-        // otherwise seize control and never advance the bridge. Lay one block
-        // toward the target and step onto it each tick.
-        if (routeTarget != null && tryBridgeStep()) {
-            return;
-        }
-
-        // Stuck / standing in a swamp pond. Ground pathfinding does not work
-        // from inside water (the nav node is a water node it cannot leave),
-        // so actively swim toward the nearest dry land: horizontal push +
-        // constant upward bob overrides the water drag. If that still does
-        // not get out within ~3s, teleport to the nearest dry spot - a
-        // permanently stuck bot is worse than a 2-block hop.
+        // Water is no longer an obstacle: AmphibiousPathNavigation swims
+        // across ponds to targets/stations on its own. Remaining
+        // emergencies only: head under water (air is limited - bob up) or
+        // stuck in water with no active path for a long time (e.g. under an
+        // overhang the navigator cannot escape) - then fish out to shore.
         if (steve.isInWater()) {
-            waterStuckTicks++;
-            BlockPos dry = findDrySpot(steve.blockPosition(), 8);
-            if (dry == null) {
-                dry = findDrySpot(steve.blockPosition(), 16);
+            if (steve.isUnderWater()) {
+                steve.setDeltaMovement(steve.getDeltaMovement().add(0, 0.15, 0));
             }
-            if (dry != null && waterStuckTicks < 20 * 3) {
-                net.minecraft.world.phys.Vec3 move = steve.getDeltaMovement();
-                double dx = dry.getX() + 0.5 - steve.getX();
-                double dz = dry.getZ() + 0.5 - steve.getZ();
-                double len = Math.sqrt(dx * dx + dz * dz);
-                if (len > 0.5) {
-                    move = move.add(dx / len * 0.3, 0, dz / len * 0.3);
+            if (steve.getNavigation().isInProgress()) {
+                waterStuckTicks = 0; // swimming along a real route - fine
+            } else if (++waterStuckTicks > WATER_FISH_OUT_TICKS) {
+                BlockPos dry = findDrySpot(steve.blockPosition(), 8);
+                if (dry == null) {
+                    dry = findDrySpot(steve.blockPosition(), 16);
                 }
-                move = move.add(0, 0.12, 0);
-                steve.setDeltaMovement(move);
-                steve.getNavigation().stop();
-                if (waterStuckTicks % 20 == 0) {
-                    debugLog("ROUTING", "swimming out of water toward " + dry);
+                if (dry != null) {
+                    int sy = steve.level().getHeightmapPos(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                        dry).getY();
+                    steve.teleportTo(dry.getX() + 0.5, sy + 1, dry.getZ() + 0.5);
+                    steve.getNavigation().stop();
+                    debugLog("ROUTING", "fished out of water to " + dry);
                 }
-            } else if (dry != null) {
-                // gave the swim a fair chance - fish him out
-                int sy = steve.level().getHeightmapPos(
-                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    dry).getY();
-                steve.teleportTo(dry.getX() + 0.5, sy + 1, dry.getZ() + 0.5);
-                steve.getNavigation().stop();
                 waterStuckTicks = 0;
-                debugLog("ROUTING", "fished out of water to " + dry);
             }
-            return;
+        } else {
+            waterStuckTicks = 0;
         }
-        waterStuckTicks = 0;
-        waterHopTicks = 0;
 
         // Stations sit at origin.y + 5 (look-out altitude) but Steve walks on
         // the ground: arrival and stall checks use the HORIZONTAL distance.
@@ -375,18 +380,19 @@ public class GatherResourceAction extends BaseAction {
 
         if (!steve.getNavigation().isInProgress()) {
             // Target a dry, standable cell NEAR the route point: routeTarget
-            // is a log/station block whose XZ may sit in a swamp pond - a
-            // path to a point under water never builds (the bot then marks
-            // every log of the tree unreachable and gives up).
+            // is a log/station block whose XZ may sit in a swamp pond.
             BlockPos land = findDrySpotNear(routeTarget, 4);
             if (land == null) {
-                // The route point (station/log) sits in water with no dry
-                // cell within 4 - there is nothing to walk to. (Bridge
-                // building is handled by the priority tryBridgeStep() at the
-                // top of this phase; if it could not lay blocks, skip.)
-                debugLog("ROUTING", "target has no walkable land, next");
+                // All water around: with amphibious navigation the bot
+                // simply SWIMS there - aim for a water surface cell.
+                land = findSwimSpotNear(routeTarget, 4);
+            }
+            if (land == null) {
+                // Neither dry land nor swimmable water anywhere near the
+                // route point - nothing to path to.
+                debugLog("ROUTING", "target has no walkable land or water, next");
                 ticksOnRoute = 0;
-                phase = Phase.SEARCH;
+                phase = fellGatheringMaterial ? Phase.FELL_GATHER : Phase.SEARCH;
                 return;
             }
             steve.getNavigation().moveTo(land.getX() + 0.5, land.getY(), land.getZ() + 0.5, 1.0);
@@ -408,6 +414,10 @@ public class GatherResourceAction extends BaseAction {
                 }
                 debugLog("ROUTING", "target unreachable, skipping " + mineTarget);
                 mineTarget = null;
+                if (fellGatheringMaterial) {
+                    phase = Phase.FELL_GATHER; // re-pick another material block
+                    return;
+                }
             } else {
                 debugLog("ROUTING", "station unreachable, next station");
             }
@@ -468,7 +478,8 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
-        gatheredCount++;
+        // No gatheredCount++ here: the quota counts the PICKUP fact
+        // (inventory delta, updated in onTick), not the break fact.
         debugLog("MINE", resourceLabel() + " at " + mineTarget
             + " (" + gatheredCount + "/" + targetQuantity + ")");
 
@@ -579,58 +590,71 @@ public class GatherResourceAction extends BaseAction {
     }
 
     /**
-     * Lays ONE bridge block toward {@code target} and steps onto it, so the
-     * bot advances across a swamp pond one cell per tick (continuous bridge)
-     * instead of placing a single block and stalling. Only works if there is
-     * usable block material in the inventory; stops when ahead turns to dry
-     * land or material runs out. Returns true if a block was placed+stepped.
+     * Nearest swimmable water cell within the radius of center, or null.
+     * Used when there is no dry land around the route point: with amphibious
+     * navigation the bot simply swims there. The returned position is the
+     * top WATER block (the swimming node's height).
      */
-    private boolean tryBridgeStep() {
+    private BlockPos findSwimSpotNear(BlockPos center, int radius) {
         net.minecraft.world.level.Level lvl = steve.level();
-
-        // Look ahead in the XZ direction of the target.
-        double dxs = routeTarget.getX() + 0.5 - steve.getX();
-        double dzs = routeTarget.getZ() + 0.5 - steve.getZ();
-        double len = Math.sqrt(dxs * dxs + dzs * dzs);
-        if (len < 0.5) {
-            return false;
-        }
-        double ux = dxs / len;
-        double uz = dzs / len;
-        int ax = (int) Math.floor(steve.getX() + 0.5 + ux * 1.3 - 0.5);
-        int az = (int) Math.floor(steve.getZ() + 0.5 + uz * 1.3 - 0.5);
-
-        // The bridge cell sits at the bot's feet level; it must currently be
-        // water (or replaceable/air above water). Only bridge while the way
-        // forward is actually wet - once we hit dry land, stop.
-        int by = steve.blockPosition().getY();
-        BlockPos ahead = new BlockPos(ax, by, az);
-        boolean aheadWet = lvl.getFluidState(ahead).is(net.minecraft.tags.FluidTags.WATER)
-            || lvl.getBlockState(ahead).getBlock().defaultBlockState().canBeReplaced()
-                && lvl.getFluidState(ahead.below()).is(net.minecraft.tags.FluidTags.WATER);
-        if (!aheadWet) {
-            return false; // dry ahead (or no water to fill) - normal walking
-        }
-
-        // need material; prefer non-resource (dirt/stone), logs as fallback
-        ItemStack mat = FellSupport.findSolidPillarBlock(lvl, ahead, steve.getInventory(), targetBlock);
-        if (mat.isEmpty()) {
-            return false; // no blocks left to build with
-        }
-        Block block = ((net.minecraft.world.item.BlockItem) mat.getItem()).getBlock();
-        lvl.setBlock(ahead, block.defaultBlockState(), 3);
-        // step onto the new block so the next cell can be laid
-        steve.setPos(ahead.getX() + 0.5, ahead.getY() + 1, ahead.getZ() + 0.5);
-        for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
-            ItemStack slot = steve.getInventory().getItem(i);
-            if (!slot.isEmpty() && slot.getItem() == mat.getItem()) {
-                steve.getInventory().removeItem(i, 1);
-                break;
+        BlockPos best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                int x = center.getX() + dx;
+                int z = center.getZ() + dz;
+                // First free cell above the highest motion-blocking block or
+                // fluid; for a pond that sits right above the water surface.
+                int surfaceY = lvl.getHeightmapPos(
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    new BlockPos(x, center.getY(), z)).getY();
+                BlockPos surface = new BlockPos(x, surfaceY, z);
+                BlockPos water = lvl.getFluidState(surface).is(net.minecraft.tags.FluidTags.WATER)
+                    ? surface
+                    : (lvl.getFluidState(surface.below()).is(net.minecraft.tags.FluidTags.WATER)
+                        ? surface.below() : null);
+                if (water == null) {
+                    continue;
+                }
+                int dist = Math.abs(dx) + Math.abs(dz);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = water;
+                }
             }
         }
-        steve.getNavigation().stop();
-        debugLog("ROUTING", "bridge step " + ahead + " (" + block.getName().getString() + ")");
-        return true;
+        return best;
+    }
+
+    /**
+     * Total count of matching items currently in the inventory. Static for
+     * unit tests (tag bindings are unavailable without a running server, so
+     * the matcher is injected).
+     */
+    static int countResource(net.minecraft.world.Container inventory,
+            java.util.function.Predicate<net.minecraft.world.item.Item> resourceMatcher) {
+        int total = 0;
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (!stack.isEmpty() && resourceMatcher.test(stack.getItem())) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
+    private int countResource() {
+        java.util.function.Predicate<net.minecraft.world.item.Item> matcher;
+        if (anyLogMode) {
+            // In-game only: item tag bindings require a running server.
+            matcher = item -> item.builtInRegistryHolder().is(net.minecraft.tags.ItemTags.LOGS);
+        } else if (resourceBlock != null) {
+            net.minecraft.world.item.Item resourceItem = resourceBlock.asItem();
+            matcher = item -> item == resourceItem;
+        } else {
+            matcher = item -> false;
+        }
+        return countResource(steve.getInventory(), matcher);
     }
 
     /**
@@ -648,101 +672,6 @@ public class GatherResourceAction extends BaseAction {
             net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
             new BlockPos(x, origin.getY(), z)).getY();
         return new BlockPos(x, y, z);
-    }
-
-    /** Is (x, y, z) a dry walkable surface cell (not log/leaves/water, solid below). */
-    private boolean isDrySurface(int x, int y, int z) {
-        net.minecraft.world.level.Level lvl = steve.level();
-        BlockPos stand = new BlockPos(x, y, z);
-        Block surface = lvl.getBlockState(stand).getBlock();
-        if (surface.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)
-                || surface instanceof net.minecraft.world.level.block.LeavesBlock) {
-            return false;
-        }
-        if (lvl.getFluidState(stand).is(net.minecraft.tags.FluidTags.WATER)
-                || lvl.getFluidState(stand.below()).is(net.minecraft.tags.FluidTags.WATER)
-                || lvl.getBlockState(stand.below()).isAir()) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * BFS over dry walkable cells starting from the bot, up to {@code range}
-     * blocks away in X/Z. Returns the set of dry surface positions reachable
-     * over land. Used to reject island trees (a swamp pond around a log means
-     * the ground path never reaches it).
-     */
-    private Set<BlockPos> reachableDry(int range) {
-        int y = steve.blockPosition().getY();
-        Set<BlockPos> reachable = new HashSet<>();
-        Deque<BlockPos> queue = new ArrayDeque<>();
-        BlockPos start = steve.blockPosition();
-        if (!isDrySurface(start.getX(), y, start.getZ())) {
-            // bot currently not on a dry cell (e.g. in water): find the
-            // nearest dry cell to seed the flood fill
-            for (int dx = -2; dx <= 2; dx++) {
-                for (int dz = -2; dz <= 2; dz++) {
-                    if (isDrySurface(start.getX() + dx, y, start.getZ() + dz)) {
-                        start = new BlockPos(start.getX() + dx, y, start.getZ() + dz);
-                        dx = dz = 99;
-                        break;
-                    }
-                }
-            }
-            if (!isDrySurface(start.getX(), y, start.getZ())) {
-                return reachable; // fully in water - nothing reachable by land
-            }
-        }
-        queue.add(start);
-        reachable.add(start);
-        Set<BlockPos> visited = new HashSet<>();
-        visited.add(start);
-        int[] dxs = {1, -1, 0, 0};
-        int[] dzs = {0, 0, 1, -1};
-        while (!queue.isEmpty()) {
-            BlockPos cur = queue.poll();
-            for (int i = 0; i < 4; i++) {
-                int nx = cur.getX() + dxs[i];
-                int nz = cur.getZ() + dzs[i];
-                if (Math.max(Math.abs(nx - start.getX()), Math.abs(nz - start.getZ())) > range) {
-                    continue;
-                }
-                BlockPos next = new BlockPos(nx, y, nz);
-                if (visited.contains(next)) {
-                    continue;
-                }
-                visited.add(next);
-                if (isDrySurface(nx, y, nz)) {
-                    reachable.add(next);
-                    queue.add(next);
-                }
-            }
-        }
-        return reachable;
-    }
-
-    /** Whether a dry land cell lies within {@code near} blocks (X/Z) of the
-     * target. Swamp trees on islands have no land adjacent within reach, so
-     * they are skipped instead of running into the pond forever. The BFS is
-     * cached for this tick (several candidates ask in the same iteration).
-     */
-    private boolean hasReachableLandNear(BlockPos target) {
-        long now = steve.level().getGameTime();
-        if (reachableCache == null || now != reachableCacheTick) {
-            reachableCache = reachableDry(REACH_SEARCH_RANGE);
-            reachableCacheTick = now;
-        }
-        if (reachableCache == null || reachableCache.isEmpty()) {
-            return false; // bot is in the middle of a pond - nothing by land
-        }
-        for (BlockPos land : reachableCache) {
-            if (Math.abs(land.getX() - target.getX()) <= 2
-                    && Math.abs(land.getZ() - target.getZ()) <= 2) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** Whether the block at pos is the requested target, or ANY log in any-log mode. */
@@ -926,6 +855,7 @@ public class GatherResourceAction extends BaseAction {
             List<BlockPos> visible = VisionScanner.findVisible(steve, material);
             BlockPos chosen = visible.stream()
                 .filter(p -> !p.equals(feet) && !p.equals(steve.blockPosition()))
+                .filter(p -> !unreachableTargets.contains(p))
                 .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (chosen != null) {
@@ -945,6 +875,7 @@ public class GatherResourceAction extends BaseAction {
             List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, material);
             BlockPos chosen = nearby.stream()
                 .filter(p -> !p.equals(feet) && !p.equals(steve.blockPosition()))
+                .filter(p -> !unreachableTargets.contains(p))
                 .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (chosen != null) {
