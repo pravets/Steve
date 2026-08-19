@@ -52,6 +52,10 @@ public class GatherResourceAction extends BaseAction {
     private static final int STATUS_INTERVAL = 40; // ticks between STATUS debug pings (20s @ 2TPS)
     private static final double PROGRESS_MOVE_DISTANCE_SQ = 8.0 * 8.0; // moving this far = progress
     private static final int WATER_FISH_OUT_TICKS = 120; // 6s in water with no path -> teleport out
+    private static final double NO_MOVE_DISTANCE_SQ = 0.75 * 0.75; // less real displacement = wedged
+    private static final int MAX_ROUTE_STALLS = 2; // stalls without leaf progress before skipping
+    private static final int LEAF_CLEAR_PER_STALL = 3; // leaves chopped toward the target per stall
+    private static final int MAX_LEAF_CLEAR_STALLS = 4; // hard cap so a deep canopy can't loop
     private static final Block[] PILLAR_MATERIALS = {
         net.minecraft.world.level.block.Blocks.GRASS_BLOCK, // everywhere underfoot, drops dirt
         net.minecraft.world.level.block.Blocks.DIRT,
@@ -82,6 +86,12 @@ public class GatherResourceAction extends BaseAction {
     private int ticksOnRoute;
     private int waterStuckTicks;
     private int ticksOnMine;
+    /** Movement watchdog state: a wedged path keeps nav "moving" forever. */
+    private BlockPos lastMovePos;
+    private int noMoveTicks;
+    /** Consecutive stalls for the CURRENT route target (re-path / leaf-clear attempts). */
+    private int routeStallCount;
+    private BlockPos lastRouteTarget;
     private int ticksRunning;
     private int statusCooldown;
 
@@ -131,6 +141,8 @@ public class GatherResourceAction extends BaseAction {
         ticksRunning = 0;
         ticksOnRoute = 0;
         ticksOnMine = 0;
+        lastRouteTarget = null;
+        routeStallCount = 0;
         fellMode = false;
         fellGatheringMaterial = false;
         fellHeight = 0;
@@ -334,6 +346,18 @@ public class GatherResourceAction extends BaseAction {
         steve.setFlying(false); // ground movement, always
         ticksOnRoute++;
 
+        if (routeTarget == null) {
+            phase = Phase.SEARCH;
+            return;
+        }
+        // New route target: reset per-target stall state.
+        if (!routeTarget.equals(lastRouteTarget)) {
+            lastRouteTarget = routeTarget;
+            routeStallCount = 0;
+            noMoveTicks = 0;
+            lastMovePos = null;
+        }
+
         // Water is no longer an obstacle: AmphibiousPathNavigation swims
         // across ponds to targets/stations on its own. Remaining
         // emergencies only: head under water (air is limited - bob up) or
@@ -362,6 +386,17 @@ public class GatherResourceAction extends BaseAction {
             }
         } else {
             waterStuckTicks = 0;
+        }
+
+        // Mine-from-here: the arrival radius (3) is stricter than the mining
+        // reach (5). When the target block is already in reach, do not force
+        // the last unwalkable meters (steep bank, canopy) - chop from here.
+        if (mineTarget != null && routeTarget.equals(mineTarget)
+                && steve.distanceToSqr(mineTarget.getX() + 0.5, mineTarget.getY() + 0.5, mineTarget.getZ() + 0.5) <= MINE_REACH_SQ
+                && isLogBlockAt(mineTarget)) {
+            ticksOnRoute = 0;
+            phase = Phase.MINING;
+            return;
         }
 
         // Stations sit at origin.y + 5 (look-out altitude) but Steve walks on
@@ -398,31 +433,121 @@ public class GatherResourceAction extends BaseAction {
             steve.getNavigation().moveTo(land.getX() + 0.5, land.getY(), land.getZ() + 0.5, 1.0);
         }
 
+        // Movement watchdog: a wedged path (steep bank out of water, canopy
+        // wall) keeps vanilla navigation in the "moving" state forever - it
+        // recomputes the path every few ticks, so the isDone-based stall
+        // check below never fires. Detect "no real movement" independently.
+        BlockPos pos = steve.blockPosition();
+        if (lastMovePos == null || pos.distSqr(lastMovePos) >= NO_MOVE_DISTANCE_SQ) {
+            lastMovePos = pos;
+            noMoveTicks = 0;
+        } else if (++noMoveTicks > ROUTE_STALL_TICKS) {
+            handleRouteStall("no movement");
+            return;
+        }
+
         // Path cannot be built / blocked: skip this target after a grace
-        // period. Remember it as unreachable so the next scan does not pick
-        // the SAME block again (infinite silent loop: reachable-block ->
-        // stall 60 ticks -> same block -> ...).
+        // period. handleRouteStall chops leaves and re-paths first; the
+        // target is blacklisted only after repeated failures, so the next
+        // scan does not pick the SAME block again (infinite silent loop:
+        // reachable-block -> stall 60 ticks -> same block -> ...).
         if (ticksOnRoute > ROUTE_STALL_TICKS
                 && steve.getNavigation().isDone()
                 && horizontalDistanceSqr(routeTarget) > ARRIVED_DISTANCE_SQ) {
-            ticksOnRoute = 0;
-            steve.getNavigation().stop();
-            if (mineTarget != null && routeTarget.equals(mineTarget)) {
-                unreachableTargets.add(mineTarget);
-                if (unreachableTargets.size() > UNREACHABLE_TARGETS_LIMIT) {
-                    unreachableTargets.clear();
-                }
-                debugLog("ROUTING", "target unreachable, skipping " + mineTarget);
-                mineTarget = null;
-                if (fellGatheringMaterial) {
-                    phase = Phase.FELL_GATHER; // re-pick another material block
-                    return;
-                }
-            } else {
-                debugLog("ROUTING", "station unreachable, next station");
-            }
-            phase = Phase.SEARCH; // next station / other candidate
+            handleRouteStall("path stalled");
         }
+    }
+
+    /**
+     * Unified stall reaction: chop a few leaves toward the target (leaves
+     * are pathfinding-impassable, and swamp canopies hang to the ground,
+     * walling the trunk off), then let the routing loop re-path. The target
+     * is blacklisted only after repeated stalls with nothing left to clear.
+     */
+    private void handleRouteStall(String reason) {
+        ticksOnRoute = 0;
+        noMoveTicks = 0;
+        steve.getNavigation().stop();
+        routeStallCount++;
+        int cleared = clearLeavesToward(routeTarget, LEAF_CLEAR_PER_STALL);
+        if (cleared > 0 && routeStallCount <= MAX_LEAF_CLEAR_STALLS) {
+            debugLog("ROUTING", reason + "; cleared " + cleared + " leaves toward " + routeTarget + ", re-pathing");
+            return;
+        }
+        if (routeStallCount < MAX_ROUTE_STALLS) {
+            debugLog("ROUTING", reason + "; re-pathing (attempt " + routeStallCount + ")");
+            return;
+        }
+        routeStallCount = 0;
+        if (mineTarget != null && routeTarget.equals(mineTarget)) {
+            unreachableTargets.add(mineTarget);
+            if (unreachableTargets.size() > UNREACHABLE_TARGETS_LIMIT) {
+                unreachableTargets.clear();
+            }
+            debugLog("ROUTING", "target unreachable (" + reason + "), skipping " + mineTarget);
+            mineTarget = null;
+            if (fellGatheringMaterial) {
+                phase = Phase.FELL_GATHER; // re-pick another material block
+                return;
+            }
+        } else {
+            debugLog("ROUTING", "station unreachable (" + reason + "), next station");
+        }
+        phase = Phase.SEARCH; // next station / other candidate
+    }
+
+    /**
+     * Breaks up to {@code max} leaf blocks within mining reach that lie
+     * toward the route target. Leaves are pathfinding-impassable, and swamp
+     * canopies (mangrove!) hang to the ground, walling the trunk off -
+     * chopping through is cheaper than routing around. Returns the number
+     * of blocks actually broken.
+     */
+    private int clearLeavesToward(BlockPos target, int max) {
+        net.minecraft.world.level.Level lvl = steve.level();
+        double tx = target.getX() + 0.5 - steve.getX();
+        double tz = target.getZ() + 0.5 - steve.getZ();
+        double tLen = Math.sqrt(tx * tx + tz * tz);
+        if (tLen < 0.5) {
+            return 0;
+        }
+        double ux = tx / tLen;
+        double uz = tz / tLen;
+        BlockPos bot = steve.blockPosition();
+        int reach = (int) Math.ceil(Math.sqrt(MINE_REACH_SQ));
+        List<BlockPos> leaves = new ArrayList<>();
+        for (int dx = -reach; dx <= reach; dx++) {
+            for (int dy = -2; dy <= 2; dy++) {
+                for (int dz = -reach; dz <= reach; dz++) {
+                    BlockPos p = bot.offset(dx, dy, dz);
+                    if (!(lvl.getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.LeavesBlock)) {
+                        continue;
+                    }
+                    if (steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5) > MINE_REACH_SQ) {
+                        continue;
+                    }
+                    double lx = p.getX() + 0.5 - steve.getX();
+                    double lz = p.getZ() + 0.5 - steve.getZ();
+                    double lLen = Math.sqrt(lx * lx + lz * lz);
+                    if (lLen > 0.25 && (lx / lLen) * ux + (lz / lLen) * uz < 0.2) {
+                        continue; // leaf is not between us and the target
+                    }
+                    leaves.add(p);
+                }
+            }
+        }
+        leaves.sort(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)));
+        int cleared = 0;
+        for (BlockPos leaf : leaves) {
+            if (cleared >= max) {
+                break;
+            }
+            steve.getLookControl().setLookAt(leaf.getX() + 0.5, leaf.getY() + 0.5, leaf.getZ() + 0.5);
+            if (lvl.destroyBlock(leaf, true)) {
+                cleared++;
+            }
+        }
+        return cleared;
     }
 
     private void phaseMining() {
@@ -674,13 +799,19 @@ public class GatherResourceAction extends BaseAction {
         return new BlockPos(x, y, z);
     }
 
-    /** Whether the block at pos is the requested target, or ANY log in any-log mode. */
+    /**
+     * Whether the block at pos is the current mining target: ANY log in
+     * any-log mode, but the MATERIAL block itself while gathering pillar
+     * material (targetBlock is temporarily dirt/grass then - checking the
+     * LOGS tag in that state made the bot refuse to dig dirt on every
+     * wood run, because wood runs are always any-log).
+     */
     private boolean isLogBlockAt(BlockPos pos) {
         Block block = steve.level().getBlockState(pos).getBlock();
-        if (anyLogMode) {
-            return block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+        if (fellGatheringMaterial || !anyLogMode) {
+            return block == targetBlock;
         }
-        return block == targetBlock;
+        return block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
     }
 
     /**
