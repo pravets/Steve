@@ -92,6 +92,8 @@ public class GatherResourceAction extends BaseAction {
     /** Consecutive stalls for the CURRENT route target (re-path / leaf-clear attempts). */
     private int routeStallCount;
     private BlockPos lastRouteTarget;
+    /** One hop-teleport toward the target is allowed per route target. */
+    private boolean hopAttempted;
     private int ticksRunning;
     private int statusCooldown;
 
@@ -103,6 +105,10 @@ public class GatherResourceAction extends BaseAction {
     private boolean fellGatheringMaterial;
     private Block fellLogBlock;
     private final List<BlockPos> fellLogs = new ArrayList<>();
+    /** Every pillar block WE placed - dismantle exactly these, never guess by
+     * block type (a pillar built from same-type logs is otherwise mistaken
+     * for the tree itself and left standing). */
+    private final List<BlockPos> fellPillar = new ArrayList<>();
     private int fellHeight;
     private int fellStallTicks;
     private int fellWaitTicks;
@@ -148,6 +154,7 @@ public class GatherResourceAction extends BaseAction {
         fellHeight = 0;
         fellStallTicks = 0;
         fellLogs.clear();
+        fellPillar.clear();
         unreachableTargets.clear();
         origin = steve.blockPosition();
         searchState = new ResourceSearchPlanner.SearchState(origin, 0, 0, steve.level().getGameTime());
@@ -356,6 +363,7 @@ public class GatherResourceAction extends BaseAction {
             routeStallCount = 0;
             noMoveTicks = 0;
             lastMovePos = null;
+            hopAttempted = false;
         }
 
         // Water is no longer an obstacle: AmphibiousPathNavigation swims
@@ -437,8 +445,12 @@ public class GatherResourceAction extends BaseAction {
         // wall) keeps vanilla navigation in the "moving" state forever - it
         // recomputes the path every few ticks, so the isDone-based stall
         // check below never fires. Detect "no real movement" independently.
+        // HORIZONTAL only: bobbing up/down in water (y 61<->65) is the wedge
+        // signature, not progress - full 3D distSqr would reset the counter.
         BlockPos pos = steve.blockPosition();
-        if (lastMovePos == null || pos.distSqr(lastMovePos) >= NO_MOVE_DISTANCE_SQ) {
+        int mdx = lastMovePos == null ? 0 : pos.getX() - lastMovePos.getX();
+        int mdz = lastMovePos == null ? 0 : pos.getZ() - lastMovePos.getZ();
+        if (lastMovePos == null || mdx * mdx + mdz * mdz >= NO_MOVE_DISTANCE_SQ) {
             lastMovePos = pos;
             noMoveTicks = 0;
         } else if (++noMoveTicks > ROUTE_STALL_TICKS) {
@@ -477,6 +489,28 @@ public class GatherResourceAction extends BaseAction {
         if (routeStallCount < MAX_ROUTE_STALLS) {
             debugLog("ROUTING", reason + "; re-pathing (attempt " + routeStallCount + ")");
             return;
+        }
+        // Last resort before blacklisting: one hop toward the target. The
+        // amphibious navigator cannot scale a steep 2-3 block bank straight
+        // out of water - it recomputes the path forever while the body
+        // bounces at the waterline. Land on the far side, consistent with
+        // the existing fish-out teleport.
+        if (!hopAttempted && horizontalDistanceSqr(routeTarget) <= 64) {
+            hopAttempted = true;
+            BlockPos spot = findDrySpotNear(routeTarget, 4);
+            int ty;
+            if (spot != null) {
+                ty = spot.getY() + 1; // dry surface: feet above the ground block
+            } else {
+                spot = findSwimSpotNear(routeTarget, 4);
+                ty = spot == null ? 0 : spot.getY(); // swim spot: feet in the water cell
+            }
+            if (spot != null) {
+                steve.teleportTo(spot.getX() + 0.5, ty, spot.getZ() + 0.5);
+                steve.getNavigation().stop();
+                debugLog("ROUTING", reason + "; hopped across to " + spot);
+                return;
+            }
         }
         routeStallCount = 0;
         if (mineTarget != null && routeTarget.equals(mineTarget)) {
@@ -832,6 +866,7 @@ public class GatherResourceAction extends BaseAction {
         fellHeight = 0;
         fellStallTicks = 0;
         fellLogs.clear();
+        fellPillar.clear();
     }
 
     private boolean isTargetLog(BlockPos pos) {
@@ -864,7 +899,8 @@ public class GatherResourceAction extends BaseAction {
         if (reachable != null) {
             steve.swing(InteractionHand.MAIN_HAND, true);
             if (steve.level().destroyBlock(reachable, true)) {
-                gatheredCount++;
+                // No gatheredCount++ here either: the quota is the pickup
+                // delta, recomputed every tick in onTick
                 fellLogs.remove(reachable);
                 fellStallTicks = 0;
                 debugLog("FELL", "felled " + fellLogBlock.getName().getString() + " at " + reachable
@@ -901,6 +937,7 @@ public class GatherResourceAction extends BaseAction {
             }
             steve.level().setBlock(standPos, block.defaultBlockState(), 3);
             steve.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
+            fellPillar.add(standPos);
             // Remove one block from the inventory slot that held it
             for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
                 ItemStack slot = steve.getInventory().getItem(i);
@@ -933,12 +970,13 @@ public class GatherResourceAction extends BaseAction {
         BlockState belowState = steve.level().getBlockState(below);
 
         if (fellHeight > 0) {
-            if (!belowState.isAir()
-                    && belowState.getBlock() != fellLogBlock
-                    && belowState.isCollisionShapeFullBlock(steve.level(), below)) {
-                // Dismantle our own pillar block: drop returns to inventory via vacuum
+            if (fellPillar.contains(below)) {
+                // Our own pillar block - even a same-type log (the fallback
+                // pillar material IS the target block): dismantle it, the
+                // drop returns to the inventory via vacuum
                 steve.swing(InteractionHand.MAIN_HAND, true);
                 if (steve.level().destroyBlock(below, true)) {
+                    fellPillar.remove(below);
                     steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
                     fellHeight--;
                     fellStallTicks = 0;
@@ -952,8 +990,8 @@ public class GatherResourceAction extends BaseAction {
                 fellStallTicks = 0;
                 return;
             }
-            // Solid block below that is not our pillar (e.g. the log we stand
-            // on after a branch fell): drop straight down onto it
+            // Solid block below that is not our pillar (e.g. the tree's own
+            // log we stand on after a branch fell): drop straight down onto it
             steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
             fellHeight--;
             fellStallTicks = 0;
@@ -1058,21 +1096,30 @@ public class GatherResourceAction extends BaseAction {
     }
 
     /**
-     * Removes the pillar blocks under the Steve, dropping down level by level.
-     * Drops are picked up by the vacuum, so nothing is left in the landscape.
+     * Removes the pillar blocks under the Steve, dropping down level by level,
+     * then wipes any pillar blocks left standing anywhere (mid-descent abort,
+     * externally replaced blocks). Only positions in fellPillar are touched -
+     * never the terrain and never the tree's own logs. Drops are picked up by
+     * the vacuum, so nothing is left in the landscape.
      */
     private void dismantlePillar() {
         int guard = 0;
         while (fellHeight > 0 && guard++ < FELL_MAX_HEIGHT) {
             BlockPos below = steve.blockPosition().below();
-            BlockState state = steve.level().getBlockState(below);
-            if (!state.isAir() && state.getBlock() != fellLogBlock) {
+            if (fellPillar.contains(below)) {
                 steve.level().destroyBlock(below, true);
+                fellPillar.remove(below);
             }
             steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
             fellHeight--;
         }
         fellHeight = 0;
+        for (BlockPos p : fellPillar) {
+            if (!steve.level().getBlockState(p).isAir()) {
+                steve.level().destroyBlock(p, true);
+            }
+        }
+        fellPillar.clear();
     }
 
     private void debugLog(String type, String message) {
