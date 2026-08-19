@@ -113,7 +113,7 @@ public class GatherResourceAction extends BaseAction {
     private int fellStallTicks;
     private int fellWaitTicks;
 
-    private enum Phase { SEARCH, ROUTING, MINING, FELL_ASCEND, FELL_DESCEND, FELL_GATHER, FELL_WAIT, FINISHED }
+    private enum Phase { SEARCH, ROUTING, MINING, FELL_ASCEND, FELL_DESCEND, FELL_GATHER, FELL_WAIT, FELL_CLEANUP, FINISHED }
 
     private Phase phase = Phase.SEARCH;
 
@@ -234,6 +234,7 @@ public class GatherResourceAction extends BaseAction {
             case FELL_DESCEND -> phaseFellDescend();
             case FELL_GATHER -> phaseFellGatherMaterial();
             case FELL_WAIT -> phaseFellWaitPickup();
+            case FELL_CLEANUP -> phaseFellCleanup();
             default -> { }
         }
 
@@ -524,6 +525,13 @@ public class GatherResourceAction extends BaseAction {
                 phase = Phase.FELL_GATHER; // re-pick another material block
                 return;
             }
+            if (fellMode) {
+                // Drop only this branch from the CURRENT tree; the rest is
+                // still chopped via the cleanup loop, not abandoned.
+                fellLogs.remove(routeTarget);
+                continueFellCleanup();
+                return;
+            }
         } else {
             debugLog("ROUTING", "station unreachable (" + reason + "), next station");
         }
@@ -594,6 +602,15 @@ public class GatherResourceAction extends BaseAction {
         // NOTE: in any-log mode targetBlock is null, so compare via
         // isLogBlockAt (LOGS tag) - block != null would always be true.
         if (!isLogBlockAt(mineTarget)) {
+            if (fellMode && !fellGatheringMaterial) {
+                // A cleanup branch of the current tree vanished (broken
+                // externally between scans): drop it and keep chopping.
+                fellLogs.remove(mineTarget);
+                mineTarget = null;
+                ticksOnMine = 0;
+                continueFellCleanup();
+                return;
+            }
             mineTarget = null;
             ticksOnMine = 0;
             phase = Phase.SEARCH;
@@ -612,6 +629,14 @@ public class GatherResourceAction extends BaseAction {
                 ticksOnMine = 0;
                 steve.getNavigation().stop();
                 rememberUnreachable(mineTarget);
+                if (fellMode && !fellGatheringMaterial) {
+                    // Unreachable cleanup branch: drop it from the CURRENT
+                    // tree's list only, keep chopping the rest.
+                    fellLogs.remove(mineTarget);
+                    mineTarget = null;
+                    continueFellCleanup();
+                    return;
+                }
                 mineTarget = null;
                 phase = Phase.SEARCH;
             }
@@ -639,13 +664,14 @@ public class GatherResourceAction extends BaseAction {
 
         // No gatheredCount++ here: the quota counts the PICKUP fact
         // (inventory delta, updated in onTick), not the break fact.
-        debugLog("MINE", resourceLabel() + " at " + mineTarget
+        BlockPos mined = mineTarget;
+        debugLog("MINE", resourceLabel() + " at " + mined
             + " (" + gatheredCount + "/" + targetQuantity + ")");
 
         // Enter whole-tree felling: a log above the mined one means a tree
         // trunk - but only when leaves are nearby (player structures must
         // never be felled, even if built from logs)
-        BlockPos above = mineTarget.above();
+        BlockPos above = mined.above();
         mineTarget = null;
         if (!fellMode && isLogBlockAt(above)
                 && isTreeLog(above)) {
@@ -657,6 +683,14 @@ public class GatherResourceAction extends BaseAction {
                 enterFellMode(component);
                 return;
             }
+        }
+        if (fellMode) {
+            // Chopped one of the current tree's cleanup branches: drop it
+            // from the list and continue with the next one instead of
+            // slipping into SEARCH and abandoning the half-felled tree.
+            fellLogs.remove(mined);
+            continueFellCleanup();
+            return;
         }
         phase = Phase.SEARCH; // look for the next visible block
     }
@@ -670,15 +704,19 @@ public class GatherResourceAction extends BaseAction {
     // ---- fell mode ----
 
     private void enterFellMode(List<BlockPos> component) {
-        fellMode = true;
         // Keep only the logs ABOVE the water line: underwater trunk logs in
         // swamps would make the bot walk into the pond to chop them.
         List<BlockPos> aboveWater = component.stream()
             .filter(p -> !isUnderwaterTarget(p))
             .toList();
         if (aboveWater.isEmpty()) {
-            return; // whole tree underwater - nothing to fell
+            return; // whole tree underwater - nothing to fell, stay in MINING
         }
+        // The flag goes up only AFTER the validation above: an early return
+        // with fellMode already true left the mode stuck on forever (phase
+        // stayed MINING with a null target, and the !fellMode entry check in
+        // phaseMining never fired again - every later tree was ground-chopped).
+        fellMode = true;
         // Concrete log type: the exact target, or the type of the first
         // connected log when in any-log (wood) mode.
         fellLogBlock = targetBlock != null
@@ -884,7 +922,9 @@ public class GatherResourceAction extends BaseAction {
         // Stall guard: progress is a felled log OR a grown pillar
         fellStallTicks++;
         if (fellStallTicks > FELL_STALL_TICKS) {
-            finish(false, "Stuck while felling (no progress for " + FELL_STALL_TICKS + " ticks)");
+            // A fell stall abandons only the CURRENT tree - the gather run
+            // continues (finish() here used to kill the whole action).
+            abandonTree("Stuck while felling (no progress for " + FELL_STALL_TICKS + " ticks)");
             return;
         }
 
@@ -962,7 +1002,7 @@ public class GatherResourceAction extends BaseAction {
         }
         fellStallTicks++;
         if (fellStallTicks > FELL_STALL_TICKS) {
-            finish(false, "Stuck while dismantling the pillar");
+            abandonTree("Stuck while dismantling the pillar");
             return;
         }
 
@@ -998,20 +1038,48 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
-        // Back on the ground. If unreachable logs remain (branches far out),
-        // try to walk to the nearest one once; the stall guard exits if not.
-        if (!fellLogs.isEmpty()) {
-            BlockPos nearest = fellLogs.stream()
-                .min(Comparator.comparingDouble(p -> horizontalDistanceSqr(p)))
-                .orElse(null);
-            if (nearest != null) {
-                routeTarget = nearest;
-                phase = Phase.ROUTING;
-                return;
-            }
-        }
+        // Back on the ground. Leftover branch logs (too far out to chop from
+        // the pillar) go through the cleanup phase, which sets a REAL mine
+        // target - the old hand-off routed to them with mineTarget==null, so
+        // every routing exit slipped into SEARCH and the tree was abandoned.
+        phase = Phase.FELL_CLEANUP;
+    }
 
-        debugLog("FELL", "tree felled, pillar dismantled");
+    /**
+     * Leftover branch logs after the descent: walk to the nearest one and
+     * chop it like a normal mining target. BOTH the route and the mine
+     * target are set, so arrival, mine-from-here and stall handling treat it
+     * as a resource block (with mineTarget null every exit slipped into
+     * SEARCH and the tree was abandoned half-felled). Loops via
+     * ROUTING/MINING until fellLogs is empty, then exits fell mode.
+     */
+    private void phaseFellCleanup() {
+        if (fellLogs.isEmpty()) {
+            debugLog("FELL", "tree felled, pillar dismantled");
+            exitFellMode();
+            phase = Phase.SEARCH;
+            return;
+        }
+        BlockPos nearest = fellLogs.stream()
+            .min(Comparator.comparingDouble(p -> horizontalDistanceSqr(p)))
+            .orElse(null);
+        mineTarget = nearest;
+        routeTarget = nearest;
+        debugLog("FELL", "cleanup: " + fellLogs.size() + " branch logs left, walking to " + nearest);
+        phase = Phase.ROUTING;
+    }
+
+    /**
+     * After a cleanup branch was chopped, dropped as unreachable, or found
+     * already gone: continue with the next branch, or (none left) exit fell
+     * mode and resume the normal search.
+     */
+    private void continueFellCleanup() {
+        if (!fellLogs.isEmpty()) {
+            phase = Phase.FELL_CLEANUP;
+            return;
+        }
+        debugLog("FELL", "tree felled");
         exitFellMode();
         phase = Phase.SEARCH;
     }
@@ -1093,6 +1161,23 @@ public class GatherResourceAction extends BaseAction {
         }
         exitFellMode();
         result = success ? ActionResult.success(message) : ActionResult.failure(message);
+    }
+
+    /**
+     * Gives up on the CURRENT tree only (wedged climb/descent): dismantles
+     * our pillar, blacklists the tree's remaining logs so SEARCH never
+     * re-picks this wedged tree, and resumes the gather run. Unlike
+     * finish(), the action itself keeps going until quota/timeout.
+     */
+    private void abandonTree(String reason) {
+        debugLog("FELL", reason + " - abandoning tree (" + fellLogs.size() + " logs left)");
+        dismantlePillar();
+        unreachableTargets.addAll(fellLogs);
+        if (unreachableTargets.size() > UNREACHABLE_TARGETS_LIMIT) {
+            unreachableTargets.clear(); // keep the set bounded
+        }
+        exitFellMode();
+        phase = Phase.SEARCH;
     }
 
     /**
