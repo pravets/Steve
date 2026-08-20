@@ -3,6 +3,7 @@
 
 Scenario (headless server, RCON, no LLM needed - "стоп" is a stay pre-trigger):
 
+  0. Cyrillic names (issue #16): spawn/tell/remove Васян, reject Бот#1.
   1. Start the Forge server (nogui), wait for "Done (".
   2. /steve spawn Bob -> bot appears in the world (spawn chunks).
   3. /tp <uuid> 5000 80 5000 -> teleport far away from spawn chunks.
@@ -135,6 +136,49 @@ def main():
         time.sleep(3)
         rcon = RCON()
         try:
+            # 0. Cyrillic-name scenario (issue #16): SteveNameArgumentType
+            #    accepts unicode letters, so /steve commands work with
+            #    cyrillic bot names. Runs first - it is fast and local
+            #    (spawn chunks, no LLM needed). RCON command bodies are
+            #    UTF-8 encoded (RCON._send), so cyrillic survives the wire.
+            print("Testing cyrillic Steve names (issue #16)...")
+
+            spawn_resp = rcon.command("steve spawn Васян")
+            print(f"  steve spawn Васян -> {spawn_resp!r}")
+            if "Spawned Steve" not in spawn_resp or "Васян" not in spawn_resp:
+                print("  [FAIL] cyrillic spawn: unexpected response")
+                return 1
+            if not wait_for(log_path, r"[Ss]pawned Steve: Васян with UUID [0-9a-f-]+ at \(", 30, "cyrillic spawn"):
+                return 1
+
+            # Stay pre-trigger is deterministic (no LLM round-trip) and
+            # answers "<name> stopped" immediately.
+            stay_resp = rcon.command("steve tell Васян стоп")
+            print(f"  steve tell Васян стоп -> {stay_resp!r}")
+            if "Васян stopped" not in stay_resp:
+                print("  [FAIL] cyrillic stay command did not stop Васян")
+                return 1
+
+            remove_resp = rcon.command("steve remove Васян")
+            print(f"  steve remove Васян -> {remove_resp!r}")
+            if "Removed Steve" not in remove_resp or "Васян" not in remove_resp:
+                print("  [FAIL] cyrillic remove: unexpected response")
+                return 1
+
+            # Negative case: '#' is outside the allowed charset, so Brigadier
+            # must reject the name (translatable key 'argument.steve.steve_name.invalid'
+            # or its rendered text) and no bot may be spawned.
+            bad_resp = rcon.command("steve spawn Бот#1")
+            print(f"  steve spawn Бот#1 -> {bad_resp!r}")
+            if "invalid" not in bad_resp.lower():
+                print("  [FAIL] invalid cyrillic name was not rejected")
+                return 1
+            with open(log_path, "r", errors="replace") as f:
+                if re.search(r"[Ss]pawned Steve: Бот#1", f.read()):
+                    print("  [FAIL] invalid name spawned a Steve anyway")
+                    return 1
+            print("  -> cyrillic names work, invalid name rejected")
+
             # 1. Spawn Bob
             print("Spawning Bob...")
             rcon.command("steve spawn Bob")

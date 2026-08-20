@@ -26,12 +26,9 @@ import java.util.regex.Pattern;
  * names entered in quotes still parse, while multi-word or other invalid
  * names are rejected.
  */
-public class SteveNameArgumentType implements ArgumentType<String> {
+public final class SteveNameArgumentType implements ArgumentType<String> {
 
-    private static final String ALLOWED_EXTRA = "_-.+";
-
-    private static final Pattern VALID_NAME =
-        Pattern.compile("[\\p{L}\\p{N}" + ALLOWED_EXTRA.replace("-", "\\-") + "]+");
+    private static final Pattern VALID_NAME = Pattern.compile("[\\p{L}\\p{N}_\\-.+]+");
 
     private static final DynamicCommandExceptionType INVALID_NAME = new DynamicCommandExceptionType(
         value -> Component.translatable("argument.steve.steve_name.invalid", value));
