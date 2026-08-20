@@ -44,6 +44,12 @@ temperature = 0.7
 
 Then spawn a Steve with `/steve spawn Bob` and press K to start giving commands.
 
+> **Steve names** may contain letters of any script (including Cyrillic), digits
+> and `_ - . +` only — no spaces, quotes or other characters (quoted input still
+> parses, but the name itself must match that set). If a Steve was created before
+> this restriction with a name outside the set, it can no longer be addressed by
+> command; respawn it under an allowed name.
+
 ## Usage Examples
 
 ```

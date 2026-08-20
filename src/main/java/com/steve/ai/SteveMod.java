@@ -2,11 +2,15 @@ package com.steve.ai;
 
 import com.mojang.logging.LogUtils;
 import com.steve.ai.command.SteveCommands;
+import com.steve.ai.command.SteveNameArgumentInfo;
+import com.steve.ai.command.SteveNameArgumentType;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.entity.SteveEntity;
 import com.steve.ai.entity.SteveManager;
 import com.steve.ai.menu.SteveMenus;
 import com.steve.ai.network.SteveNetworking;
+import net.minecraft.commands.synchronization.ArgumentTypeInfo;
+import net.minecraft.commands.synchronization.ArgumentTypeInfos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -40,6 +44,13 @@ public class SteveMod {
             .clientTrackingRange(10)
             .build("steve"));
 
+    public static final DeferredRegister<ArgumentTypeInfo<?, ?>> COMMAND_ARGUMENT_TYPES =
+        DeferredRegister.create(ForgeRegistries.COMMAND_ARGUMENT_TYPES, MODID);
+
+    static {
+        COMMAND_ARGUMENT_TYPES.register("steve_name", () -> SteveNameArgumentInfo.INSTANCE);
+    }
+
     private static SteveManager steveManager;
 
     public SteveMod() {
@@ -48,6 +59,7 @@ public class SteveMod {
         SteveNetworking.register();
 
         ENTITIES.register(modEventBus);
+        COMMAND_ARGUMENT_TYPES.register(modEventBus);
         SteveMenus.MENUS.register(modEventBus);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SteveConfig.SPEC);
@@ -63,7 +75,13 @@ public class SteveMod {
         steveManager = new SteveManager();
     }
 
-    private void commonSetup(final FMLCommonSetupEvent event) {    }
+    private void commonSetup(final FMLCommonSetupEvent event) {
+        // Register the ArgumentTypeInfo<->argument class mapping so Minecraft
+        // can serialize the command tree to clients (ArgumentTypeInfos.byClass).
+        // This must happen on the main thread after registries are frozen.
+        event.enqueueWork(() ->
+            ArgumentTypeInfos.registerByClass(SteveNameArgumentType.class, SteveNameArgumentInfo.INSTANCE));
+    }
 
     private void entityAttributes(EntityAttributeCreationEvent event) {
         event.put(STEVE_ENTITY.get(), SteveEntity.createAttributes().build());

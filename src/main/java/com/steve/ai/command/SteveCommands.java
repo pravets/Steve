@@ -27,18 +27,18 @@ public class SteveCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("steve")
             .then(Commands.literal("spawn")
-                .then(Commands.argument("name", StringArgumentType.string())
+                .then(Commands.argument("name", SteveNameArgumentType.steveName())
                     .executes(SteveCommands::spawnSteve)))
             .then(Commands.literal("remove")
-                .then(Commands.argument("name", StringArgumentType.string())
+                .then(Commands.argument("name", SteveNameArgumentType.steveName())
                     .executes(SteveCommands::removeSteve)))
             .then(Commands.literal("list")
                 .executes(SteveCommands::listSteves))
             .then(Commands.literal("stop")
-                .then(Commands.argument("name", StringArgumentType.string())
+                .then(Commands.argument("name", SteveNameArgumentType.steveName())
                     .executes(SteveCommands::stopSteve)))
             .then(Commands.literal("tell")
-                .then(Commands.argument("name", StringArgumentType.string())
+                .then(Commands.argument("name", SteveNameArgumentType.steveName())
                     .then(Commands.argument("command", StringArgumentType.greedyString())
                         .executes(SteveCommands::tellSteve))))
             .then(Commands.literal("providers")
@@ -46,10 +46,10 @@ public class SteveCommands {
             .then(Commands.literal("debug")
                 .executes(SteveCommands::debugSteve))
             .then(Commands.literal("inventory")
-                .then(Commands.argument("name", StringArgumentType.string())
+                .then(Commands.argument("name", SteveNameArgumentType.steveName())
                     .executes(SteveCommands::showInventory)))
             .then(Commands.literal("tp")
-                .then(Commands.argument("name", StringArgumentType.string())
+                .then(Commands.argument("name", SteveNameArgumentType.steveName())
                     .executes(SteveCommands::tpSteve)))
         );
     }
@@ -59,7 +59,7 @@ public class SteveCommands {
      * Steves) to a safe spot near the commanding player.
      */
     private static int tpSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
+        String name = SteveNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         if (!(source.getEntity() instanceof ServerPlayer player)) {
             source.sendFailure(Component.literal("§cThis command must be run by a player"));
@@ -123,7 +123,7 @@ public class SteveCommands {
     }
 
     private static int showInventory(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
+        String name = SteveNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
 
         SteveEntity steve = SteveMod.getSteveManager().getSteve(name);
@@ -247,7 +247,7 @@ public class SteveCommands {
     }
 
     private static int spawnSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
+        String name = SteveNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         
         ServerLevel serverLevel = source.getLevel();
@@ -278,7 +278,7 @@ public class SteveCommands {
     }
 
     private static int removeSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
+        String name = SteveNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         
         SteveManager manager = SteveMod.getSteveManager();
@@ -305,7 +305,7 @@ public class SteveCommands {
     }
 
     private static int stopSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
+        String name = SteveNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         
         SteveManager manager = SteveMod.getSteveManager();
@@ -324,7 +324,7 @@ public class SteveCommands {
     }
 
     private static int tellSteve(CommandContext<CommandSourceStack> context) {
-        String name = StringArgumentType.getString(context, "name");
+        String name = SteveNameArgumentType.getName(context, "name");
         String command = StringArgumentType.getString(context, "command");
         CommandSourceStack source = context.getSource();
 
