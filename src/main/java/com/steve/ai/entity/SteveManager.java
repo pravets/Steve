@@ -22,6 +22,13 @@ public class SteveManager {
         this.stevesByUUID = new ConcurrentHashMap<>();
     }
 
+    /**
+     * Finds the registry entry whose canonical name matches the given name
+     * ignoring case.
+     *
+     * @param name the name to look up, may be null
+     * @return the matching {@code Map.Entry} (canonical name + entity), or null
+     */
     private Map.Entry<String, SteveEntity> findEntryByNameIgnoreCase(String name) {
         if (name == null) {
             return null;
@@ -34,6 +41,14 @@ public class SteveManager {
         return null;
     }
 
+    /**
+     * Returns the tracked Steve whose canonical name matches the given name
+     * ignoring case.
+     *
+     * @param name the name to look up, may be null
+     * @return the matching entity, or null if no Steve is tracked under a
+     *         case-insensitive match
+     */
     private SteveEntity findByNameIgnoreCase(String name) {
         Map.Entry<String, SteveEntity> entry = findEntryByNameIgnoreCase(name);
         return entry != null ? entry.getValue() : null;
@@ -103,6 +118,15 @@ public class SteveManager {
         return steve;
     }
 
+    /**
+     * Spawns a new Steve at the given position if no live Steve with the same
+     * name (ignoring case) is already tracked or present in the level.
+     *
+     * @param level    the level to spawn in
+     * @param position the spawn position
+     * @param name     the desired Steve name
+     * @return the spawned entity, or null if a duplicate exists or limits are reached
+     */
     public SteveEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
         name = requireNonNull(name, "Steve name must not be null");
         SteveMod.LOGGER.info("Current active Steves: {}", activeSteves.size());
@@ -191,10 +215,22 @@ public class SteveManager {
         return null;
     }
 
+    /**
+     * Looks up a tracked Steve by name, ignoring case.
+     *
+     * @param name the Steve name to look up
+     * @return the tracked entity, or null if no match is found
+     */
     public SteveEntity getSteve(String name) {
         return name == null ? null : findByNameIgnoreCase(name);
     }
 
+    /**
+     * Looks up a tracked Steve by UUID.
+     *
+     * @param uuid the UUID to look up
+     * @return the tracked entity, or null if no match is found
+     */
     public SteveEntity getSteve(UUID uuid) {
         return uuid == null ? null : stevesByUUID.get(uuid);
     }

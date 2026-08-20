@@ -30,7 +30,10 @@ RCON_PASSWORD = "steve_test"
 
 
 class RCON:
+    """Minimal Minecraft RCON client with terminator-packet draining."""
+
     def __init__(self, host="127.0.0.1", port=RCON_PORT, password=RCON_PASSWORD):
+        """Connect to host:port and authenticate with password."""
         self.sock = socket.create_connection((host, port), timeout=60)
         self.request_id = 1
         self._buf = b""
@@ -63,6 +66,7 @@ class RCON:
             # Otherwise discard empty terminator and continue.
 
     def _send(self, ptype, body):
+        """Send a raw RCON packet and return the response packet."""
         rid = self.request_id
         self.request_id += 1
         payload = struct.pack("<ii", rid, ptype) + body.encode() + b"\x00\x00"
@@ -86,6 +90,7 @@ class RCON:
                 raise ConnectionError("Timed out waiting for RCON response")
 
     def _recv_exact(self, n):
+        """Read exactly n bytes from the socket (kept for compatibility)."""
         data = b""
         while len(data) < n:
             chunk = self.sock.recv(n - len(data))
@@ -95,6 +100,7 @@ class RCON:
         return data
 
     def _auth(self, password):
+        """Authenticate with the RCON server."""
         rid, ptype, _ = self._send(3, password)
         if rid == -1 or ptype != 2:
             raise ConnectionError(f"RCON auth failed (id={rid}, type={ptype})")
@@ -103,14 +109,17 @@ class RCON:
         time.sleep(1.0)
 
     def command(self, cmd):
+        """Send a command and return its response body."""
         rid, ptype, body = self._send(2, cmd)
         return body
 
     def close(self):
+        """Close the RCON connection."""
         self.sock.close()
 
 
 def start_server(workdir, jar_path, log_path):
+    """Launch the headless Forge server and redirect all output to log_path."""
     with open(log_path, "wb") as log:
         proc = subprocess.Popen(
             ["java", "-Xmx2G", "@libraries/net/minecraftforge/forge/1.20.1-47.2.0/unix_args.txt", "nogui"],
@@ -119,6 +128,13 @@ def start_server(workdir, jar_path, log_path):
 
 
 def wait_for(log_path, pattern, timeout, label):
+    """Wait until log_path contains a line matching regex pattern.
+
+    Reads incrementally from the last position to avoid re-scanning the whole
+    log on every poll.
+
+    Returns True on match, False if the timeout expires.
+    """
     regex = re.compile(pattern)
     deadline = time.time() + timeout
     last = 0
@@ -136,6 +152,7 @@ def wait_for(log_path, pattern, timeout, label):
 
 
 def main():
+    """Run the headless Forge server behavior test and return an exit code."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True, help="server directory")
     ap.add_argument("--jar", required=True, help="path to steve mod jar")
