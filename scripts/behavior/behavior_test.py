@@ -179,6 +179,41 @@ def main():
                     return 1
             print("  -> cyrillic names work, invalid name rejected")
 
+            # 0b. Case-insensitive name handling (issue #4): the canonical
+            # bot is named "Bob", but commands with different casing must
+            # resolve to the same entity.
+            print("Testing case-insensitive Steve names (issue #4)...")
+
+            rcon.command("steve spawn Bob")
+            if not wait_for(log_path, r"[Ss]pawned Steve: Bob", 30, "case-insensitive spawn"):
+                return 1
+
+            stay_resp = rcon.command("steve tell BOB стоп")
+            print(f"  steve tell BOB стоп -> {stay_resp!r}")
+            # The dispatcher replies with the canonical bot name.
+            if "stopped" not in stay_resp.lower() or "bob" not in stay_resp.lower():
+                print("  [FAIL] case-insensitive tell did not stop Bob")
+                return 1
+
+            gather_resp = rcon.command("steve tell bob gather 50 wood")
+            print(f"  steve tell bob gather 50 wood -> {gather_resp!r}")
+            if not wait_for(log_path, r"async planning complete: 1 tasks queued", 120, "case-insensitive task queued"):
+                print("  [FAIL] case-insensitive tell did not queue a task for Bob")
+                return 1
+
+            stop_resp = rcon.command("steve stop BOB")
+            print(f"  steve stop BOB -> {stop_resp!r}")
+            if "stopped" not in stop_resp.lower() or "bob" not in stop_resp.lower():
+                print("  [FAIL] case-insensitive stop did not stop Bob")
+                return 1
+
+            remove_resp = rcon.command("steve remove bob")
+            print(f"  steve remove bob -> {remove_resp!r}")
+            if "removed" not in remove_resp.lower() or "bob" not in remove_resp.lower():
+                print("  [FAIL] case-insensitive remove did not remove Bob")
+                return 1
+            print("  -> case-insensitive names work")
+
             # 1. Spawn Bob
             print("Spawning Bob...")
             rcon.command("steve spawn Bob")
