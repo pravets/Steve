@@ -40,6 +40,10 @@ Desktop.ini
 # Misc
 *.log
 
+# Python
+__pycache__/
+*.pyc
+
 # JDK
 jdk-17.0.2.jdk/
 /logs/

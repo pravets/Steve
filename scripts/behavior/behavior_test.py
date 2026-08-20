@@ -30,35 +30,67 @@ RCON_PASSWORD = "steve_test"
 
 
 class RCON:
+    """Minimal Minecraft RCON client with terminator-packet draining."""
+
     def __init__(self, host="127.0.0.1", port=RCON_PORT, password=RCON_PASSWORD):
+        """Connect to host:port and authenticate with password."""
         self.sock = socket.create_connection((host, port), timeout=60)
         self.request_id = 1
+        self._buf = b""
         self._auth(password)
 
+    def _read_packet(self):
+        """Parse one complete packet from ``self._buf`` if available."""
+        if len(self._buf) < 4:
+            return None
+        length = struct.unpack("<i", self._buf[:4])[0]
+        if len(self._buf) < 4 + length:
+            return None
+        pkt = self._buf[4:4 + length]
+        self._buf = self._buf[4 + length:]
+        r, t = struct.unpack("<ii", pkt[:8])
+        body = pkt[8:].rstrip(b"\x00").decode(errors="replace")
+        return r, t, body
+
+    def _drain_empty_packets(self):
+        """Discard empty SERVERDATA_RESPONSE_VALUE terminator packets."""
+        while True:
+            pkt = self._read_packet()
+            if pkt is None:
+                return
+            r, t, body = pkt
+            if t != 0 or body:
+                # Not an empty terminator; put it back and stop draining.
+                self._buf = struct.pack("<i", 10) + struct.pack("<ii", r, t) + body.encode() + b"\x00\x00" + self._buf
+                return
+            # Otherwise discard empty terminator and continue.
+
     def _send(self, ptype, body):
+        """Send a raw RCON packet and return the response packet."""
         rid = self.request_id
         self.request_id += 1
         payload = struct.pack("<ii", rid, ptype) + body.encode() + b"\x00\x00"
         self.sock.sendall(struct.pack("<i", len(payload)) + payload)
-        # Forge answers each request with exactly one packet - read until it
-        # is fully buffered. (recv_exact-style reads deadlocked on the body,
-        # so keep it simple: one recv loop, one packet per request.)
         self.sock.settimeout(30)
-        buf = b""
+        # Command responses can leave empty terminator packets behind. Make
+        # sure the next response read starts on a real packet, not on a
+        # leftover terminator.
+        if ptype == 2:
+            self._drain_empty_packets()
         while True:
-            chunk = self.sock.recv(4096)
-            if not chunk:
-                raise ConnectionError("RCON connection closed while reading response")
-            buf += chunk
-            if len(buf) >= 4:
-                length = struct.unpack("<i", buf[:4])[0]
-                if len(buf) >= 4 + length:
-                    pkt = buf[4:4 + length]
-                    r, t = struct.unpack("<ii", pkt[:8])
-                    body = pkt[8:].rstrip(b"\x00").decode(errors="replace")
-                    return r, t, body
+            pkt = self._read_packet()
+            if pkt is not None:
+                return pkt
+            try:
+                chunk = self.sock.recv(4096)
+                if not chunk:
+                    raise ConnectionError("RCON connection closed while reading response")
+                self._buf += chunk
+            except socket.timeout:
+                raise ConnectionError("Timed out waiting for RCON response")
 
     def _recv_exact(self, n):
+        """Read exactly n bytes from the socket (kept for compatibility)."""
         data = b""
         while len(data) < n:
             chunk = self.sock.recv(n - len(data))
@@ -68,6 +100,7 @@ class RCON:
         return data
 
     def _auth(self, password):
+        """Authenticate with the RCON server."""
         rid, ptype, _ = self._send(3, password)
         if rid == -1 or ptype != 2:
             raise ConnectionError(f"RCON auth failed (id={rid}, type={ptype})")
@@ -76,14 +109,17 @@ class RCON:
         time.sleep(1.0)
 
     def command(self, cmd):
+        """Send a command and return its response body."""
         rid, ptype, body = self._send(2, cmd)
         return body
 
     def close(self):
+        """Close the RCON connection."""
         self.sock.close()
 
 
 def start_server(workdir, jar_path, log_path):
+    """Launch the headless Forge server and redirect all output to log_path."""
     with open(log_path, "wb") as log:
         proc = subprocess.Popen(
             ["java", "-Xmx2G", "@libraries/net/minecraftforge/forge/1.20.1-47.2.0/unix_args.txt", "nogui"],
@@ -92,6 +128,13 @@ def start_server(workdir, jar_path, log_path):
 
 
 def wait_for(log_path, pattern, timeout, label):
+    """Wait until log_path contains a line matching regex pattern.
+
+    Reads incrementally from the last position to avoid re-scanning the whole
+    log on every poll.
+
+    Returns True on match, False if the timeout expires.
+    """
     regex = re.compile(pattern)
     deadline = time.time() + timeout
     last = 0
@@ -109,6 +152,7 @@ def wait_for(log_path, pattern, timeout, label):
 
 
 def main():
+    """Run the headless Forge server behavior test and return an exit code."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True, help="server directory")
     ap.add_argument("--jar", required=True, help="path to steve mod jar")
@@ -179,19 +223,56 @@ def main():
                     return 1
             print("  -> cyrillic names work, invalid name rejected")
 
+            # 0b. Case-insensitive name handling (issue #4): the canonical
+            # bot is named "Bob", but commands with different casing must
+            # resolve to the same entity.
+            print("Testing case-insensitive Steve names (issue #4)...")
+
+            rcon.command("steve spawn Bob")
+            if not wait_for(log_path, r"[Ss]pawned Steve: Bob", 30, "case-insensitive spawn"):
+                return 1
+
+            stay_resp = rcon.command("steve tell BOB стоп")
+            print(f"  steve tell BOB стоп -> {stay_resp!r}")
+            # The dispatcher replies with the canonical bot name.
+            if "stopped" not in stay_resp.lower() or "bob" not in stay_resp.lower():
+                print("  [FAIL] case-insensitive tell did not stop Bob")
+                return 1
+
+            gather_resp = rcon.command("steve tell bob gather 50 wood")
+            print(f"  steve tell bob gather 50 wood -> {gather_resp!r}")
+            if not wait_for(log_path, r"async planning complete: 1 tasks queued", 120, "case-insensitive task queued"):
+                print("  [FAIL] case-insensitive tell did not queue a task for Bob")
+                return 1
+
+            stop_resp = rcon.command("steve stop BOB")
+            print(f"  steve stop BOB -> {stop_resp!r}")
+            if "stopped" not in stop_resp.lower() or "bob" not in stop_resp.lower():
+                print("  [FAIL] case-insensitive stop did not stop Bob")
+                return 1
+
+            remove_resp = rcon.command("steve remove bob")
+            print(f"  steve remove bob -> {remove_resp!r}")
+            if "removed" not in remove_resp.lower() or "bob" not in remove_resp.lower():
+                print("  [FAIL] case-insensitive remove did not remove Bob")
+                return 1
+            print("  -> case-insensitive names work")
+
             # 1. Spawn Bob
             print("Spawning Bob...")
             rcon.command("steve spawn Bob")
             if not wait_for(log_path, r"Spawned Steve: Bob", 30, "spawn"):
                 return 1
 
-            # Extract Bob's UUID and actual spawn position for the /tp
+            # Extract Bob's UUID and actual spawn position for the /tp.
+            # There may be an earlier case-insensitive spawn, so always use the
+            # *last* occurrence in the log (the one we just spawned).
             with open(log_path, "r", errors="replace") as f:
                 log_text = f.read()
             uuid_m = None
-            m = re.search(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", log_text)
-            if m:
-                uuid_m = m.group(1)
+            uuid_matches = re.findall(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", log_text)
+            if uuid_matches:
+                uuid_m = uuid_matches[-1]
             if not uuid_m:
                 print("  [FAIL] Bob UUID not found in log")
                 return 1
@@ -204,12 +285,11 @@ def main():
             #    spawn, so anything within 9 chunks ticks even without our
             #    force-loading. y=4 = flat surface: teleporting high up makes
             #    the bot fall for ages and stalls the 1-core runner.
-            spawn_pos = re.search(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
-            if not spawn_pos:
+            spawn_pos_matches = re.findall(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
+            if not spawn_pos_matches:
                 print("  [FAIL] Bob spawn position not found in log")
                 return 1
-            spawn_x = float(spawn_pos.group(1))
-            spawn_z = float(spawn_pos.group(3))
+            spawn_x, _, spawn_z = map(float, spawn_pos_matches[-1])
             far_x = int(spawn_x) + 10 * 16 + 8  # +10 chunks east, block coords
             print(f"Teleporting Bob from spawn ({spawn_x:.0f}, {spawn_z:.0f}) to ({far_x}, 4, 0)...")
             rcon.command(f"tp {uuid_m} {far_x} 4 0")

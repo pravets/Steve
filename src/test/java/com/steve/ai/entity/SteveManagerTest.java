@@ -300,4 +300,67 @@ class SteveManagerTest extends AbstractMinecraftTest {
         assertTrue(manager.removeSteve("Steve", null));
         assertEquals(0, manager.getActiveCount());
     }
+
+    // ==================== case-insensitive name handling ====================
+
+    @Test
+    void getSteveMatchesIgnoringCase() {
+        SteveManager manager = new SteveManager();
+        SteveEntity steve = mockSteve("Steve", UUID.randomUUID());
+        manager.adopt(steve);
+
+        assertSame(steve, manager.getSteve("steve"));
+        assertSame(steve, manager.getSteve("STEVE"));
+        assertSame(steve, manager.getSteve("StEvE"));
+    }
+
+    @Test
+    void adoptRejectsDuplicateDifferingOnlyInCase() {
+        SteveManager manager = new SteveManager();
+        SteveEntity original = mockSteve("Steve", UUID.randomUUID());
+        SteveEntity duplicate = mockSteve("steve", UUID.randomUUID());
+
+        assertSame(original, manager.adopt(original));
+        assertNull(manager.adopt(duplicate));
+
+        assertSame(original, manager.getSteve("Steve"));
+        assertEquals(1, manager.getActiveCount());
+    }
+
+    @Test
+    void removeSteveMatchesTrackedAndWorldEntitiesIgnoringCase() {
+        SteveManager manager = new SteveManager();
+        SteveEntity tracked = mockSteve("Steve", UUID.randomUUID());
+        manager.adopt(tracked);
+
+        UUID worldUuid = UUID.randomUUID();
+        SteveEntity worldBot = mockSteve("STEVE", worldUuid);
+        ServerLevel level = mock(ServerLevel.class);
+        when(level.getAllEntities()).thenReturn(List.of(tracked, worldBot));
+        MinecraftServer server = mock(MinecraftServer.class);
+        when(server.getAllLevels()).thenReturn(List.of(level));
+
+        assertTrue(manager.removeSteve("steve", server));
+
+        verify(tracked).discard();
+        verify(worldBot).discard();
+        assertNull(manager.getSteve("Steve"));
+        assertNull(manager.getSteve(worldUuid));
+        assertEquals(0, manager.getActiveCount());
+    }
+
+    @Test
+    void onSteveUnloadRemovesEntryWhenNameCasingDiffersFromKey() {
+        SteveManager manager = new SteveManager();
+        UUID uuid = UUID.randomUUID();
+        SteveEntity steve = mockSteve("Steve", uuid);
+        manager.adopt(steve);
+
+        when(steve.getSteveName()).thenReturn("steve");
+        manager.onSteveUnload(steve);
+
+        assertNull(manager.getSteve("Steve"));
+        assertNull(manager.getSteve(uuid));
+        assertEquals(0, manager.getActiveCount());
+    }
 }
