@@ -98,4 +98,33 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
         assertEquals(0, GatherResourceAction.countResource(inv, ANY_LOG));
         assertEquals(0, GatherResourceAction.countResource(inv, item -> item == Items.OAK_LOG));
     }
+
+    @Test
+    void coalRequestCountsCoalItemsNotOreBlockItems() {
+        SteveInventory inv = new SteveInventory(9);
+        inv.addItem(new ItemStack(Items.COAL, 5));
+        inv.addItem(new ItemStack(Items.COAL_ORE, 3)); // should not count
+
+        assertEquals(5, GatherResourceAction.countResource(inv, item -> item == Items.COAL));
+    }
+
+    @Test
+    void stoneRequestCountsCobblestoneDrops() {
+        SteveInventory inv = new SteveInventory(9);
+        inv.addItem(new ItemStack(Items.COBBLESTONE, 12));
+        inv.addItem(new ItemStack(Items.STONE, 4)); // block item, not a drop
+
+        assertEquals(12, GatherResourceAction.countResource(inv, item -> item == Items.COBBLESTONE));
+    }
+
+    @Test
+    void deltaCountingUsesYieldMatcher() {
+        SteveInventory inv = new SteveInventory(9);
+        inv.addItem(new ItemStack(Items.COAL, 2));
+        int baseline = GatherResourceAction.countResource(inv, item -> item == Items.COAL);
+
+        inv.addItem(new ItemStack(Items.COAL, 3));
+
+        assertEquals(3, GatherResourceAction.countResource(inv, item -> item == Items.COAL) - baseline);
+    }
 }
