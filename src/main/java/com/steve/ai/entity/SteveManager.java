@@ -22,16 +22,21 @@ public class SteveManager {
         this.stevesByUUID = new ConcurrentHashMap<>();
     }
 
-    private SteveEntity findByNameIgnoreCase(String name) {
+    private Map.Entry<String, SteveEntity> findEntryByNameIgnoreCase(String name) {
         if (name == null) {
             return null;
         }
         for (Map.Entry<String, SteveEntity> entry : activeSteves.entrySet()) {
             if (name.equalsIgnoreCase(entry.getKey())) {
-                return entry.getValue();
+                return entry;
             }
         }
         return null;
+    }
+
+    private SteveEntity findByNameIgnoreCase(String name) {
+        Map.Entry<String, SteveEntity> entry = findEntryByNameIgnoreCase(name);
+        return entry != null ? entry.getValue() : null;
     }
 
     /**
@@ -62,14 +67,16 @@ public class SteveManager {
             return null;
         }
         String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
-        SteveEntity existing = findByNameIgnoreCase(name);
+        Map.Entry<String, SteveEntity> existingEntry = findEntryByNameIgnoreCase(name);
+        SteveEntity existing = existingEntry != null ? existingEntry.getValue() : null;
         if (existing != null) {
             if (existing == steve) {
                 return steve;
             }
+            String existingKey = existingEntry.getKey();
             if (!existing.isAlive() || existing.isRemoved()) {
                 // Stale registry entry (e.g. survivor of a crash) - replace it
-                activeSteves.remove(name);
+                activeSteves.remove(existingKey);
                 stevesByUUID.remove(existing.getUUID());
             } else if (steve.isLoadedFromNbt() && !existing.isLoadedFromNbt()) {
                 // The newcomer is the real bot loaded from NBT; the survivor is
@@ -79,7 +86,7 @@ public class SteveManager {
                 existing.discard();
                 SteveMod.LOGGER.info("Dedup: replaced fresh duplicate '{}' ({}) with NBT-loaded original ({})",
                         name, existing.getUUID(), steve.getUUID());
-                activeSteves.remove(name);
+                activeSteves.remove(existingKey);
                 stevesByUUID.remove(existing.getUUID());
             } else {
                 // Duplicate bot with the same name: reject the newcomer. It has
@@ -220,7 +227,7 @@ public class SteveManager {
             List<SteveEntity> matches = new ArrayList<>();
             for (ServerLevel level : server.getAllLevels()) {
                 for (Entity entity : level.getAllEntities()) {
-                    if (entity instanceof SteveEntity steve && name.equals(steve.getSteveName())) {
+                    if (entity instanceof SteveEntity steve && name.equalsIgnoreCase(steve.getSteveName())) {
                         matches.add(steve);
                     }
                 }
@@ -240,9 +247,10 @@ public class SteveManager {
                 removed = true;
             }
         }
-        SteveEntity tracked = activeSteves.remove(name);
-        if (tracked != null) {
-            stevesByUUID.remove(tracked.getUUID());
+        Map.Entry<String, SteveEntity> trackedEntry = findEntryByNameIgnoreCase(name);
+        if (trackedEntry != null) {
+            activeSteves.remove(trackedEntry.getKey());
+            stevesByUUID.remove(trackedEntry.getValue().getUUID());
             removed = true;
         }
         return removed;
@@ -260,9 +268,9 @@ public class SteveManager {
             return;
         }
         String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
-        SteveEntity tracked = findByNameIgnoreCase(name);
-        if (tracked == steve) {
-            activeSteves.remove(name);
+        Map.Entry<String, SteveEntity> trackedEntry = findEntryByNameIgnoreCase(name);
+        if (trackedEntry != null && trackedEntry.getValue() == steve) {
+            activeSteves.remove(trackedEntry.getKey());
             SteveMod.LOGGER.info("Steve '{}' left the world, removed from registry", name);
         }
         stevesByUUID.remove(steve.getUUID());
