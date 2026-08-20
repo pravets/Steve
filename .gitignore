@@ -37,6 +37,10 @@ run/config/steve-common.toml
 Thumbs.db
 Desktop.ini
 
+# Superpowers workspaces
+.worktrees/
+.superpowers/
+
 # Misc
 *.log
 
