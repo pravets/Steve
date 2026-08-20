@@ -229,7 +229,8 @@ Replace that transition with:
 
             stay_resp = rcon.command("steve tell BOB стоп")
             print(f"  steve tell BOB стоп -> {stay_resp!r}")
-            if "BOB stopped" not in stay_resp and "Bob stopped" not in stay_resp:
+            # The dispatcher replies using the canonical bot name, e.g. "Bob stopped".
+            if "stopped" not in stay_resp.lower() or "bob" not in stay_resp.lower():
                 print("  [FAIL] case-insensitive tell did not stop Bob")
                 return 1
 
@@ -241,7 +242,8 @@ Replace that transition with:
 
             stop_resp = rcon.command("steve stop BOB")
             print(f"  steve stop BOB -> {stop_resp!r}")
-            if "BOB stopped" not in stop_resp and "Bob stopped" not in stop_resp:
+            # stopSteve returns "Stopped Steve: " + the supplied argument name.
+            if "stopped" not in stop_resp.lower() or "bob" not in stop_resp.lower():
                 print("  [FAIL] case-insensitive stop did not stop Bob")
                 return 1
 

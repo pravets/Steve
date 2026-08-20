@@ -33,30 +33,57 @@ class RCON:
     def __init__(self, host="127.0.0.1", port=RCON_PORT, password=RCON_PASSWORD):
         self.sock = socket.create_connection((host, port), timeout=60)
         self.request_id = 1
+        self._buf = b""
         self._auth(password)
+
+    def _read_packet(self):
+        """Parse one complete packet from ``self._buf`` if available."""
+        if len(self._buf) < 4:
+            return None
+        length = struct.unpack("<i", self._buf[:4])[0]
+        if len(self._buf) < 4 + length:
+            return None
+        pkt = self._buf[4:4 + length]
+        self._buf = self._buf[4 + length:]
+        r, t = struct.unpack("<ii", pkt[:8])
+        body = pkt[8:].rstrip(b"\x00").decode(errors="replace")
+        return r, t, body
+
+    def _drain_empty_packets(self):
+        """Discard empty SERVERDATA_RESPONSE_VALUE terminator packets."""
+        while True:
+            pkt = self._read_packet()
+            if pkt is None:
+                return
+            r, t, body = pkt
+            if t != 0 or body:
+                # Not an empty terminator; put it back and stop draining.
+                self._buf = struct.pack("<i", 10) + struct.pack("<ii", r, t) + body.encode() + b"\x00\x00" + self._buf
+                return
+            # Otherwise discard empty terminator and continue.
 
     def _send(self, ptype, body):
         rid = self.request_id
         self.request_id += 1
         payload = struct.pack("<ii", rid, ptype) + body.encode() + b"\x00\x00"
         self.sock.sendall(struct.pack("<i", len(payload)) + payload)
-        # Forge answers each request with exactly one packet - read until it
-        # is fully buffered. (recv_exact-style reads deadlocked on the body,
-        # so keep it simple: one recv loop, one packet per request.)
         self.sock.settimeout(30)
-        buf = b""
+        # Command responses can leave empty terminator packets behind. Make
+        # sure the next response read starts on a real packet, not on a
+        # leftover terminator.
+        if ptype == 2:
+            self._drain_empty_packets()
         while True:
-            chunk = self.sock.recv(4096)
-            if not chunk:
-                raise ConnectionError("RCON connection closed while reading response")
-            buf += chunk
-            if len(buf) >= 4:
-                length = struct.unpack("<i", buf[:4])[0]
-                if len(buf) >= 4 + length:
-                    pkt = buf[4:4 + length]
-                    r, t = struct.unpack("<ii", pkt[:8])
-                    body = pkt[8:].rstrip(b"\x00").decode(errors="replace")
-                    return r, t, body
+            pkt = self._read_packet()
+            if pkt is not None:
+                return pkt
+            try:
+                chunk = self.sock.recv(4096)
+                if not chunk:
+                    raise ConnectionError("RCON connection closed while reading response")
+                self._buf += chunk
+            except socket.timeout:
+                raise ConnectionError("Timed out waiting for RCON response")
 
     def _recv_exact(self, n):
         data = b""
@@ -220,13 +247,15 @@ def main():
             if not wait_for(log_path, r"Spawned Steve: Bob", 30, "spawn"):
                 return 1
 
-            # Extract Bob's UUID and actual spawn position for the /tp
+            # Extract Bob's UUID and actual spawn position for the /tp.
+            # There may be an earlier case-insensitive spawn, so always use the
+            # *last* occurrence in the log (the one we just spawned).
             with open(log_path, "r", errors="replace") as f:
                 log_text = f.read()
             uuid_m = None
-            m = re.search(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", log_text)
-            if m:
-                uuid_m = m.group(1)
+            uuid_matches = re.findall(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", log_text)
+            if uuid_matches:
+                uuid_m = uuid_matches[-1]
             if not uuid_m:
                 print("  [FAIL] Bob UUID not found in log")
                 return 1
@@ -239,12 +268,11 @@ def main():
             #    spawn, so anything within 9 chunks ticks even without our
             #    force-loading. y=4 = flat surface: teleporting high up makes
             #    the bot fall for ages and stalls the 1-core runner.
-            spawn_pos = re.search(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
-            if not spawn_pos:
+            spawn_pos_matches = re.findall(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
+            if not spawn_pos_matches:
                 print("  [FAIL] Bob spawn position not found in log")
                 return 1
-            spawn_x = float(spawn_pos.group(1))
-            spawn_z = float(spawn_pos.group(3))
+            spawn_x, _, spawn_z = map(float, spawn_pos_matches[-1])
             far_x = int(spawn_x) + 10 * 16 + 8  # +10 chunks east, block coords
             print(f"Teleporting Bob from spawn ({spawn_x:.0f}, {spawn_z:.0f}) to ({far_x}, 4, 0)...")
             rcon.command(f"tp {uuid_m} {far_x} 4 0")
