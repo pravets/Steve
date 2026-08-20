@@ -105,10 +105,21 @@ public final class VisionScanner {
      * Returns an empty list if nothing is visible.
      */
     public static List<BlockPos> findVisible(SteveEntity steve, Block target) {
-        Map<Block, List<BlockPos>> visible = scan(steve);
-        List<BlockPos> found = visible.getOrDefault(target, List.of());
-        if (found.isEmpty()) {
+        if (target == null) {
             return List.of();
+        }
+        return findVisible(steve, Set.of(target));
+    }
+
+    /**
+     * Finds all visible blocks of any of the given types near Steve, nearest first.
+     * Returns an empty list if nothing is visible.
+     */
+    public static List<BlockPos> findVisible(SteveEntity steve, Set<Block> targets) {
+        Map<Block, List<BlockPos>> visible = scan(steve);
+        List<BlockPos> found = new ArrayList<>();
+        for (Block block : targets) {
+            found.addAll(visible.getOrDefault(block, List.of()));
         }
         BlockPos center = steve.blockPosition();
         return found.stream()
@@ -145,16 +156,28 @@ public final class VisionScanner {
      * @param target the exact block to look for, or null for ANY log type
      */
     public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Block target) {
+        Set<Block> targets = target == null ? null : Set.of(target);
+        return findNearbyBlocks(steve, radius, targets);
+    }
+
+    /**
+     * Brute-force scan for blocks of any of the given types within a cube
+     * around the bot, WITHOUT line-of-sight checks.
+     *
+     * @param targets the set of blocks to look for, or null for ANY log type
+     */
+    public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Set<Block> targets) {
         BlockPos center = steve.blockPosition();
-        List<BlockPos> found = new java.util.ArrayList<>();
-        net.minecraft.world.level.Level level = steve.level();
+        List<BlockPos> found = new ArrayList<>();
+        Level level = steve.level();
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     BlockPos pos = center.offset(dx, dy, dz);
                     Block block = level.getBlockState(pos).getBlock();
-                    boolean match = target != null ? block == target
-                        : block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+                    boolean match = targets == null
+                        ? block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)
+                        : targets.contains(block);
                     if (match) {
                         found.add(pos);
                     }
