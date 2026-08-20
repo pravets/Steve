@@ -115,6 +115,12 @@ public class SteveManager {
         }
         activeSteves.put(name, steve);
         stevesByUUID.put(steve.getUUID(), steve);
+        if (SteveConfig.FORCE_LOAD_CHUNKS.get()
+                && steve.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(steve.blockPosition());
+            forceChunk(serverLevel, current);
+            steve.setForcedChunk(new ChunkForceTracker.ChunkKey(serverLevel.dimension(), current));
+        }
         return steve;
     }
 

@@ -1,5 +1,7 @@
 package com.steve.ai.testutil;
 
+import com.steve.ai.config.SteveConfig;
+import com.electronwill.nightconfig.core.CommentedConfig;
 import net.minecraft.SharedConstants;
 import net.minecraft.WorldVersion;
 import net.minecraft.server.Bootstrap;
@@ -48,6 +50,8 @@ public abstract class AbstractMinecraftTest {
         }
         try {
             Bootstrap.bootStrap();
+            CommentedConfig config = CommentedConfig.inMemory();
+            SteveConfig.SPEC.acceptConfig(config);
         } catch (IllegalStateException e) {
             // Already bootstrapped by another test class in the same JVM.
         }

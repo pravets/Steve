@@ -1,9 +1,11 @@
 package com.steve.ai.entity;
 
 import com.steve.ai.testutil.AbstractMinecraftTest;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -137,6 +139,22 @@ class SteveManagerTest extends AbstractMinecraftTest {
         SteveManager manager = new SteveManager();
         assertNull(manager.adopt(null));
         assertEquals(0, manager.getActiveCount());
+    }
+
+    @Test
+    void adoptForcesCurrentChunkImmediately() {
+        SteveManager manager = new SteveManager();
+        ServerLevel level = mock(ServerLevel.class);
+        when(level.dimension()).thenReturn(Level.OVERWORLD);
+        UUID uuid = UUID.randomUUID();
+        SteveEntity steve = mockSteve("Steve", uuid);
+        when(steve.level()).thenReturn(level);
+        when(steve.blockPosition()).thenReturn(new BlockPos(160, 64, 0));
+
+        manager.adopt(steve);
+
+        // 160,0 is chunk [10,0]
+        verify(level).setChunkForced(10, 0, true);
     }
 
     // ==================== onSteveUnload ====================
