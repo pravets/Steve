@@ -2,6 +2,7 @@ package com.steve.ai.entity;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.config.SteveConfig;
+import com.steve.ai.debug.AgentDebugBuffer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -363,15 +364,19 @@ public class SteveManager {
 
     /** Force-loads a chunk while a Steve is in it (refcounted across Steves). */
     public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
-        if (chunkForceTracker.force(level.dimension(), chunkPos)) {
+        boolean forced = chunkForceTracker.force(level.dimension(), chunkPos);
+        if (forced) {
             level.setChunkForced(chunkPos.x, chunkPos.z, true);
+            AgentDebugBuffer.log("system", "CHUNK", "force [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
         }
     }
 
     /** Releases a chunk force-load; the chunk unloads when the last Steve leaves. */
     public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
-        if (chunkForceTracker.unforce(level.dimension(), chunkPos)) {
+        boolean unforced = chunkForceTracker.unforce(level.dimension(), chunkPos);
+        if (unforced) {
             level.setChunkForced(chunkPos.x, chunkPos.z, false);
+            AgentDebugBuffer.log("system", "CHUNK", "unforce [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
         }
     }
 
@@ -383,6 +388,7 @@ public class SteveManager {
     public void releaseChunk(SteveEntity steve, ServerLevel level) {
         ChunkForceTracker.ChunkKey chunkKey = steve.getForcedChunk();
         if (chunkKey != null) {
+            AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "release [" + chunkKey.pos().x + "," + chunkKey.pos().z + "] in " + chunkKey.dimension().location());
             ServerLevel ownerLevel = level.getServer() != null
                 ? level.getServer().getLevel(chunkKey.dimension())
                 : null;
@@ -426,6 +432,7 @@ public class SteveManager {
                 continue;
             }
             forceChunk(level, current.pos());
+            AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "force current [" + current.pos().x + "," + current.pos().z + "]");
             if (old != null) {
                 // Un-force the previous chunk in ITS dimension (dimension change)
                 ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
