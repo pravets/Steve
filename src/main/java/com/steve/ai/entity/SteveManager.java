@@ -22,6 +22,18 @@ public class SteveManager {
         this.stevesByUUID = new ConcurrentHashMap<>();
     }
 
+    private SteveEntity findByNameIgnoreCase(String name) {
+        if (name == null) {
+            return null;
+        }
+        for (Map.Entry<String, SteveEntity> entry : activeSteves.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
     /**
      * Registers a SteveEntity that entered the world (fresh spawn or loaded
      * from a chunk / NBT). If the name is already taken by another live
@@ -50,7 +62,7 @@ public class SteveManager {
             return null;
         }
         String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
-        SteveEntity existing = activeSteves.get(name);
+        SteveEntity existing = findByNameIgnoreCase(name);
         if (existing != null) {
             if (existing == steve) {
                 return steve;
@@ -88,7 +100,7 @@ public class SteveManager {
         name = requireNonNull(name, "Steve name must not be null");
         SteveMod.LOGGER.info("Current active Steves: {}", activeSteves.size());
 
-        if (activeSteves.containsKey(name)) {
+        if (findByNameIgnoreCase(name) != null) {
             SteveMod.LOGGER.warn("Steve name '{}' already exists", name);
             return null;
         }
@@ -130,7 +142,7 @@ public class SteveManager {
                 // exact instance; a same-named Steve may have been loaded
                 // concurrently and won the dedup, in which case steve was
                 // already discarded.
-                if (activeSteves.get(name) == steve && steve.isAlive()) {
+                if (findByNameIgnoreCase(name) == steve && steve.isAlive()) {
                     SteveMod.LOGGER.info("Successfully spawned Steve: {} with UUID {} at {}", name, steve.getUUID(), position);
                     return steve;
                 } else {
@@ -164,7 +176,7 @@ public class SteveManager {
         }
         for (Entity entity : level.getAllEntities()) {
             if (entity instanceof SteveEntity steve
-                    && name.equals(steve.getSteveName())
+                    && name.equalsIgnoreCase(steve.getSteveName())
                     && steve.isAlive() && !steve.isRemoved()) {
                 return steve;
             }
@@ -173,7 +185,7 @@ public class SteveManager {
     }
 
     public SteveEntity getSteve(String name) {
-        return name == null ? null : activeSteves.get(name);
+        return name == null ? null : findByNameIgnoreCase(name);
     }
 
     public SteveEntity getSteve(UUID uuid) {
@@ -213,7 +225,7 @@ public class SteveManager {
                     }
                 }
             }
-            SteveEntity trackedInWorldSweep = activeSteves.get(name);
+            SteveEntity trackedInWorldSweep = findByNameIgnoreCase(name);
             for (SteveEntity steve : matches) {
                 if (!steve.isAlive() || steve.isRemoved()) {
                     continue;
@@ -248,7 +260,7 @@ public class SteveManager {
             return;
         }
         String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
-        SteveEntity tracked = activeSteves.get(name);
+        SteveEntity tracked = findByNameIgnoreCase(name);
         if (tracked == steve) {
             activeSteves.remove(name);
             SteveMod.LOGGER.info("Steve '{}' left the world, removed from registry", name);
