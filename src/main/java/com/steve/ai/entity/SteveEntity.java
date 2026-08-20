@@ -60,7 +60,7 @@ public class SteveEntity extends PathfinderMob {
     private boolean loadedFromNbt = false;
 
     /** Pickup radius for items lying on the ground, in blocks. */
-    private static final double PICKUP_RADIUS = 3.0;
+    private static final double PICKUP_RADIUS = 5.0;
     /** Pickup scan every N ticks (20 ticks = 1 second). */
     private static final int PICKUP_INTERVAL = 10;
 
@@ -82,6 +82,17 @@ public class SteveEntity extends PathfinderMob {
             .add(Attributes.MOVEMENT_SPEED, 0.25D)
             .add(Attributes.ATTACK_DAMAGE, 8.0D)
             .add(Attributes.FOLLOW_RANGE, 48.0D);
+    }
+
+    /**
+     * Amphibious navigation: walks on land AND swims across water. The
+     * default GroundPathNavigation treats water as a hard obstacle (no path
+     * into/through it), which forced bridge-building hacks and swamp
+     * workarounds; swimming removes that whole problem class.
+     */
+    @Override
+    protected net.minecraft.world.entity.ai.navigation.PathNavigation createNavigation(Level level) {
+        return new net.minecraft.world.entity.ai.navigation.AmphibiousPathNavigation(this, level);
     }
 
     @Override

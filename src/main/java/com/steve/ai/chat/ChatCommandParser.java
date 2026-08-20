@@ -21,6 +21,61 @@ public final class ChatCommandParser {
         "стой", "замри", "остановись", "стоять", "жди", "стоп"
     );
 
+    /** Substrings that mean "gather until the inventory is full". */
+    private static final List<String> FILL_MARKERS = List.of(
+        "full inventory", "fill inventory", "fill", "until full", "до полного инвентаря",
+        "полный инвентарь", "заполни инвентарь", "до упора", "по максимуму", "под завязку"
+    );
+
+    /** Whether the command asks the bot to gather until the inventory is full. */
+    public static boolean isFillCommand(String lowerCommand) {
+        if (lowerCommand == null) {
+            return false;
+        }
+        String trimmed = lowerCommand.trim().toLowerCase(java.util.Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        return FILL_MARKERS.stream().anyMatch(trimmed::contains);
+    }
+
+    /** Substrings that mean "one full stack of the resource" ("стак"). */
+    private static final List<String> STACK_MARKERS = List.of("стак", "stack of", " stack");
+
+    /** Whether the command asks for exactly one full stack of the resource. */
+    public static boolean isStackCommand(String lowerCommand) {
+        if (lowerCommand == null) {
+            return false;
+        }
+        String trimmed = lowerCommand.trim().toLowerCase(java.util.Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        return STACK_MARKERS.stream().anyMatch(trimmed::contains);
+    }
+
+    /** Whether the command asks for wood/trees in general (any log type). */
+    public static boolean isWoodCommand(String lowerCommand) {
+        if (lowerCommand == null) {
+            return false;
+        }
+        String trimmed = lowerCommand.trim().toLowerCase(java.util.Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        for (String wood : WOOD_MARKERS) {
+            if (trimmed.contains(wood)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final List<String> WOOD_MARKERS = List.of(
+        "wood", "tree", "trees", "logs", "log", "timber",
+        "дерев", "брев", "брёв", "лес", "дров"
+    );
+
     private ChatCommandParser() {}
 
     /**

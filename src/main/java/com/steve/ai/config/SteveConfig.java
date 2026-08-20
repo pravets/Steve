@@ -15,6 +15,10 @@ public class SteveConfig {
     public static final ForgeConfigSpec.IntValue WORLD_SCAN_RADIUS;
     public static final ForgeConfigSpec.IntValue WORLD_SCAN_STEP;
     public static final ForgeConfigSpec.IntValue WORLD_SCAN_CACHE_TICKS;
+    public static final ForgeConfigSpec.IntValue GATHER_SEARCH_RADIUS;
+    public static final ForgeConfigSpec.IntValue GATHER_SEARCH_TIMEOUT;
+    public static final ForgeConfigSpec.IntValue GATHER_RING_SPACING;
+    public static final ForgeConfigSpec.IntValue GATHER_STATIONS_PER_RING;
     public static final ForgeConfigSpec.IntValue ACTION_TICK_DELAY;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CHAT_RESPONSES;
     public static final ForgeConfigSpec.IntValue MAX_ACTIVE_STEVES;
@@ -93,6 +97,30 @@ public class SteveConfig {
         WORLD_SCAN_CACHE_TICKS = builder
             .comment("How many ticks a vision scan result is reused (20 ticks = 1 second)")
             .defineInRange("scanCacheTicks", 20, 5, 200);
+
+        builder.pop();
+
+        builder.comment("Steve Gathering (resource search) Configuration",
+            "How Steve searches for resources: a walking spiral of look-out",
+            "stations around the start point, scanning with vision at each station.",
+            "Steve never digs tunnels - he only mines visible blocks.")
+            .push("gather");
+
+        GATHER_SEARCH_RADIUS = builder
+            .comment("Search radius in blocks (how far from the start point Steve walks)")
+            .defineInRange("searchRadius", 32, 8, 128);
+
+        GATHER_SEARCH_TIMEOUT = builder
+            .comment("Max search time in ticks before giving up (20 ticks = 1 second)")
+            .defineInRange("searchTimeoutTicks", 1200, 100, 72000);
+
+        GATHER_RING_SPACING = builder
+            .comment("Distance between search rings (blocks)")
+            .defineInRange("ringSpacing", 8, 4, 32);
+
+        GATHER_STATIONS_PER_RING = builder
+            .comment("Look-out stations per ring")
+            .defineInRange("stationsPerRing", 8, 4, 16);
 
         builder.pop();
 

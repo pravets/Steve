@@ -82,6 +82,33 @@ class SteveInventoryTest extends AbstractMinecraftTest {
     }
 
     @Test
+    void hasSpaceForRequiresSlotForThatItem() {
+        // 1 slot, fully filled with oak logs: no space for logs...
+        SteveInventory inventory = new SteveInventory(1);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 64));
+        assertFalse(inventory.hasSpaceFor(Items.OAK_LOG));
+        // ...but a different item would still fit in a fresh slot? No: the
+        // slot is taken, so nothing fits in a 1-slot inventory.
+        assertFalse(inventory.hasSpaceFor(Items.BIRCH_LOG));
+    }
+
+    @Test
+    void hasSpaceForPartialStackOfSameItem() {
+        SteveInventory inventory = new SteveInventory(1);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 40));
+        assertTrue(inventory.hasSpaceFor(Items.OAK_LOG), "Partial stack - more logs fit");
+        assertFalse(inventory.hasSpaceFor(Items.DIAMOND), "No empty slot for other items");
+    }
+
+    @Test
+    void hasSpaceForEmptySlot() {
+        SteveInventory inventory = new SteveInventory(2);
+        inventory.addItem(new ItemStack(Items.OAK_LOG, 64));
+        assertTrue(inventory.hasSpaceFor(Items.OAK_LOG), "Empty slot exists");
+        assertTrue(inventory.hasSpaceFor(Items.DIAMOND));
+    }
+
+    @Test
     void countItemIsZeroForUnknownItem() {
         SteveInventory inventory = new SteveInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 3));

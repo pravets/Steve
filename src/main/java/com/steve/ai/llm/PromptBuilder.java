@@ -19,7 +19,8 @@ public class PromptBuilder {
             ACTIONS:
             - attack: {"target": "hostile"} (for any mob/monster)
             - build: {"structure": "house", "blocks": ["oak_planks", "cobblestone", "glass_pane"], "dimensions": [9, 6, 9]}
-            - mine: {"block": "iron", "quantity": 8} (resources: iron, diamond, coal, gold, copper, redstone, emerald)
+            - mine: {"block": "iron", "quantity": 8} (resources: iron, diamond, coal, gold, copper, redstone, emerald; search the area and mine ONLY visible blocks)
+            - gather: {"resource": "oak_log", "quantity": 20} (wood/stone/sand/...; same as mine - search and collect visible blocks)
             - follow: {"player": "NAME"}
             - teleport: {"player": "NAME"} (instantly move to the player; use for "come to me", "return to me", "teleport to me", "приди ко мне")
             - stay: {} (stop moving and stay in place; use for "stay", "wait", "stop", "стой", "замри")
@@ -36,6 +37,8 @@ public class PromptBuilder {
             8. COLLABORATIVE BUILDING: Multiple Steves can work on same structure simultaneously
             9. MINING: Can mine any ore (iron, diamond, coal, etc)
             10. Commands addressed to ALL Steves ("all ...", "everyone ...", "все ...") are sent to every Steve - you MUST execute them too
+            11. NEVER dig tunnels. Mine only blocks you can see.
+            12. TREES: fell them completely - climb the trunk on a pillar of blocks from your inventory, fell every log (branches too), dismantle the pillar on the way down.
             
             EXAMPLES (copy these formats exactly):
             

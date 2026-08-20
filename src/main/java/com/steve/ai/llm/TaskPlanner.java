@@ -2,6 +2,7 @@ package com.steve.ai.llm;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.action.Task;
+import com.steve.ai.chat.ChatCommandParser;
 import com.steve.ai.config.SteveConfig;
 import com.steve.ai.debug.AgentDebugBuffer;
 import com.steve.ai.entity.SteveEntity;
@@ -13,8 +14,11 @@ import com.steve.ai.llm.resilience.LLMFallbackHandler;
 import com.steve.ai.llm.resilience.ResilientLLMClient;
 import com.steve.ai.memory.WorldKnowledge;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -109,8 +113,86 @@ public class TaskPlanner {
                         response.getLatencyMs(),
                         response.getTokensUsed(),
                         response.isFromCache());
+                    // Tell the player visibly when the LLM was down and a
+                    // local fallback plan was used, so a wrong-looking
+                    // behavior (e.g. follow instead of gather) is explained.
+                    if ("fallback".equals(response.getProviderId())) {
+                        steve.sendChatMessage("⚠️ LLM недоступен (" + response.getModel()
+                            + ") — запасной план: " + parsed.getPlan());
+                    }
                     AgentDebugBuffer.log(steve.getSteveName(), "PARSE",
-                        "ok, " + parsed.getTasks().size() + " tasks, plan=\"" + truncate(parsed.getPlan(), 200) + "\"");
+                        "ok, " + parsed.getTasks().size() + " tasks, plan=\"" + truncate(parsed.getPlan(), 200)
+                            + "\", tasks=" + truncate(describeTasks(parsed.getTasks()), 300));
+
+                    // "Gather until the inventory is full" is deterministic:
+                    // mark every gather task with fill=true (the LLM does not
+                    // get to decide the quantity for this quantifier).
+                    if (ChatCommandParser.isFillCommand(command)) {
+                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                            if ("gather".equals(task.getAction())) {
+                                task.getParameters().put("fill", true);
+                            }
+                        }
+                        SteveMod.LOGGER.info("[Async] Fill-inventory mode applied to gather tasks");
+                    }
+
+                    // "One full stack" (стак) is deterministic too: replace the
+                    // LLM's quantity with the resource's real stack size.
+                    if (ChatCommandParser.isStackCommand(command)) {
+                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                            if ("gather".equals(task.getAction())) {
+                                String resource = task.getStringParameter("resource");
+                                if (resource == null) {
+                                    resource = task.getStringParameter("block");
+                                }
+                                net.minecraft.world.level.block.Block block =
+                                    com.steve.ai.action.actions.ResourceBlocks.parseBlock(resource);
+                                int stackSize = com.steve.ai.action.actions.ResourceBlocks.stackSizeFor(block);
+                                task.getParameters().put("quantity", stackSize);
+                                SteveMod.LOGGER.info("[Async] Stack size {} applied to gather task '{}'", stackSize, resource);
+                            }
+                        }
+                    }
+
+                    // "Gather wood/trees" means ANY log type: the user's words
+                    // win over whatever single log type the LLM named.
+                    // NOTE: no isWoodRequest(resource) check here - the LLM
+                    // typically returns a CONCRETE type (oak_log), which
+                    // isWoodRequest() correctly rejects; the command itself
+                    // is the wood signal.
+                    // The LLM often splits "дерево" into one gather task per
+                    // log type (oak_log, birch_log, ...); after the stack
+                    // override above those become identical duplicates that
+                    // would ALL execute (e.g. 2x "gather wood x64"). Collapse
+                    // them into a single any-log task instead.
+                    if (ChatCommandParser.isWoodCommand(command)) {
+                        int before = parsed.getTasks().size();
+                        List<Task> collapsed = collapseWoodGatherTasks(parsed.getTasks());
+                        parsed.getTasks().clear();
+                        parsed.getTasks().addAll(collapsed);
+                        int removed = before - collapsed.size();
+                        if (removed > 0) {
+                            SteveMod.LOGGER.info("[Async] Wood request: collapsed {} per-type gather tasks into one any-log task",
+                                removed + 1);
+                        } else {
+                            SteveMod.LOGGER.info("[Async] Wood request normalized to any-log mode");
+                        }
+                    }
+
+                    // The deterministic overrides above (stack/wood/fill) can
+                    // turn distinct LLM tasks into exact duplicates (same
+                    // resource, quantity, fill) even outside wood commands.
+                    // Drop the copies so the request is never executed twice.
+                    {
+                        int before = parsed.getTasks().size();
+                        List<Task> deduped = dedupeGatherTasks(parsed.getTasks());
+                        if (deduped.size() < before) {
+                            SteveMod.LOGGER.info("[Async] Removed {} duplicate gather task(s), final plan: {}",
+                                before - deduped.size(), describeTasks(deduped));
+                            parsed.getTasks().clear();
+                            parsed.getTasks().addAll(deduped);
+                        }
+                    }
 
                     return parsed;
                 })
@@ -204,6 +286,86 @@ public class TaskPlanner {
         return tasks.stream()
             .filter(this::validateTask)
             .toList();
+    }
+
+    /**
+     * Merges ALL gather tasks into a single any-log ("wood") task: the FIRST
+     * gather task keeps its parameters (quantity, fill, ...) with
+     * resource forced to "wood", and every later gather task is dropped.
+     * Non-gather tasks are preserved in their original order; the merged
+     * task takes the first gather task's slot.
+     *
+     * <p>Pure/static and Minecraft-free so it can be unit tested.</p>
+     */
+    static List<Task> collapseWoodGatherTasks(List<Task> tasks) {
+        List<Task> result = new ArrayList<>(tasks.size());
+        boolean merged = false;
+        for (Task task : tasks) {
+            if (!"gather".equals(task.getAction())) {
+                result.add(task);
+                continue;
+            }
+            if (merged) {
+                // Later per-type gather tasks (birch_log after oak_log, ...)
+                // describe the same wood request - drop them.
+                continue;
+            }
+            task.getParameters().put("resource", "wood");
+            result.add(task);
+            merged = true;
+        }
+        return result;
+    }
+
+    /**
+     * Removes gather tasks whose (resource, quantity, fill) triple exactly
+     * duplicates an earlier gather task. Gathers for different resources
+     * (iron vs coal) or different quantities are kept. Non-gather tasks are
+     * untouched and the original order is preserved.
+     *
+     * <p>Pure/static and Minecraft-free so it can be unit tested.</p>
+     */
+    static List<Task> dedupeGatherTasks(List<Task> tasks) {
+        List<Task> result = new ArrayList<>(tasks.size());
+        Set<String> seen = new HashSet<>();
+        for (Task task : tasks) {
+            if (!"gather".equals(task.getAction())) {
+                result.add(task);
+                continue;
+            }
+            String key = String.valueOf(task.getParameter("resource")) + "|"
+                + String.valueOf(task.getParameter("quantity")) + "|"
+                + String.valueOf(task.getParameter("fill"));
+            if (seen.add(key)) {
+                result.add(task);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Compact one-line plan description for logs, e.g. "gather wood x64;follow Alex".
+     */
+    private static String describeTasks(List<Task> tasks) {
+        StringBuilder sb = new StringBuilder();
+        for (Task task : tasks) {
+            if (sb.length() > 0) {
+                sb.append(';');
+            }
+            sb.append(task.getAction());
+            String what = task.getStringParameter("resource");
+            if (what == null) what = task.getStringParameter("block");
+            if (what == null) what = task.getStringParameter("target");
+            if (what == null) what = task.getStringParameter("player");
+            if (what != null) {
+                sb.append(' ').append(what);
+            }
+            Object quantity = task.getParameter("quantity");
+            if (quantity != null) {
+                sb.append(" x").append(quantity);
+            }
+        }
+        return sb.toString();
     }
 
     private static String truncate(String str, int maxLength) {

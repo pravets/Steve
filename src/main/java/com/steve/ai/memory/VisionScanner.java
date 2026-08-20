@@ -10,6 +10,8 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -115,6 +117,56 @@ public final class VisionScanner {
     }
 
     /**
+     * Finds visible blocks of ANY log type (BlockTags.LOGS): used by the
+     * "gather wood" mode where the bot must chop birch, spruce etc., not just
+     * the single oak type the LLM happened to name.
+     */
+    public static List<BlockPos> findVisibleAnyLog(SteveEntity steve) {
+        Map<Block, List<BlockPos>> visible = scan(steve);
+        List<BlockPos> found = new java.util.ArrayList<>();
+        for (Map.Entry<Block, List<BlockPos>> entry : visible.entrySet()) {
+            if (entry.getKey().builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)) {
+                found.addAll(entry.getValue());
+            }
+        }
+        BlockPos center = steve.blockPosition();
+        return found.stream()
+            .sorted(Comparator.comparingDouble(p -> p.distSqr(center)))
+            .toList();
+    }
+
+    /**
+     * Brute-force scan for blocks of a given type within a cube around the
+     * bot, WITHOUT line-of-sight checks. In a forest the view ray gets
+     * blocked by other trunks and dense canopies, so the bot could stand
+     * next to trees and never "see" them - this scan finds blocks it can
+     * walk to directly.
+     *
+     * @param target the exact block to look for, or null for ANY log type
+     */
+    public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Block target) {
+        BlockPos center = steve.blockPosition();
+        List<BlockPos> found = new java.util.ArrayList<>();
+        net.minecraft.world.level.Level level = steve.level();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    BlockPos pos = center.offset(dx, dy, dz);
+                    Block block = level.getBlockState(pos).getBlock();
+                    boolean match = target != null ? block == target
+                        : block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+                    if (match) {
+                        found.add(pos);
+                    }
+                }
+            }
+        }
+        return found.stream()
+            .sorted(Comparator.comparingDouble(p -> p.distSqr(center)))
+            .toList();
+    }
+
+    /**
      * Finds the nearest visible block of the given type, or null.
      */
     public static BlockPos findNearestVisible(SteveEntity steve, Block target) {
@@ -158,23 +210,45 @@ public final class VisionScanner {
 
     /**
      * Checks whether Steve has a clear line of sight to the given block.
+     * Leaves are treated as transparent for the sight ray (a trunk hidden
+     * behind the canopy is still a valid target) - everything else with a
+     * collision blocks the view.
      */
     public static boolean hasLineOfSight(SteveEntity steve, BlockPos target) {
         Level level = steve.level();
         Vec3 eye = steve.getEyePosition(1.0F);
         Vec3 to = Vec3.atCenterOf(target);
-
-        BlockHitResult hit = level.clip(new ClipContext(eye, to,
-            ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, steve));
-
-        if (hit.getType() == HitResult.Type.MISS) {
-            return true;
+        Vec3 dir = to.subtract(eye);
+        if (dir.lengthSqr() < 1.0E-4) {
+            return true; // target is inside/at the eye - trivially visible
         }
-        // Hit the target itself, or something at/behind it -> visible
-        if (hit.getBlockPos().equals(target)) {
-            return true;
+        dir = dir.normalize();
+
+        // Step through leaves (they have a collision shape but should not
+        // hide ores/logs behind the canopy); hard cap on iterations.
+        for (int i = 0; i < 16; i++) {
+            BlockHitResult hit = level.clip(new ClipContext(eye, to,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, steve));
+
+            if (hit.getType() == HitResult.Type.MISS) {
+                return true;
+            }
+            // Hit the target itself, or something at/behind it -> visible
+            if (hit.getBlockPos().equals(target)) {
+                return true;
+            }
+            if (eye.distanceToSqr(hit.getLocation()) >= eye.distanceToSqr(to) - 0.5) {
+                return true;
+            }
+            BlockState hitState = level.getBlockState(hit.getBlockPos());
+            if (hitState.getBlock() instanceof LeavesBlock) {
+                // leaves are transparent: continue the ray just past them
+                eye = hit.getLocation().add(dir.scale(0.2));
+                continue;
+            }
+            return false;
         }
-        return eye.distanceToSqr(hit.getLocation()) >= eye.distanceToSqr(to) - 0.5;
+        return false;
     }
 
     /**
