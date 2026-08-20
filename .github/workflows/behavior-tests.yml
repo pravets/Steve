@@ -8,6 +8,9 @@ jobs:
   behavior:
     name: Behavior tests (headless server)
     runs-on: ubuntu-latest
+    # Two server starts (force-load scenario + restart scenario) plus Forge boot
+    # time need a generous but bounded timeout.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -30,11 +33,17 @@ jobs:
         run: cp build/libs/steve-ai-mod-1.0.0-all.jar /tmp/fgtest/mods/
 
       - name: Run chunk force-load behavior test
+        # Runs both the original force-load scenario and the restart scenario
+        # (issue #14): a Steve teleported far away must keep its chunk
+        # force-loaded and continue ticking after a server restart with no
+        # players online.
         run: python3 scripts/behavior/behavior_test.py --dir /tmp/fgtest --jar build/libs/steve-ai-mod-1.0.0-all.jar
 
-      - name: Upload server log on failure
+      - name: Upload server logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: behavior-server-log
-          path: /tmp/fgtest/behavior.log
+          name: behavior-server-logs
+          path: |
+            /tmp/fgtest/behavior.log
+            /tmp/fgtest/behavior_restart.log

@@ -13,6 +13,8 @@ Scenario (headless server, RCON, no LLM needed - "стоп" is a stay pre-trigge
      the entity is actually ticking in its force-loaded chunk).
   6. Without the chunk force-load feature the bot would not tick at x=5000
      (entities only tick in loaded chunks) and the stay would never execute.
+  7. Restart scenario (issue #14): Bob keeps his chunk force-loaded across a
+     server restart with no players online, and still ticks afterwards.
 
 Asserts are log-pattern based with timeouts. Exits 0 on pass, 1 on fail.
 """
@@ -151,6 +153,92 @@ def wait_for(log_path, pattern, timeout, label):
     return False
 
 
+def spawn_bot(rcon, log_path, name):
+    rcon.command(f"steve spawn {name}")
+    assert wait_for(log_path, rf"[Ss]pawned Steve: {name}", 30, f"spawn {name}")
+
+
+def get_bot_uuid(log_text, name):
+    m = re.search(rf"[Ss]pawned Steve: {name} with UUID ([0-9a-f-]+)", log_text)
+    return m.group(1) if m else None
+
+
+def teleport_to_far(rcon, log_path, uuid, spawn_x, spawn_z, dx_chunks=500):
+    far_x = int(spawn_x) + dx_chunks * 16 + 8
+    rcon.command(f"tp {uuid} {far_x} 4 0")
+    assert wait_for(log_path, r"Teleported", 30, "teleport")
+    return far_x
+
+
+def assert_chunk_force_loaded(rcon, far_x, z=0):
+    fl_response = rcon.command(f"forceload query {far_x} {z}")
+    print(f"  forceload query: {fl_response}")
+    assert "marked for force loading" in fl_response
+
+
+def assert_bot_ticks(rcon, log_path, name):
+    rcon.command(f"steve tell {name} gather 50 wood")
+    assert wait_for(log_path, r"async planning complete: 1 tasks queued", 120, f"{name} ticks in far chunk")
+
+
+def test_chunk_persists_after_restart(workdir, jar_path):
+    log_path = os.path.join(workdir, "behavior_restart.log")
+    if os.path.exists(log_path):
+        os.remove(log_path)
+
+    print("Starting server for restart scenario...")
+    proc = start_server(workdir, jar_path, log_path)
+    try:
+        assert wait_for(log_path, r"Done \(", 180, "server start")
+        time.sleep(3)
+        rcon = RCON()
+
+        spawn_bot(rcon, log_path, "Bob")
+        log_text = open(log_path, "r", errors="replace").read()
+        spawn_match = re.search(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
+        if not spawn_match:
+            print("  [FAIL] Bob spawn position not found in log")
+            return 1
+        spawn_x = float(spawn_match.group(1))
+        spawn_z = float(spawn_match.group(3))
+        uuid = get_bot_uuid(log_text, "Bob")
+        far_x = teleport_to_far(rcon, log_path, uuid, spawn_x, spawn_z)
+        time.sleep(12)
+        assert_chunk_force_loaded(rcon, far_x)
+        assert_bot_ticks(rcon, log_path, "Bob")
+
+        print("Restarting server (no players online)...")
+        rcon.command("stop")
+        assert wait_for(log_path, r"Saving chunks for level 'ServerLevel", 60, "server save")
+        proc.wait(timeout=60)
+        rcon.close()
+
+        # Start again with the SAME world (do NOT delete world/)
+        if os.path.exists(log_path):
+            os.remove(log_path)
+        proc = start_server(workdir, jar_path, log_path)
+        assert wait_for(log_path, r"Done \(", 180, "server restart")
+        time.sleep(3)
+        rcon = RCON()
+
+        list_resp = rcon.command("steve list")
+        print(f"  steve list after restart: {list_resp}")
+        assert "Bob" in list_resp
+        assert_chunk_force_loaded(rcon, far_x)
+        rcon.command("steve tell Bob стоп")
+        assert wait_for(log_path, r"Bob stopped", 30, "Bob ticks after restart")
+
+        print("PASS: Bob survived server restart in force-loaded chunk.")
+        rcon.close()
+        return 0
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
 def main():
     """Run the headless Forge server behavior test and return an exit code."""
     ap = argparse.ArgumentParser()
@@ -260,9 +348,7 @@ def main():
 
             # 1. Spawn Bob
             print("Spawning Bob...")
-            rcon.command("steve spawn Bob")
-            if not wait_for(log_path, r"Spawned Steve: Bob", 30, "spawn"):
-                return 1
+            spawn_bot(rcon, log_path, "Bob")
 
             # Extract Bob's UUID and actual spawn position for the /tp.
             # There may be an earlier case-insensitive spawn, so always use the
@@ -307,11 +393,7 @@ def main():
             #    to the RCON client only - check the body.
             far_chunk_x = far_x >> 4
             print("Checking force-load status...")
-            fl_response = rcon.command(f"forceload query {far_x} 0")
-            print(f"  forceload query: {fl_response}")
-            if f"marked for force loading" not in fl_response:
-                print("  -> chunk force-load failed")
-                return 1
+            assert_chunk_force_loaded(rcon, far_x)
             print(f"  -> chunk [{far_chunk_x}, 0] force-loaded")
 
             # 5. Give a gather command. The LLM endpoint is unreachable by
@@ -321,13 +403,9 @@ def main():
             #    from ActionExecutor.tick - i.e. ONLY when the entity actually
             #    ticks in its force-loaded chunk at x=300 (outside spawn).
             print("Sending 'gather 50 wood'...")
-            rcon.command("steve tell Bob gather 50 wood")
-            if not wait_for(log_path, r"async planning complete: 1 tasks queued", 120, "task queued in far chunk"):
-                print("  -> bot did NOT tick in the far chunk: chunk force-load broken")
-                return 1
+            assert_bot_ticks(rcon, log_path, "Bob")
 
             print("PASS: Steve worked in a force-loaded chunk with no player online.")
-            return 0
         finally:
             rcon.close()
     finally:
@@ -336,6 +414,13 @@ def main():
             proc.wait(timeout=15)
         except subprocess.TimeoutExpired:
             proc.kill()
+
+    # 6. Restart scenario (issue #14): same world, no players, must survive.
+    #    Do NOT delete world/ so Bob's entity data persists across restart.
+    if test_chunk_persists_after_restart(args.dir, args.jar) != 0:
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
