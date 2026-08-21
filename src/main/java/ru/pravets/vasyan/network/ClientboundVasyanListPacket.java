@@ -6,13 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Server -> Client: the list of active Steve names for the GUI panel.
+ * Server -> Client: the list of active Vasyan names for the GUI panel.
  */
-public record ClientboundVasyanListPacket(List<String> steveNames) {
+public record ClientboundVasyanListPacket(List<String> vasyanNames) {
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeVarInt(steveNames.size());
-        for (String name : steveNames) {
+        buf.writeVarInt(vasyanNames.size());
+        for (String name : vasyanNames) {
             buf.writeUtf(name, 64);
         }
     }

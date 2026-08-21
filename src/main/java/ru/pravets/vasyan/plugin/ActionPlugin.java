@@ -20,8 +20,8 @@ import ru.pravets.vasyan.di.ServiceContainer;
  *
  *     &#64;Override
  *     public void onLoad(ActionRegistry registry, ServiceContainer container) {
- *         registry.register("dance", (steve, task, ctx) -&gt; new DanceAction(steve, task));
- *         registry.register("greet", (steve, task, ctx) -&gt; new GreetAction(steve, task));
+ *         registry.register("dance", (vasyan, task, ctx) -&gt; new DanceAction(vasyan, task));
+ *         registry.register("greet", (vasyan, task, ctx) -&gt; new GreetAction(vasyan, task));
  *     }
  * }
  * </pre>
@@ -72,11 +72,11 @@ public interface ActionPlugin {
      *     LLMCache cache = container.getService(LLMCache.class);
      *
      *     // Register actions with factory lambdas
-     *     registry.register("mine", (steve, task, ctx) -&gt;
-     *         new MineBlockAction(steve, task));
+     *     registry.register("mine", (vasyan, task, ctx) -&gt;
+     *         new MineBlockAction(vasyan, task));
      *
-     *     registry.register("smart_mine", (steve, task, ctx) -&gt;
-     *         new SmartMineAction(steve, task, cache));
+     *     registry.register("smart_mine", (vasyan, task, ctx) -&gt;
+     *         new SmartMineAction(vasyan, task, cache));
      * }
      * </pre>
      *

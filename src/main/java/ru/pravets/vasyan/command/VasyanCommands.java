@@ -27,30 +27,30 @@ public class VasyanCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("vasyan")
             .then(Commands.literal("spawn")
-                .then(Commands.argument("name", VasyanNameArgumentType.steveName())
-                    .executes(VasyanCommands::spawnSteve)))
+                .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                    .executes(VasyanCommands::spawnVasyan)))
             .then(Commands.literal("remove")
-                .then(Commands.argument("name", VasyanNameArgumentType.steveName())
-                    .executes(VasyanCommands::removeSteve)))
+                .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                    .executes(VasyanCommands::removeVasyan)))
             .then(Commands.literal("list")
-                .executes(VasyanCommands::listSteves))
+                .executes(VasyanCommands::listVasyans))
             .then(Commands.literal("stop")
-                .then(Commands.argument("name", VasyanNameArgumentType.steveName())
-                    .executes(VasyanCommands::stopSteve)))
+                .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                    .executes(VasyanCommands::stopVasyan)))
             .then(Commands.literal("tell")
-                .then(Commands.argument("name", VasyanNameArgumentType.steveName())
+                .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
                     .then(Commands.argument("command", StringArgumentType.greedyString())
-                        .executes(VasyanCommands::tellSteve))))
+                        .executes(VasyanCommands::tellVasyan))))
             .then(Commands.literal("providers")
                 .executes(VasyanCommands::listProviders))
             .then(Commands.literal("debug")
-                .executes(VasyanCommands::debugSteve))
+                .executes(VasyanCommands::debugVasyan))
             .then(Commands.literal("inventory")
-                .then(Commands.argument("name", VasyanNameArgumentType.steveName())
+                .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
                     .executes(VasyanCommands::showInventory)))
             .then(Commands.literal("tp")
-                .then(Commands.argument("name", VasyanNameArgumentType.steveName())
-                    .executes(VasyanCommands::tpSteve)))
+                .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                    .executes(VasyanCommands::tpVasyan)))
         );
     }
 
@@ -58,7 +58,7 @@ public class VasyanCommands {
      * /vasyan tp <name|all> - instantly teleports the named Vasyan (or all
      * Vasyans) to a safe spot near the commanding player.
      */
-    private static int tpSteve(CommandContext<CommandSourceStack> context) {
+    private static int tpVasyan(CommandContext<CommandSourceStack> context) {
         String name = VasyanNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         if (!(source.getEntity() instanceof ServerPlayer player)) {
@@ -66,11 +66,11 @@ public class VasyanCommands {
             return 0;
         }
 
-        VasyanManager manager = VasyanMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getVasyanManager();
         AgentDebugBuffer.log(name, "COMMAND", "tp to " + player.getName().getString());
 
         if ("all".equalsIgnoreCase(name)) {
-            List<String> names = manager.getSteveNames();
+            List<String> names = manager.getVasyanNames();
             if (names.isEmpty()) {
                 source.sendFailure(Component.literal("§cNo Vasyans spawned. Use /vasyan spawn <name>"));
                 return 0;
@@ -78,14 +78,14 @@ public class VasyanCommands {
             int teleported = 0;
             int wrongDimension = 0;
             int noSpot = 0;
-            for (String steveName : names) {
-                VasyanEntity steve = manager.getSteve(steveName);
-                if (steve == null) {
+            for (String vasyanName : names) {
+                VasyanEntity vasyan = manager.getVasyan(vasyanName);
+                if (vasyan == null) {
                     continue;
                 }
-                if (steve.level().dimension() != player.level().dimension()) {
+                if (vasyan.level().dimension() != player.level().dimension()) {
                     wrongDimension++;
-                } else if (steve.teleportToPlayer(player)) {
+                } else if (vasyan.teleportToPlayer(player)) {
                     teleported++;
                 } else {
                     noSpot++;
@@ -105,16 +105,16 @@ public class VasyanCommands {
             return 1;
         }
 
-        VasyanEntity steve = manager.getSteve(name);
-        if (steve == null) {
+        VasyanEntity vasyan = manager.getVasyan(name);
+        if (vasyan == null) {
             source.sendFailure(Component.literal("§cVasyan not found: " + name));
             return 0;
         }
-        if (steve.level().dimension() != player.level().dimension()) {
+        if (vasyan.level().dimension() != player.level().dimension()) {
             source.sendFailure(Component.literal("§c" + name + " is in another dimension"));
             return 0;
         }
-        if (!steve.teleportToPlayer(player)) {
+        if (!vasyan.teleportToPlayer(player)) {
             source.sendFailure(Component.literal("§cNo safe spot near you for " + name));
             return 0;
         }
@@ -126,13 +126,13 @@ public class VasyanCommands {
         String name = VasyanNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
 
-        VasyanEntity steve = VasyanMod.getSteveManager().getSteve(name);
-        if (steve == null) {
+        VasyanEntity vasyan = VasyanMod.getVasyanManager().getVasyan(name);
+        if (vasyan == null) {
             source.sendFailure(Component.literal("Vasyan not found: " + name));
             return 0;
         }
 
-        VasyanInventory inventory = steve.getInventory();
+        VasyanInventory inventory = vasyan.getInventory();
         source.sendSuccess(() -> Component.literal(
             "§e" + name + "'s inventory§7 (" + inventory.getStacksCount() + "/" + inventory.getMaxSize()
                 + " stacks, " + inventory.getTotalCount() + " items): " + inventory.toDisplayString()),
@@ -140,9 +140,9 @@ public class VasyanCommands {
         return 1;
     }
 
-    private static int debugSteve(CommandContext<CommandSourceStack> context) {
+    private static int debugVasyan(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        VasyanManager manager = VasyanMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getVasyanManager();
 
         String provider = VasyanConfig.AI_PROVIDER.get().toLowerCase();
         String base = LLMProviders.resolveBaseUrl(provider, VasyanConfig.LLM_BASE_URL.get());
@@ -178,14 +178,14 @@ public class VasyanCommands {
             }
         }, "vasyan-health-check").start();
 
-        // Per-Steve state
-        var steves = manager.getAllSteves();
-        if (steves.isEmpty()) {
+        // Per-Vasyan state
+        var vasyans = manager.getAllVasyans();
+        if (vasyans.isEmpty()) {
             source.sendSuccess(() -> Component.literal("§7No Vasyans spawned. Use /vasyan spawn <name>"), false);
         } else {
-            for (VasyanEntity steve : steves) {
+            for (VasyanEntity vasyan : vasyans) {
                 source.sendSuccess(() -> Component.literal(
-                    "§e" + steve.getSteveName() + "§7: " + steve.getActionExecutor().getStateSummary()), false);
+                    "§e" + vasyan.getVasyanName() + "§7: " + vasyan.getActionExecutor().getStateSummary()), false);
             }
         }
 
@@ -246,7 +246,7 @@ public class VasyanCommands {
         return 1;
     }
 
-    private static int spawnSteve(CommandContext<CommandSourceStack> context) {
+    private static int spawnVasyan(CommandContext<CommandSourceStack> context) {
         String name = VasyanNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         
@@ -256,7 +256,7 @@ public class VasyanCommands {
             return 0;
         }
 
-        VasyanManager manager = VasyanMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getVasyanManager();
         
         Vec3 sourcePos = source.getPosition();
         if (source.getEntity() != null) {
@@ -267,8 +267,8 @@ public class VasyanCommands {
         }
         Vec3 spawnPos = sourcePos;
         
-        VasyanEntity steve = manager.spawnSteve(serverLevel, spawnPos, name);
-        if (steve != null) {
+        VasyanEntity vasyan = manager.spawnVasyan(serverLevel, spawnPos, name);
+        if (vasyan != null) {
             source.sendSuccess(() -> Component.literal("Spawned Vasyan: " + name), true);
             return 1;
         } else {
@@ -277,12 +277,12 @@ public class VasyanCommands {
         }
     }
 
-    private static int removeSteve(CommandContext<CommandSourceStack> context) {
+    private static int removeVasyan(CommandContext<CommandSourceStack> context) {
         String name = VasyanNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         
-        VasyanManager manager = VasyanMod.getSteveManager();
-        if (manager.removeSteve(name, source.getServer())) {
+        VasyanManager manager = VasyanMod.getVasyanManager();
+        if (manager.removeVasyan(name, source.getServer())) {
             source.sendSuccess(() -> Component.literal("Removed Vasyan: " + name), true);
             return 1;
         } else {
@@ -291,11 +291,11 @@ public class VasyanCommands {
         }
     }
 
-    private static int listSteves(CommandContext<CommandSourceStack> context) {
+    private static int listVasyans(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        VasyanManager manager = VasyanMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getVasyanManager();
         
-        var names = manager.getSteveNames();
+        var names = manager.getVasyanNames();
         if (names.isEmpty()) {
             source.sendSuccess(() -> Component.literal("No active Vasyans"), false);
         } else {
@@ -304,17 +304,17 @@ public class VasyanCommands {
         return 1;
     }
 
-    private static int stopSteve(CommandContext<CommandSourceStack> context) {
+    private static int stopVasyan(CommandContext<CommandSourceStack> context) {
         String name = VasyanNameArgumentType.getName(context, "name");
         CommandSourceStack source = context.getSource();
         
-        VasyanManager manager = VasyanMod.getSteveManager();
-        VasyanEntity steve = manager.getSteve(name);
+        VasyanManager manager = VasyanMod.getVasyanManager();
+        VasyanEntity vasyan = manager.getVasyan(name);
         
-        if (steve != null) {
-            steve.getActionExecutor().stopCurrentAction();
-            steve.getActionExecutor().setStaying(true);
-            steve.getMemory().clearTaskQueue();
+        if (vasyan != null) {
+            vasyan.getActionExecutor().stopCurrentAction();
+            vasyan.getActionExecutor().setStaying(true);
+            vasyan.getMemory().clearTaskQueue();
             source.sendSuccess(() -> Component.literal("Stopped Vasyan: " + name), true);
             return 1;
         } else {
@@ -323,7 +323,7 @@ public class VasyanCommands {
         }
     }
 
-    private static int tellSteve(CommandContext<CommandSourceStack> context) {
+    private static int tellVasyan(CommandContext<CommandSourceStack> context) {
         String name = VasyanNameArgumentType.getName(context, "name");
         String command = StringArgumentType.getString(context, "command");
         CommandSourceStack source = context.getSource();

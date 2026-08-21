@@ -24,12 +24,12 @@ import java.util.Set;
 /**
  * Resource gathering by ROUTING, not tunnel-digging.
  *
- * <p>The Steve walks a spiral of look-out stations around the start point
+ * <p>The Vasyan walks a spiral of look-out stations around the start point
  * (amphibious navigation: walks on land, swims across water - never flies),
  * scanning with vision at each station ({@link VisionScanner#findVisible})
  * and mining ONLY visible target blocks. No tunnels are ever dug.</p>
  *
- * <p><b>Whole-tree felling:</b> when a mined log has a log above it, the Steve
+ * <p><b>Whole-tree felling:</b> when a mined log has a log above it, the Vasyan
  * enters fell mode - it collects the whole connected log component (BFS) and
  * climbs the trunk on a nerd-pole of REAL blocks from its inventory, felling
  * every log (jungle 2x2s and modded giants included), then dismantles the
@@ -121,8 +121,8 @@ public class GatherResourceAction extends BaseAction {
 
     private Phase phase = Phase.SEARCH;
 
-    public GatherResourceAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public GatherResourceAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -163,14 +163,14 @@ public class GatherResourceAction extends BaseAction {
         fellLogs.clear();
         fellPillar.clear();
         unreachableTargets.clear();
-        origin = steve.blockPosition();
-        searchState = new ResourceSearchPlanner.SearchState(origin, 0, 0, steve.level().getGameTime());
+        origin = vasyan.blockPosition();
+        searchState = new ResourceSearchPlanner.SearchState(origin, 0, 0, vasyan.level().getGameTime());
 
         // Ground movement only - never fly while gathering
-        steve.setFlying(false);
-        steve.getNavigation().stop();
-        lastProgressTick = steve.level().getGameTime();
-        lastProgressPos = steve.blockPosition();
+        vasyan.setFlying(false);
+        vasyan.getNavigation().stop();
+        lastProgressTick = vasyan.level().getGameTime();
+        lastProgressPos = vasyan.blockPosition();
 
         debugLog("GATHER", "search " + resourceLabel() + " x" + targetQuantity
             + " from " + origin);
@@ -193,15 +193,15 @@ public class GatherResourceAction extends BaseAction {
         // the clock resets on every gathered log. Long walks/swims between
         // trees and stations (40-50s across a swamp, no chop) are progress
         // too: only a truly idle bot times out.
-        long now = steve.level().getGameTime();
+        long now = vasyan.level().getGameTime();
         if (gatheredCount != lastProgressCount) {
             lastProgressCount = gatheredCount;
             lastProgressTick = now;
-            lastProgressPos = steve.blockPosition();
+            lastProgressPos = vasyan.blockPosition();
         } else if (lastProgressPos != null
-                && steve.blockPosition().distSqr(lastProgressPos) >= PROGRESS_MOVE_DISTANCE_SQ) {
+                && vasyan.blockPosition().distSqr(lastProgressPos) >= PROGRESS_MOVE_DISTANCE_SQ) {
             lastProgressTick = now;
-            lastProgressPos = steve.blockPosition();
+            lastProgressPos = vasyan.blockPosition();
         }
         if (now - lastProgressTick >= VasyanConfig.GATHER_SEARCH_TIMEOUT.get()) {
             finish(false, "Search timed out - found " + gatheredCount + " " + resourceLabel());
@@ -213,13 +213,13 @@ public class GatherResourceAction extends BaseAction {
             // requested resource (empty slot or a partially filled stack).
             // In any-log mode any free slot counts (mixed log types).
             boolean hasRoom = anyLogMode
-                ? steve.getInventory().hasFreeSpace()
-                : steve.getInventory().hasSpaceFor(currentTargetItem());
+                ? vasyan.getInventory().hasFreeSpace()
+                : vasyan.getInventory().hasSpaceFor(currentTargetItem());
             if (!hasRoom) {
                 finish(true, "Inventory full - gathered " + gatheredCount + " " + resourceLabel());
                 return;
             }
-        } else if (!steve.getInventory().hasFreeSpace()) {
+        } else if (!vasyan.getInventory().hasFreeSpace()) {
             finish(true, "Inventory full");
             return;
         }
@@ -245,18 +245,18 @@ public class GatherResourceAction extends BaseAction {
             default -> { }
         }
 
-        // Periodic STATUS ping so /steve debug shows what the bot is doing
+        // Periodic STATUS ping so /vasyan debug shows what the bot is doing
         // even in silently-looped phases (stuck in water, circling a tree).
         if (--statusCooldown <= 0) {
             statusCooldown = STATUS_INTERVAL;
             BlockPos p = routeTarget;
             debugLog("STATUS",
                 "phase=" + phase
-                + " pos=" + steve.blockPosition()
+                + " pos=" + vasyan.blockPosition()
                 + " route=" + (p != null ? p : "-")
                 + " dist=" + (p != null ? Math.round(Math.sqrt(horizontalDistanceSqr(p))) + "b" : "-")
-                + " " + (steve.isInWater() ? "WATER " : "")
-                + " nav=" + (steve.getNavigation().isInProgress() ? "moving" : "stopped")
+                + " " + (vasyan.isInWater() ? "WATER " : "")
+                + " nav=" + (vasyan.getNavigation().isInProgress() ? "moving" : "stopped")
                 + " " + gatheredCount + "/" + targetQuantity);
         }
     }
@@ -298,12 +298,12 @@ public class GatherResourceAction extends BaseAction {
         // over a visible one 30 blocks away (the bot used to skip nearby
         // trees and walk off into the distance).
         List<BlockPos> visible = anyLogMode
-            ? VisionScanner.findVisibleAnyLog(steve)
-            : VisionScanner.findVisible(steve, miningBlocks);
+            ? VisionScanner.findVisibleAnyLog(vasyan)
+            : VisionScanner.findVisible(vasyan, miningBlocks);
         boolean logTarget = anyLogMode
             || (targetBlock != null && targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS));
 
-        List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, miningBlocks);
+        List<BlockPos> nearby = VisionScanner.findNearbyBlocks(vasyan, NEARBY_SCAN_RADIUS, miningBlocks);
         if (logTarget) {
             // lone logs of player buildings are not trees
             nearby = nearby.stream().filter(this::isTreeLog).toList();
@@ -312,11 +312,11 @@ public class GatherResourceAction extends BaseAction {
         List<BlockPos> all = new java.util.ArrayList<>(visible.size() + nearby.size());
         all.addAll(visible);
         all.addAll(nearby);
-        BlockPos center = steve.blockPosition();
+        BlockPos center = vasyan.blockPosition();
         BlockPos mine = all.stream()
             .filter(p -> !unreachableTargets.contains(p))
             .filter(p -> !isUnderwaterTarget(p)) // swamp: never dive for a log (drop loss, air)
-            .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+            .min(Comparator.comparingDouble(p -> vasyan.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
             .orElse(null);
         if (mine != null) {
             if (!visible.contains(mine)) {
@@ -361,7 +361,7 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private void phaseRouting() {
-        steve.setFlying(false); // ground movement, always
+        vasyan.setFlying(false); // ground movement, always
         ticksOnRoute++;
 
         if (routeTarget == null) {
@@ -382,23 +382,23 @@ public class GatherResourceAction extends BaseAction {
         // emergencies only: head under water (air is limited - bob up) or
         // stuck in water with no active path for a long time (e.g. under an
         // overhang the navigator cannot escape) - then fish out to shore.
-        if (steve.isInWater()) {
-            if (steve.isUnderWater()) {
-                steve.setDeltaMovement(steve.getDeltaMovement().add(0, 0.15, 0));
+        if (vasyan.isInWater()) {
+            if (vasyan.isUnderWater()) {
+                vasyan.setDeltaMovement(vasyan.getDeltaMovement().add(0, 0.15, 0));
             }
-            if (steve.getNavigation().isInProgress()) {
+            if (vasyan.getNavigation().isInProgress()) {
                 waterStuckTicks = 0; // swimming along a real route - fine
             } else if (++waterStuckTicks > WATER_FISH_OUT_TICKS) {
-                BlockPos dry = findDrySpot(steve.blockPosition(), 8);
+                BlockPos dry = findDrySpot(vasyan.blockPosition(), 8);
                 if (dry == null) {
-                    dry = findDrySpot(steve.blockPosition(), 16);
+                    dry = findDrySpot(vasyan.blockPosition(), 16);
                 }
                 if (dry != null) {
-                    int sy = steve.level().getHeightmapPos(
+                    int sy = vasyan.level().getHeightmapPos(
                         net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                         dry).getY();
-                    steve.teleportTo(dry.getX() + 0.5, sy + 1, dry.getZ() + 0.5);
-                    steve.getNavigation().stop();
+                    vasyan.teleportTo(dry.getX() + 0.5, sy + 1, dry.getZ() + 0.5);
+                    vasyan.getNavigation().stop();
                     debugLog("ROUTING", "fished out of water to " + dry);
                 }
                 waterStuckTicks = 0;
@@ -411,14 +411,14 @@ public class GatherResourceAction extends BaseAction {
         // reach (5). When the target block is already in reach, do not force
         // the last unwalkable meters (steep bank, canopy) - chop from here.
         if (mineTarget != null && routeTarget.equals(mineTarget)
-                && steve.distanceToSqr(mineTarget.getX() + 0.5, mineTarget.getY() + 0.5, mineTarget.getZ() + 0.5) <= MINE_REACH_SQ
+                && vasyan.distanceToSqr(mineTarget.getX() + 0.5, mineTarget.getY() + 0.5, mineTarget.getZ() + 0.5) <= MINE_REACH_SQ
                 && isLogBlockAt(mineTarget)) {
             ticksOnRoute = 0;
             phase = Phase.MINING;
             return;
         }
 
-        // Stations sit at origin.y + 5 (look-out altitude) but Steve walks on
+        // Stations sit at origin.y + 5 (look-out altitude) but Vasyan walks on
         // the ground: arrival and stall checks use the HORIZONTAL distance.
         boolean reached = horizontalDistanceSqr(routeTarget) <= ARRIVED_DISTANCE_SQ;
 
@@ -432,7 +432,7 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
-        if (!steve.getNavigation().isInProgress()) {
+        if (!vasyan.getNavigation().isInProgress()) {
             // Target a dry, standable cell NEAR the route point: routeTarget
             // is a log/station block whose XZ may sit in a swamp pond.
             BlockPos land = findDrySpotNear(routeTarget, 4);
@@ -449,7 +449,7 @@ public class GatherResourceAction extends BaseAction {
                 phase = fellGatheringMaterial ? Phase.FELL_GATHER : Phase.SEARCH;
                 return;
             }
-            steve.getNavigation().moveTo(land.getX() + 0.5, land.getY(), land.getZ() + 0.5, 1.0);
+            vasyan.getNavigation().moveTo(land.getX() + 0.5, land.getY(), land.getZ() + 0.5, 1.0);
         }
 
         // Movement watchdog: a wedged path (steep bank out of water, canopy
@@ -458,7 +458,7 @@ public class GatherResourceAction extends BaseAction {
         // check below never fires. Detect "no real movement" independently.
         // HORIZONTAL only: bobbing up/down in water (y 61<->65) is the wedge
         // signature, not progress - full 3D distSqr would reset the counter.
-        BlockPos pos = steve.blockPosition();
+        BlockPos pos = vasyan.blockPosition();
         int mdx = lastMovePos == null ? 0 : pos.getX() - lastMovePos.getX();
         int mdz = lastMovePos == null ? 0 : pos.getZ() - lastMovePos.getZ();
         if (lastMovePos == null || mdx * mdx + mdz * mdz >= NO_MOVE_DISTANCE_SQ) {
@@ -475,7 +475,7 @@ public class GatherResourceAction extends BaseAction {
         // scan does not pick the SAME block again (infinite silent loop:
         // reachable-block -> stall 60 ticks -> same block -> ...).
         if (ticksOnRoute > ROUTE_STALL_TICKS
-                && steve.getNavigation().isDone()
+                && vasyan.getNavigation().isDone()
                 && horizontalDistanceSqr(routeTarget) > ARRIVED_DISTANCE_SQ) {
             handleRouteStall("path stalled");
         }
@@ -490,7 +490,7 @@ public class GatherResourceAction extends BaseAction {
     private void handleRouteStall(String reason) {
         ticksOnRoute = 0;
         noMoveTicks = 0;
-        steve.getNavigation().stop();
+        vasyan.getNavigation().stop();
         routeStallCount++;
         int cleared = clearLeavesToward(routeTarget, LEAF_CLEAR_PER_STALL);
         if (cleared > 0 && routeStallCount <= MAX_LEAF_CLEAR_STALLS) {
@@ -517,8 +517,8 @@ public class GatherResourceAction extends BaseAction {
                 ty = spot == null ? 0 : spot.getY(); // swim spot: feet in the water cell
             }
             if (spot != null) {
-                steve.teleportTo(spot.getX() + 0.5, ty, spot.getZ() + 0.5);
-                steve.getNavigation().stop();
+                vasyan.teleportTo(spot.getX() + 0.5, ty, spot.getZ() + 0.5);
+                vasyan.getNavigation().stop();
                 debugLog("ROUTING", reason + "; hopped across to " + spot);
                 return;
             }
@@ -556,16 +556,16 @@ public class GatherResourceAction extends BaseAction {
      * of blocks actually broken.
      */
     private int clearLeavesToward(BlockPos target, int max) {
-        net.minecraft.world.level.Level lvl = steve.level();
-        double tx = target.getX() + 0.5 - steve.getX();
-        double tz = target.getZ() + 0.5 - steve.getZ();
+        net.minecraft.world.level.Level lvl = vasyan.level();
+        double tx = target.getX() + 0.5 - vasyan.getX();
+        double tz = target.getZ() + 0.5 - vasyan.getZ();
         double tLen = Math.sqrt(tx * tx + tz * tz);
         if (tLen < 0.5) {
             return 0;
         }
         double ux = tx / tLen;
         double uz = tz / tLen;
-        BlockPos bot = steve.blockPosition();
+        BlockPos bot = vasyan.blockPosition();
         int reach = (int) Math.ceil(Math.sqrt(MINE_REACH_SQ));
         List<BlockPos> leaves = new ArrayList<>();
         for (int dx = -reach; dx <= reach; dx++) {
@@ -575,11 +575,11 @@ public class GatherResourceAction extends BaseAction {
                     if (!(lvl.getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.LeavesBlock)) {
                         continue;
                     }
-                    if (steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5) > MINE_REACH_SQ) {
+                    if (vasyan.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5) > MINE_REACH_SQ) {
                         continue;
                     }
-                    double lx = p.getX() + 0.5 - steve.getX();
-                    double lz = p.getZ() + 0.5 - steve.getZ();
+                    double lx = p.getX() + 0.5 - vasyan.getX();
+                    double lz = p.getZ() + 0.5 - vasyan.getZ();
                     double lLen = Math.sqrt(lx * lx + lz * lz);
                     if (lLen > 0.25 && (lx / lLen) * ux + (lz / lLen) * uz < 0.2) {
                         continue; // leaf is not between us and the target
@@ -588,13 +588,13 @@ public class GatherResourceAction extends BaseAction {
                 }
             }
         }
-        leaves.sort(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)));
+        leaves.sort(Comparator.comparingDouble(p -> vasyan.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)));
         int cleared = 0;
         for (BlockPos leaf : leaves) {
             if (cleared >= max) {
                 break;
             }
-            steve.getLookControl().setLookAt(leaf.getX() + 0.5, leaf.getY() + 0.5, leaf.getZ() + 0.5);
+            vasyan.getLookControl().setLookAt(leaf.getX() + 0.5, leaf.getY() + 0.5, leaf.getZ() + 0.5);
             if (lvl.destroyBlock(leaf, true)) {
                 cleared++;
             }
@@ -628,16 +628,16 @@ public class GatherResourceAction extends BaseAction {
         }
 
         // Not close enough: walk to it
-        if (steve.distanceToSqr(mineTarget.getX() + 0.5, mineTarget.getY() + 0.5, mineTarget.getZ() + 0.5) > MINE_REACH_SQ) {
-            if (!steve.getNavigation().isInProgress()) {
-                steve.getNavigation().moveTo(mineTarget.getX() + 0.5, mineTarget.getY(), mineTarget.getZ() + 0.5, 1.0);
+        if (vasyan.distanceToSqr(mineTarget.getX() + 0.5, mineTarget.getY() + 0.5, mineTarget.getZ() + 0.5) > MINE_REACH_SQ) {
+            if (!vasyan.getNavigation().isInProgress()) {
+                vasyan.getNavigation().moveTo(mineTarget.getX() + 0.5, mineTarget.getY(), mineTarget.getZ() + 0.5, 1.0);
             }
             // Visible but unreachable ore (cliff, lava): give up after a grace
             // period and remember the spot, instead of re-pathfinding forever.
             ticksOnMine++;
-            if (ticksOnMine > MINE_STALL_TICKS && steve.getNavigation().isDone()) {
+            if (ticksOnMine > MINE_STALL_TICKS && vasyan.getNavigation().isDone()) {
                 ticksOnMine = 0;
-                steve.getNavigation().stop();
+                vasyan.getNavigation().stop();
                 rememberUnreachable(mineTarget);
                 if (fellMode && !fellGatheringMaterial) {
                     // Unreachable cleanup branch: drop it from the CURRENT
@@ -654,8 +654,8 @@ public class GatherResourceAction extends BaseAction {
         }
 
         // In reach: break ONLY this block (no tunneling)
-        steve.swing(InteractionHand.MAIN_HAND, true);
-        if (!steve.level().destroyBlock(mineTarget, true)) {
+        vasyan.swing(InteractionHand.MAIN_HAND, true);
+        if (!vasyan.level().destroyBlock(mineTarget, true)) {
             return; // failed to break - retry next tick
         }
         ticksOnMine = 0;
@@ -666,8 +666,8 @@ public class GatherResourceAction extends BaseAction {
             // ticks to be vacuumed - wait instead of digging forever.
             targetBlock = fellLogBlock;
             fellGatheringMaterial = false;
-            boolean havePillarBlock = !FellSupport.findSolidPillarBlock(steve.level(),
-                steve.blockPosition(), steve.getInventory(), fellLogBlock).isEmpty();
+            boolean havePillarBlock = !FellSupport.findSolidPillarBlock(vasyan.level(),
+                vasyan.blockPosition(), vasyan.getInventory(), fellLogBlock).isEmpty();
             phase = havePillarBlock ? Phase.FELL_ASCEND : Phase.FELL_WAIT;
             return;
         }
@@ -708,7 +708,7 @@ public class GatherResourceAction extends BaseAction {
     /** A log counts as a tree log when leaves are within 5 blocks. */
     private boolean isTreeLog(BlockPos pos) {
         return FellSupport.hasNearbyBlock(pos,
-            p -> steve.level().getBlockState(p).getBlock() instanceof LeavesBlock, 5);
+            p -> vasyan.level().getBlockState(p).getBlock() instanceof LeavesBlock, 5);
     }
 
     // ---- fell mode ----
@@ -731,7 +731,7 @@ public class GatherResourceAction extends BaseAction {
         // connected log when in any-log (wood) mode.
         fellLogBlock = targetBlock != null
             ? targetBlock
-            : steve.level().getBlockState(aboveWater.get(0)).getBlock();
+            : vasyan.level().getBlockState(aboveWater.get(0)).getBlock();
         fellHeight = 0;
         fellStallTicks = 0;
         fellLogs.clear();
@@ -743,7 +743,7 @@ public class GatherResourceAction extends BaseAction {
 
     /** Nearest dry standable cell within the radius of center, or null. */
     private BlockPos findDrySpotNear(BlockPos center, int radius) {
-        net.minecraft.world.level.Level lvl = steve.level();
+        net.minecraft.world.level.Level lvl = vasyan.level();
         BlockPos best = null;
         int bestDist = Integer.MAX_VALUE;
         for (int dx = -radius; dx <= radius; dx++) {
@@ -777,7 +777,7 @@ public class GatherResourceAction extends BaseAction {
 
     /** Nearest spot (block below not water) within the radius, or null. */
     private BlockPos findDrySpot(BlockPos center, int radius) {
-        net.minecraft.world.level.Level lvl = steve.level();
+        net.minecraft.world.level.Level lvl = vasyan.level();
         BlockPos best = null;
         double bestDist = Double.MAX_VALUE;
         for (int dx = -radius; dx <= radius; dx++) {
@@ -803,7 +803,7 @@ public class GatherResourceAction extends BaseAction {
      * top WATER block (the swimming node's height).
      */
     private BlockPos findSwimSpotNear(BlockPos center, int radius) {
-        net.minecraft.world.level.Level lvl = steve.level();
+        net.minecraft.world.level.Level lvl = vasyan.level();
         BlockPos best = null;
         int bestDist = Integer.MAX_VALUE;
         for (int dx = -radius; dx <= radius; dx++) {
@@ -860,7 +860,7 @@ public class GatherResourceAction extends BaseAction {
         } else {
             matcher = item -> false;
         }
-        return countResource(steve.getInventory(), matcher);
+        return countResource(vasyan.getInventory(), matcher);
     }
 
     /**
@@ -874,7 +874,7 @@ public class GatherResourceAction extends BaseAction {
         int radius = VasyanConfig.GATHER_SEARCH_RADIUS.get() + 16 * (ring + 1);
         int x = origin.getX() + (int) Math.round(radius * Math.cos(angle));
         int z = origin.getZ() + (int) Math.round(radius * Math.sin(angle));
-        int y = steve.level().getHeightmapPos(
+        int y = vasyan.level().getHeightmapPos(
             net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
             new BlockPos(x, origin.getY(), z)).getY();
         return new BlockPos(x, y, z);
@@ -886,7 +886,7 @@ public class GatherResourceAction extends BaseAction {
      * resource, or the temporary pillar material while gathering it.
      */
     private boolean isLogBlockAt(BlockPos pos) {
-        Block block = steve.level().getBlockState(pos).getBlock();
+        Block block = vasyan.level().getBlockState(pos).getBlock();
         if (fellGatheringMaterial) {
             // targetBlock is temporarily dirt/grass/etc.; check the material.
             return block == targetBlock;
@@ -903,7 +903,7 @@ public class GatherResourceAction extends BaseAction {
      * lowest logs into the pond - skipping them keeps the bot dry.
      */
     private boolean isUnderwaterTarget(BlockPos pos) {
-        net.minecraft.world.level.Level lvl = steve.level();
+        net.minecraft.world.level.Level lvl = vasyan.level();
         return lvl.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)
             || lvl.getFluidState(pos.below()).is(net.minecraft.tags.FluidTags.WATER);
     }
@@ -919,15 +919,15 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private boolean isTargetLog(BlockPos pos) {
-        return steve.level().getBlockState(pos).getBlock() == fellLogBlock;
+        return vasyan.level().getBlockState(pos).getBlock() == fellLogBlock;
     }
 
     private void phaseFellAscend() {
-        steve.setFlying(false);
+        vasyan.setFlying(false);
         // Climbing is manual (setPos): an active navigation would drag the
-        // Steve off the pillar back to the ground - stop it before ascending.
-        if (steve.getNavigation().isInProgress()) {
-            steve.getNavigation().stop();
+        // Vasyan off the pillar back to the ground - stop it before ascending.
+        if (vasyan.getNavigation().isInProgress()) {
+            vasyan.getNavigation().stop();
         }
 
         // Stall guard: progress is a felled log OR a grown pillar
@@ -942,14 +942,14 @@ public class GatherResourceAction extends BaseAction {
         // 1. Fell any remaining log of the component within reach (branches!)
         BlockPos reachable = null;
         for (BlockPos log : fellLogs) {
-            if (steve.distanceToSqr(log.getX() + 0.5, log.getY() + 0.5, log.getZ() + 0.5) <= MINE_REACH_SQ) {
+            if (vasyan.distanceToSqr(log.getX() + 0.5, log.getY() + 0.5, log.getZ() + 0.5) <= MINE_REACH_SQ) {
                 reachable = log;
                 break;
             }
         }
         if (reachable != null) {
-            steve.swing(InteractionHand.MAIN_HAND, true);
-            if (steve.level().destroyBlock(reachable, true)) {
+            vasyan.swing(InteractionHand.MAIN_HAND, true);
+            if (vasyan.level().destroyBlock(reachable, true)) {
                 // No gatheredCount++ here either: the quota is the pickup
                 // delta, recomputed every tick in onTick
                 fellLogs.remove(reachable);
@@ -965,35 +965,35 @@ public class GatherResourceAction extends BaseAction {
         }
 
         // 2. Logs still above us? Climb the pillar (real block from inventory)
-        int steveY = steve.blockPosition().getY();
-        boolean logAbove = fellLogs.stream().anyMatch(p -> p.getY() > steveY);
+        int vasyanY = vasyan.blockPosition().getY();
+        boolean logAbove = fellLogs.stream().anyMatch(p -> p.getY() > vasyanY);
         if (logAbove && fellHeight < FELL_MAX_HEIGHT) {
-            BlockPos standPos = steve.blockPosition();
-            ItemStack pillarBlock = FellSupport.findSolidPillarBlock(steve.level(), standPos,
-                steve.getInventory(), fellLogBlock);
+            BlockPos standPos = vasyan.blockPosition();
+            ItemStack pillarBlock = FellSupport.findSolidPillarBlock(vasyan.level(), standPos,
+                vasyan.getInventory(), fellLogBlock);
             if (pillarBlock.isEmpty()) {
                 debugLog("FELL", "no pillar block in inventory - gathering material");
                 phase = Phase.FELL_GATHER; // gather dirt/stone first
                 return;
             }
             Block block = ((BlockItem) pillarBlock.getItem()).getBlock();
-            BlockState standState = steve.level().getBlockState(standPos);
+            BlockState standState = vasyan.level().getBlockState(standPos);
             // Leaves (and any other block in the way) are cleared first - the
             // canopy must not block the pillar. Drops are vacuumed.
             if (!standState.canBeReplaced()) {
-                steve.swing(InteractionHand.MAIN_HAND, true);
-                steve.level().destroyBlock(standPos, true);
+                vasyan.swing(InteractionHand.MAIN_HAND, true);
+                vasyan.level().destroyBlock(standPos, true);
                 debugLog("FELL", "cleared " + standState.getBlock().getName().getString() + " at " + standPos);
                 return; // retry next tick once the way is clear
             }
-            steve.level().setBlock(standPos, block.defaultBlockState(), 3);
-            steve.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
+            vasyan.level().setBlock(standPos, block.defaultBlockState(), 3);
+            vasyan.setPos(standPos.getX() + 0.5, standPos.getY() + 1, standPos.getZ() + 0.5);
             fellPillar.add(standPos);
             // Remove one block from the inventory slot that held it
-            for (int i = 0; i < steve.getInventory().getContainerSize(); i++) {
-                ItemStack slot = steve.getInventory().getItem(i);
+            for (int i = 0; i < vasyan.getInventory().getContainerSize(); i++) {
+                ItemStack slot = vasyan.getInventory().getItem(i);
                 if (!slot.isEmpty() && slot.getItem() == pillarBlock.getItem()) {
-                    steve.getInventory().removeItem(i, 1);
+                    vasyan.getInventory().removeItem(i, 1);
                     break;
                 }
             }
@@ -1008,8 +1008,8 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private void phaseFellDescend() {
-        if (steve.getNavigation().isInProgress()) {
-            steve.getNavigation().stop();
+        if (vasyan.getNavigation().isInProgress()) {
+            vasyan.getNavigation().stop();
         }
         fellStallTicks++;
         if (fellStallTicks > FELL_STALL_TICKS) {
@@ -1017,18 +1017,18 @@ public class GatherResourceAction extends BaseAction {
             return;
         }
 
-        BlockPos below = steve.blockPosition().below();
-        BlockState belowState = steve.level().getBlockState(below);
+        BlockPos below = vasyan.blockPosition().below();
+        BlockState belowState = vasyan.level().getBlockState(below);
 
         if (fellHeight > 0) {
             if (fellPillar.contains(below)) {
                 // Our own pillar block - even a same-type log (the fallback
                 // pillar material IS the target block): dismantle it, the
                 // drop returns to the inventory via vacuum
-                steve.swing(InteractionHand.MAIN_HAND, true);
-                if (steve.level().destroyBlock(below, true)) {
+                vasyan.swing(InteractionHand.MAIN_HAND, true);
+                if (vasyan.level().destroyBlock(below, true)) {
                     fellPillar.remove(below);
-                    steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
+                    vasyan.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
                     fellHeight--;
                     fellStallTicks = 0;
                 }
@@ -1036,14 +1036,14 @@ public class GatherResourceAction extends BaseAction {
             }
             if (belowState.isAir()) {
                 // Pillar block was destroyed externally: just fall down a level
-                steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
+                vasyan.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
                 fellHeight--;
                 fellStallTicks = 0;
                 return;
             }
             // Solid block below that is not our pillar (e.g. the tree's own
             // log we stand on after a branch fell): drop straight down onto it
-            steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
+            vasyan.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
             fellHeight--;
             fellStallTicks = 0;
             return;
@@ -1098,13 +1098,13 @@ public class GatherResourceAction extends BaseAction {
     private void phaseFellGatherMaterial() {
         // Find a solid material to build the pillar from - but never
         // the block right under our feet (digging it would leave a hole)
-        BlockPos feet = steve.blockPosition().below();
+        BlockPos feet = vasyan.blockPosition().below();
         for (Block material : PILLAR_MATERIALS) {
-            List<BlockPos> visible = VisionScanner.findVisible(steve, material);
+            List<BlockPos> visible = VisionScanner.findVisible(vasyan, material);
             BlockPos chosen = visible.stream()
-                .filter(p -> !p.equals(feet) && !p.equals(steve.blockPosition()))
+                .filter(p -> !p.equals(feet) && !p.equals(vasyan.blockPosition()))
                 .filter(p -> !unreachableTargets.contains(p))
-                .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                .min(Comparator.comparingDouble(p -> vasyan.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (chosen != null) {
                 mineTarget = chosen;
@@ -1120,11 +1120,11 @@ public class GatherResourceAction extends BaseAction {
         // brute-force cube scan - grass/dirt is almost always right next to
         // the bot, it just cannot "see" it through the leaves.
         for (Block material : PILLAR_MATERIALS) {
-            List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, material);
+            List<BlockPos> nearby = VisionScanner.findNearbyBlocks(vasyan, NEARBY_SCAN_RADIUS, material);
             BlockPos chosen = nearby.stream()
-                .filter(p -> !p.equals(feet) && !p.equals(steve.blockPosition()))
+                .filter(p -> !p.equals(feet) && !p.equals(vasyan.blockPosition()))
                 .filter(p -> !unreachableTargets.contains(p))
-                .min(Comparator.comparingDouble(p -> steve.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                .min(Comparator.comparingDouble(p -> vasyan.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
                 .orElse(null);
             if (chosen != null) {
                 debugLog("FELL", "material found by nearby scan: " + material.getName().getString() + " at " + chosen);
@@ -1146,8 +1146,8 @@ public class GatherResourceAction extends BaseAction {
      */
     private void phaseFellWaitPickup() {
         fellWaitTicks++;
-        boolean havePillarBlock = !FellSupport.findSolidPillarBlock(steve.level(),
-            steve.blockPosition(), steve.getInventory(), fellLogBlock).isEmpty();
+        boolean havePillarBlock = !FellSupport.findSolidPillarBlock(vasyan.level(),
+            vasyan.blockPosition(), vasyan.getInventory(), fellLogBlock).isEmpty();
         if (havePillarBlock) {
             fellWaitTicks = 0;
             phase = Phase.FELL_ASCEND;
@@ -1163,8 +1163,8 @@ public class GatherResourceAction extends BaseAction {
 
     private void finish(boolean success, String message) {
         phase = Phase.FINISHED;
-        steve.getNavigation().stop();
-        steve.setFlying(false);
+        vasyan.getNavigation().stop();
+        vasyan.setFlying(false);
         if (fellMode) {
             // Never leave the pillar standing (quota reached / full inventory /
             // stall mid-felling): dismantle it so the landscape stays clean
@@ -1192,7 +1192,7 @@ public class GatherResourceAction extends BaseAction {
     }
 
     /**
-     * Removes the pillar blocks under the Steve, dropping down level by level,
+     * Removes the pillar blocks under the Vasyan, dropping down level by level,
      * then wipes any pillar blocks left standing anywhere (mid-descent abort,
      * externally replaced blocks). Only positions in fellPillar are touched -
      * never the terrain and never the tree's own logs. Drops are picked up by
@@ -1201,31 +1201,31 @@ public class GatherResourceAction extends BaseAction {
     private void dismantlePillar() {
         int guard = 0;
         while (fellHeight > 0 && guard++ < FELL_MAX_HEIGHT) {
-            BlockPos below = steve.blockPosition().below();
+            BlockPos below = vasyan.blockPosition().below();
             if (fellPillar.contains(below)) {
-                steve.level().destroyBlock(below, true);
+                vasyan.level().destroyBlock(below, true);
                 fellPillar.remove(below);
             }
-            steve.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
+            vasyan.setPos(below.getX() + 0.5, below.getY(), below.getZ() + 0.5);
             fellHeight--;
         }
         fellHeight = 0;
         for (BlockPos p : fellPillar) {
-            if (!steve.level().getBlockState(p).isAir()) {
-                steve.level().destroyBlock(p, true);
+            if (!vasyan.level().getBlockState(p).isAir()) {
+                vasyan.level().destroyBlock(p, true);
             }
         }
         fellPillar.clear();
     }
 
     private void debugLog(String type, String message) {
-        ru.pravets.vasyan.debug.AgentDebugBuffer.log(steve.getSteveName(), type, message);
+        ru.pravets.vasyan.debug.AgentDebugBuffer.log(vasyan.getVasyanName(), type, message);
     }
 
     /** Squared horizontal (XZ) distance to a block - for ground navigation checks. */
     private double horizontalDistanceSqr(BlockPos pos) {
-        double dx = steve.getX() - (pos.getX() + 0.5);
-        double dz = steve.getZ() - (pos.getZ() + 0.5);
+        double dx = vasyan.getX() - (pos.getX() + 0.5);
+        double dz = vasyan.getZ() - (pos.getZ() + 0.5);
         return dx * dx + dz * dz;
     }
 
@@ -1238,8 +1238,8 @@ public class GatherResourceAction extends BaseAction {
 
     @Override
     protected void onCancel() {
-        steve.getNavigation().stop();
-        steve.setFlying(false);
+        vasyan.getNavigation().stop();
+        vasyan.setFlying(false);
         if (fellMode) {
             // Task cancelled mid-felling: dismantle the pillar before leaving
             dismantlePillar();

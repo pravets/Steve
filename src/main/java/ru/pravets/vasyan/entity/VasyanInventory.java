@@ -14,7 +14,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Steve's inventory: a fixed array of slots (default 27, matching a vanilla
+ * Vasyan's inventory: a fixed array of slots (default 27, matching a vanilla
  * single chest / the player's main grid) with NBT persistence.
  *
  * <p>Slot indices are stable ({@link ItemStack#EMPTY} fills empty slots), which
@@ -22,8 +22,8 @@ import java.util.List;
  * of the 36 slots by index, and any placement into an empty slot must be
  * stored, never dropped.</p>
  *
- * <p>Implements {@link Container} so players can open Steve's inventory via a
- * container menu (right-click on Steve) and selectively take items.</p>
+ * <p>Implements {@link Container} so players can open Vasyan's inventory via a
+ * container menu (right-click on Vasyan) and selectively take items.</p>
  */
 public class VasyanInventory implements Container {
 

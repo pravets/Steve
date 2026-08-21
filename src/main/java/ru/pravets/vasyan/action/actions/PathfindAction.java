@@ -10,8 +10,8 @@ public class PathfindAction extends BaseAction {
     private int ticksRunning;
     private static final int MAX_TICKS = 600; // 30 seconds timeout
 
-    public PathfindAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public PathfindAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -23,14 +23,14 @@ public class PathfindAction extends BaseAction {
         targetPos = new BlockPos(x, y, z);
         ticksRunning = 0;
         
-        steve.getNavigation().moveTo(x, y, z, 1.0);
+        vasyan.getNavigation().moveTo(x, y, z, 1.0);
     }
 
     @Override
     protected void onTick() {
         ticksRunning++;
         
-        if (steve.blockPosition().closerThan(targetPos, 2.0)) {
+        if (vasyan.blockPosition().closerThan(targetPos, 2.0)) {
             result = ActionResult.success("Reached target position");
             return;
         }
@@ -40,14 +40,14 @@ public class PathfindAction extends BaseAction {
             return;
         }
         
-        if (steve.getNavigation().isDone() && !steve.blockPosition().closerThan(targetPos, 2.0)) {
-            steve.getNavigation().moveTo(targetPos.getX(), targetPos.getY(), targetPos.getZ(), 1.0);
+        if (vasyan.getNavigation().isDone() && !vasyan.blockPosition().closerThan(targetPos, 2.0)) {
+            vasyan.getNavigation().moveTo(targetPos.getX(), targetPos.getY(), targetPos.getZ(), 1.0);
         }
     }
 
     @Override
     protected void onCancel() {
-        steve.getNavigation().stop();
+        vasyan.getNavigation().stop();
     }
 
     @Override

@@ -6,14 +6,14 @@ import java.util.Map;
 
 /**
  * Bot-name matching that tolerates Russian transcriptions of Latin names
- * ("алекс" -> Alex, "стиви"/"стеви" -> Steve) and case differences.
+ * ("алекс" -> Alex, "стиви"/"стеви" -> Vasyan) and case differences.
  * Pure helper - unit-testable without Minecraft.
  *
  * <p>Matching order:
  * <ol>
  *   <li>exact match, case-insensitive (also covers Cyrillic bot names);</li>
  *   <li>RU-&gt;EN transliteration of the spoken word, case-insensitive;</li>
- *   <li>transcription dictionary for common names (стиви -&gt; Steve).</li>
+ *   <li>transcription dictionary for common names (стиви -&gt; Vasyan).</li>
  * </ol>
  * Always returns the CANONICAL bot name from the list (never the spoken
  * form), so callers can feed it straight into case-sensitive lookups.</p>

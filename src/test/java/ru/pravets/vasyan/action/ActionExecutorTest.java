@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 class ActionExecutorTest extends AbstractMinecraftTest {
 
     @BeforeAll
-    static void loadSteveConfig() {
+    static void loadVasyanConfig() {
         CommentedConfig config = CommentedConfig.inMemory();
         VasyanConfig.SPEC.correct(config);
         VasyanConfig.SPEC.acceptConfig(config);
@@ -38,20 +38,20 @@ class ActionExecutorTest extends AbstractMinecraftTest {
 
     @Test
     void planningWatchdogResetsStuckPlanning() {
-        // Given a Steve whose level reports not client-side (so GUI messages are skipped)
-        VasyanEntity steve = mock(VasyanEntity.class);
+        // Given a Vasyan whose level reports not client-side (so GUI messages are skipped)
+        VasyanEntity vasyan = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
         VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
-        when(steve.level()).thenReturn(level);
-        when(steve.getSteveName()).thenReturn("TestSteve");
-        when(steve.getNavigation()).thenReturn(navigation);
-        when(steve.getMemory()).thenReturn(memory);
+        when(vasyan.level()).thenReturn(level);
+        when(vasyan.getVasyanName()).thenReturn("TestVasyan");
+        when(vasyan.getNavigation()).thenReturn(navigation);
+        when(vasyan.getMemory()).thenReturn(memory);
 
-        ActionExecutor executor = new ActionExecutor(steve);
+        ActionExecutor executor = new ActionExecutor(vasyan);
 
         // Replace the planning future with one that never completes
         CompletableFuture<ResponseParser.ParsedResponse> never = new CompletableFuture<>();
@@ -71,28 +71,28 @@ class ActionExecutorTest extends AbstractMinecraftTest {
 
     @Test
     void stopCurrentActionCancelsPlanning() {
-        // Given a Steve whose level reports not client-side
-        VasyanEntity steve = mock(VasyanEntity.class);
+        // Given a Vasyan whose level reports not client-side
+        VasyanEntity vasyan = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
         VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
-        when(steve.level()).thenReturn(level);
-        when(steve.getSteveName()).thenReturn("TestSteve");
-        when(steve.getNavigation()).thenReturn(navigation);
-        when(steve.getMemory()).thenReturn(memory);
+        when(vasyan.level()).thenReturn(level);
+        when(vasyan.getVasyanName()).thenReturn("TestVasyan");
+        when(vasyan.getNavigation()).thenReturn(navigation);
+        when(vasyan.getMemory()).thenReturn(memory);
 
-        ActionExecutor executor = new ActionExecutor(steve);
+        ActionExecutor executor = new ActionExecutor(vasyan);
 
         // Start an async planning future that would never complete
         CompletableFuture<ResponseParser.ParsedResponse> never = new CompletableFuture<>();
         executor.setPlanningFutureForTest(never, "chop 5 wood");
 
-        assertTrue(executor.isPlanning(), "Steve should be planning before stop");
+        assertTrue(executor.isPlanning(), "Vasyan should be planning before stop");
 
-        // When stopCurrentAction is called (triggered by /steve stop or stay)
+        // When stopCurrentAction is called (triggered by /vasyan stop or stay)
         executor.stopCurrentAction();
 
         // Then planning is cancelled and state is reset
@@ -102,20 +102,20 @@ class ActionExecutorTest extends AbstractMinecraftTest {
 
     @Test
     void concurrentStopDuringPlanningDoesNotCorruptState() throws InterruptedException {
-        // Given a Steve whose level reports not client-side
-        VasyanEntity steve = mock(VasyanEntity.class);
+        // Given a Vasyan whose level reports not client-side
+        VasyanEntity vasyan = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
         VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
-        when(steve.level()).thenReturn(level);
-        when(steve.getSteveName()).thenReturn("TestSteve");
-        when(steve.getNavigation()).thenReturn(navigation);
-        when(steve.getMemory()).thenReturn(memory);
+        when(vasyan.level()).thenReturn(level);
+        when(vasyan.getVasyanName()).thenReturn("TestVasyan");
+        when(vasyan.getNavigation()).thenReturn(navigation);
+        when(vasyan.getMemory()).thenReturn(memory);
 
-        ActionExecutor executor = new ActionExecutor(steve);
+        ActionExecutor executor = new ActionExecutor(vasyan);
 
         // Start a planning future that blocks until we release the latch
         CountDownLatch latch = new CountDownLatch(1);
@@ -129,7 +129,7 @@ class ActionExecutorTest extends AbstractMinecraftTest {
         });
 
         executor.setPlanningFutureForTest(blockingFuture, "chop 5 wood");
-        assertTrue(executor.isPlanning(), "Steve should be planning before stop");
+        assertTrue(executor.isPlanning(), "Vasyan should be planning before stop");
 
         // When stopCurrentAction is called from a worker thread while planning is active
         Thread worker = new Thread(executor::stopCurrentAction);
@@ -199,20 +199,20 @@ class ActionExecutorTest extends AbstractMinecraftTest {
 
     @Test
     void stalePlanningResultIsDiscardedAfterStopThenStart() throws InterruptedException {
-        // Given a Steve whose level reports not client-side
-        VasyanEntity steve = mock(VasyanEntity.class);
+        // Given a Vasyan whose level reports not client-side
+        VasyanEntity vasyan = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
         VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
-        when(steve.level()).thenReturn(level);
-        when(steve.getSteveName()).thenReturn("TestSteve");
-        when(steve.getNavigation()).thenReturn(navigation);
-        when(steve.getMemory()).thenReturn(memory);
+        when(vasyan.level()).thenReturn(level);
+        when(vasyan.getVasyanName()).thenReturn("TestVasyan");
+        when(vasyan.getNavigation()).thenReturn(navigation);
+        when(vasyan.getMemory()).thenReturn(memory);
 
-        ActionExecutor executor = new ActionExecutor(steve);
+        ActionExecutor executor = new ActionExecutor(vasyan);
 
         // Build two different planning responses
         ResponseParser.ParsedResponse response1 = new ResponseParser.ParsedResponse(
@@ -226,7 +226,7 @@ class ActionExecutorTest extends AbstractMinecraftTest {
 
         // Inject the first (slow) planning future
         executor.setPlanningFutureForTest(future1, "cmd1");
-        assertTrue(executor.isPlanning(), "Steve should be planning before tick");
+        assertTrue(executor.isPlanning(), "Vasyan should be planning before tick");
 
         // Start tick() on another thread; it will block inside future1.get()
         Thread tickThread = new Thread(executor::tick);

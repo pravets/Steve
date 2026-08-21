@@ -9,8 +9,8 @@ public class CraftItemAction extends BaseAction {
     private int quantity;
     private int ticksRunning;
 
-    public CraftItemAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public CraftItemAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -20,7 +20,7 @@ public class CraftItemAction extends BaseAction {
         ticksRunning = 0;
         
         // - Check if recipe exists
-        // - Check if Steve has ingredients
+        // - Check if Vasyan has ingredients
         // - Navigate to crafting table if needed
         
         result = ActionResult.failure("Crafting not yet implemented", false);
@@ -33,7 +33,7 @@ public class CraftItemAction extends BaseAction {
 
     @Override
     protected void onCancel() {
-        steve.getNavigation().stop();
+        vasyan.getNavigation().stop();
     }
 
     @Override

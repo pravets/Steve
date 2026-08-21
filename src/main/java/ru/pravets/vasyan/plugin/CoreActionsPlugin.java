@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
  * Core plugin that registers all built-in Vasyan AI actions.
  *
  * <p>This plugin is loaded first (priority 1000) and provides the fundamental
- * actions that Steve can perform: mining, building, combat, pathfinding, etc.</p>
+ * actions that Vasyan can perform: mining, building, combat, pathfinding, etc.</p>
  *
  * <p><b>Registered Actions:</b></p>
  * <ul>
@@ -47,48 +47,48 @@ public class CoreActionsPlugin implements ActionPlugin {
 
         // Navigation
         registry.register("pathfind",
-            (steve, task, ctx) -> new PathfindAction(steve, task),
+            (vasyan, task, ctx) -> new PathfindAction(vasyan, task),
             priority, PLUGIN_ID);
 
         // Resource gathering
         registry.register("mine",
-            (steve, task, ctx) -> new MineBlockAction(steve, task),
+            (vasyan, task, ctx) -> new MineBlockAction(vasyan, task),
             priority, PLUGIN_ID);
 
         registry.register("gather",
-            (steve, task, ctx) -> new GatherResourceAction(steve, task),
+            (vasyan, task, ctx) -> new GatherResourceAction(vasyan, task),
             priority, PLUGIN_ID);
 
         // Building
         registry.register("place",
-            (steve, task, ctx) -> new PlaceBlockAction(steve, task),
+            (vasyan, task, ctx) -> new PlaceBlockAction(vasyan, task),
             priority, PLUGIN_ID);
 
         registry.register("build",
-            (steve, task, ctx) -> new BuildStructureAction(steve, task),
+            (vasyan, task, ctx) -> new BuildStructureAction(vasyan, task),
             priority, PLUGIN_ID);
 
         // Crafting
         registry.register("craft",
-            (steve, task, ctx) -> new CraftItemAction(steve, task),
+            (vasyan, task, ctx) -> new CraftItemAction(vasyan, task),
             priority, PLUGIN_ID);
 
         // Combat
         registry.register("attack",
-            (steve, task, ctx) -> new CombatAction(steve, task),
+            (vasyan, task, ctx) -> new CombatAction(vasyan, task),
             priority, PLUGIN_ID);
 
         // Player interaction
         registry.register("follow",
-            (steve, task, ctx) -> new FollowPlayerAction(steve, task),
+            (vasyan, task, ctx) -> new FollowPlayerAction(vasyan, task),
             priority, PLUGIN_ID);
 
         registry.register("teleport",
-            (steve, task, ctx) -> new TeleportAction(steve, task),
+            (vasyan, task, ctx) -> new TeleportAction(vasyan, task),
             priority, PLUGIN_ID);
 
         registry.register("stay",
-            (steve, task, ctx) -> new StayAction(steve, task),
+            (vasyan, task, ctx) -> new StayAction(vasyan, task),
             priority, PLUGIN_ID);
 
         LOGGER.info("CoreActionsPlugin loaded {} actions", registry.getActionCount());

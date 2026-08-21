@@ -3,7 +3,7 @@ package ru.pravets.vasyan.action.actions;
 import net.minecraft.core.BlockPos;
 
 /**
- * Pure routing logic for resource search: the Steve walks a spiral of
+ * Pure routing logic for resource search: the Vasyan walks a spiral of
  * "stations" around the origin (rings of increasing radius, a few look-out
  * points per ring), scanning at each station. No Minecraft world access -
  * unit-testable.
@@ -11,7 +11,7 @@ import net.minecraft.core.BlockPos;
 public final class ResourceSearchPlanner {
 
     /**
-     * Station altitude offset: Steve walks on the ground (never flies), so
+     * Station altitude offset: Vasyan walks on the ground (never flies), so
      * stations sit exactly at ground level - an elevated station only confuses
      * ground navigation and adds nothing (vision scans from the ground).
      */

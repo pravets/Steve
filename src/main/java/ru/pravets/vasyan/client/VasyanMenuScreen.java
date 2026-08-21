@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
- * Screen for Steve's inventory menu.
+ * Screen for Vasyan's inventory menu.
  *
  * <p>Renders exactly like a vanilla single chest: the {@code generic_54}
  * texture is blitted with the same two slices the vanilla {@code ChestScreen}

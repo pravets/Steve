@@ -9,9 +9,9 @@ import java.util.Locale;
  */
 public final class ChatCommandParser {
 
-    /** Command prefixes that address ALL Steves (lowercase, with trailing space). */
+    /** Command prefixes that address ALL Vasyans (lowercase, with trailing space). */
     private static final List<String> ALL_PREFIXES = List.of(
-        "all steves ", "all ", "everyone ", "everybody ",
+        "all vasyans ", "all ", "everyone ", "everybody ",
         "все боты ", "всем ", "все "
     );
 
@@ -79,7 +79,7 @@ public final class ChatCommandParser {
     private ChatCommandParser() {}
 
     /**
-     * Whether the (already lowercased) command is addressed to all Steves:
+     * Whether the (already lowercased) command is addressed to all Vasyans:
      * "all teleport to me", "everyone come", "все телепортируйтесь ко мне", ...
      */
     public static boolean isAllCommand(String lowerCommand) {
@@ -113,7 +113,7 @@ public final class ChatCommandParser {
      * Removes the "all ..." addressing prefix from a command, e.g.
      * "all stay" / "все телепортируйтесь ко мне" -> "stay" / "телепортируйтесь ко мне".
      * Used when forwarding to the server via "tell all", so the payload the
-     * Steves receive does not start with the addressing word.
+     * Vasyans receive does not start with the addressing word.
      */
     public static String stripAllPrefix(String command) {
         String lower = command.toLowerCase(Locale.ROOT);

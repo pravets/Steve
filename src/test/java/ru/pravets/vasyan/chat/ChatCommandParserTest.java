@@ -15,7 +15,7 @@ class ChatCommandParserTest {
     @Test
     void englishAllPrefixes() {
         assertTrue(isAllCommand(normalize("all teleport to me")));
-        assertTrue(isAllCommand(normalize("all steves come here")));
+        assertTrue(isAllCommand(normalize("all vasyans come here")));
         assertTrue(isAllCommand(normalize("everyone go mine")));
         assertTrue(isAllCommand(normalize("everybody gather")));
     }

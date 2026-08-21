@@ -4,7 +4,7 @@ import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Pure geometry helper for finding a safe spot to teleport a Steve to.
+ * Pure geometry helper for finding a safe spot to teleport a Vasyan to.
  * No world access - the caller supplies a predicate that checks whether
  * a given block position is acceptable (solid ground, air, not liquid).
  */

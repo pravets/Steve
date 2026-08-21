@@ -6,7 +6,7 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Invisible overlay screen that captures input for the Steve GUI
+ * Invisible overlay screen that captures input for the Vasyan GUI
  * This prevents game controls from activating while typing
  */
 public class VasyanOverlayScreen extends Screen {

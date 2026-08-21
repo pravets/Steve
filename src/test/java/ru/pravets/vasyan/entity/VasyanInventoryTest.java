@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Vanilla Items require Minecraft's registries, which are initialized via
  * SharedConstants.setVersion + Bootstrap.bootStrap() in AbstractMinecraftTest.
  */
-class SteveInventoryTest extends AbstractMinecraftTest {
+class VasyanInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemMergesIntoExistingStack() {

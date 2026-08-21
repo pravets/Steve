@@ -31,14 +31,14 @@ public class BuildStructureAction extends BaseAction {
     private int currentBlockIndex;
     private List<Block> buildMaterials;
     private int ticksRunning;
-    private CollaborativeBuildManager.CollaborativeBuild collaborativeBuild; // For multi-Steve collaboration
+    private CollaborativeBuildManager.CollaborativeBuild collaborativeBuild; // For multi-Vasyan collaboration
     private boolean isCollaborative;
     private static final int MAX_TICKS = 120000;
     private static final int BLOCKS_PER_TICK = 1;
     private static final double BUILD_SPEED_MULTIPLIER = 1.5;
 
-    public BuildStructureAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public BuildStructureAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -50,10 +50,10 @@ public class BuildStructureAction extends BaseAction {
         if (collaborativeBuild != null) {
             isCollaborative = true;
             
-            steve.setFlying(true);
+            vasyan.setFlying(true);
             
-            VasyanMod.LOGGER.info("Steve '{}' JOINING collaborative build of '{}' ({}% complete) - FLYING & INVULNERABLE ENABLED", 
-                steve.getSteveName(), structureType, collaborativeBuild.getProgressPercentage());
+            VasyanMod.LOGGER.info("Vasyan '{}' JOINING collaborative build of '{}' ({}% complete) - FLYING & INVULNERABLE ENABLED", 
+                vasyan.getVasyanName(), structureType, collaborativeBuild.getProgressPercentage());
             
             buildMaterials = new ArrayList<>();
             buildMaterials.add(Blocks.OAK_PLANKS); // Default material
@@ -129,7 +129,7 @@ public class BuildStructureAction extends BaseAction {
             VasyanMod.LOGGER.info("Building in player's field of view at {} (looking from {} towards {})", 
                 groundPos, eyePos, targetPos);
         } else {
-            BlockPos buildPos = steve.blockPosition().offset(2, 0, 2);
+            BlockPos buildPos = vasyan.blockPosition().offset(2, 0, 2);
             groundPos = findGroundLevel(buildPos);
         }
         
@@ -161,8 +161,8 @@ public class BuildStructureAction extends BaseAction {
         
         if (collaborativeBuild != null) {
             isCollaborative = true;
-            VasyanMod.LOGGER.info("Steve '{}' JOINING existing {} collaborative build at {}", 
-                steve.getSteveName(), structureType, collaborativeBuild.startPos);
+            VasyanMod.LOGGER.info("Vasyan '{}' JOINING existing {} collaborative build at {}", 
+                vasyan.getVasyanName(), structureType, collaborativeBuild.startPos);
         } else {
             List<BlockPlacement> collaborativeBlocks = new ArrayList<>();
             for (BlockPlacement bp : buildPlan) {
@@ -171,14 +171,14 @@ public class BuildStructureAction extends BaseAction {
             
             collaborativeBuild = CollaborativeBuildManager.registerBuild(structureType, collaborativeBlocks, clearPos);
             isCollaborative = true;
-            VasyanMod.LOGGER.info("Steve '{}' CREATED new {} collaborative build at {}", 
-                steve.getSteveName(), structureType, clearPos);
+            VasyanMod.LOGGER.info("Vasyan '{}' CREATED new {} collaborative build at {}", 
+                vasyan.getVasyanName(), structureType, clearPos);
         }
         
-        steve.setFlying(true);
+        vasyan.setFlying(true);
         
-        VasyanMod.LOGGER.info("Steve '{}' starting COLLABORATIVE build of {} at {} with {} blocks using materials: {} [FLYING ENABLED]", 
-            steve.getSteveName(), structureType, clearPos, buildPlan.size(), buildMaterials);
+        VasyanMod.LOGGER.info("Vasyan '{}' starting COLLABORATIVE build of {} at {} with {} blocks using materials: {} [FLYING ENABLED]", 
+            vasyan.getVasyanName(), structureType, clearPos, buildPlan.size(), buildMaterials);
     }
 
     @Override
@@ -186,7 +186,7 @@ public class BuildStructureAction extends BaseAction {
         ticksRunning++;
         
         if (ticksRunning > MAX_TICKS) {
-            steve.setFlying(false); // Disable flying on timeout
+            vasyan.setFlying(false); // Disable flying on timeout
             result = ActionResult.failure("Building timeout");
             return;
         }
@@ -194,76 +194,76 @@ public class BuildStructureAction extends BaseAction {
         if (isCollaborative && collaborativeBuild != null) {
             if (collaborativeBuild.isComplete()) {
                 CollaborativeBuildManager.completeBuild(collaborativeBuild.structureId);
-                steve.setFlying(false);
+                vasyan.setFlying(false);
                 result = ActionResult.success("Built " + structureType + " collaboratively!");
                 return;
             }
             
             for (int i = 0; i < BLOCKS_PER_TICK; i++) {
                 BlockPlacement placement = 
-                    CollaborativeBuildManager.getNextBlock(collaborativeBuild, steve.getSteveName());
+                    CollaborativeBuildManager.getNextBlock(collaborativeBuild, vasyan.getVasyanName());
                 
                 if (placement == null) {
                     if (ticksRunning % 20 == 0) {
-                        VasyanMod.LOGGER.info("Steve '{}' has no more blocks! Build {}% complete", 
-                            steve.getSteveName(), collaborativeBuild.getProgressPercentage());
+                        VasyanMod.LOGGER.info("Vasyan '{}' has no more blocks! Build {}% complete", 
+                            vasyan.getVasyanName(), collaborativeBuild.getProgressPercentage());
                     }
                     break;
                 }
                 
                 BlockPos pos = placement.pos;
-                double distance = Math.sqrt(steve.blockPosition().distSqr(pos));
+                double distance = Math.sqrt(vasyan.blockPosition().distSqr(pos));
                 if (distance > 5) {
-                    steve.teleportTo(pos.getX() + 2, pos.getY(), pos.getZ() + 2);
-                    VasyanMod.LOGGER.info("Steve '{}' teleported to block at {}", steve.getSteveName(), pos);
+                    vasyan.teleportTo(pos.getX() + 2, pos.getY(), pos.getZ() + 2);
+                    VasyanMod.LOGGER.info("Vasyan '{}' teleported to block at {}", vasyan.getVasyanName(), pos);
                 }
                 
-                steve.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+                vasyan.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
                 
-                steve.swing(InteractionHand.MAIN_HAND, true);
+                vasyan.swing(InteractionHand.MAIN_HAND, true);
                 
-                BlockState existingState = steve.level().getBlockState(pos);
+                BlockState existingState = vasyan.level().getBlockState(pos);
                 
                 BlockState blockState = placement.block.defaultBlockState();
-                steve.level().setBlock(pos, blockState, 3);
+                vasyan.level().setBlock(pos, blockState, 3);
                 
-                VasyanMod.LOGGER.info("Steve '{}' PLACED BLOCK at {} - Total: {}/{}", 
-                    steve.getSteveName(), pos, collaborativeBuild.getBlocksPlaced(), 
+                VasyanMod.LOGGER.info("Vasyan '{}' PLACED BLOCK at {} - Total: {}/{}", 
+                    vasyan.getVasyanName(), pos, collaborativeBuild.getBlocksPlaced(), 
                     collaborativeBuild.getTotalBlocks());
                 
                 // Particles and sound
-                if (steve.level() instanceof ServerLevel serverLevel) {
+                if (vasyan.level() instanceof ServerLevel serverLevel) {
                     serverLevel.sendParticles(
                         new BlockParticleOption(ParticleTypes.BLOCK, blockState),
                         pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                         15, 0.4, 0.4, 0.4, 0.15
                     );
                     
-                    var soundType = blockState.getSoundType(steve.level(), pos, steve);
-                    steve.level().playSound(null, pos, soundType.getPlaceSound(), 
+                    var soundType = blockState.getSoundType(vasyan.level(), pos, vasyan);
+                    vasyan.level().playSound(null, pos, soundType.getPlaceSound(), 
                         SoundSource.BLOCKS, 1.0f, soundType.getPitch());
                 }
             }
             
             if (ticksRunning % 100 == 0 && collaborativeBuild.getBlocksPlaced() > 0) {
                 int percentComplete = collaborativeBuild.getProgressPercentage();
-                VasyanMod.LOGGER.info("{} build progress: {}/{} ({}%) - {} Steves working", 
+                VasyanMod.LOGGER.info("{} build progress: {}/{} ({}%) - {} Vasyans working", 
                     structureType, 
                     collaborativeBuild.getBlocksPlaced(), 
                     collaborativeBuild.getTotalBlocks(), 
                     percentComplete,
-                    collaborativeBuild.participatingSteves.size());
+                    collaborativeBuild.participatingVasyans.size());
             }
         } else {
-            steve.setFlying(false); // Disable flying on error
+            vasyan.setFlying(false); // Disable flying on error
             result = ActionResult.failure("Build system error: not in collaborative mode");
         }
     }
 
     @Override
     protected void onCancel() {
-        steve.setFlying(false); // Disable flying when cancelled
-        steve.getNavigation().stop();
+        vasyan.setFlying(false); // Disable flying when cancelled
+        vasyan.getNavigation().stop();
     }
 
     @Override
@@ -303,7 +303,7 @@ public class BuildStructureAction extends BaseAction {
             BlockPos checkPos = startPos.below(i);
             BlockPos belowPos = checkPos.below();
             
-            if (steve.level().getBlockState(checkPos).isAir() && 
+            if (vasyan.level().getBlockState(checkPos).isAir() && 
                 isSolidGround(belowPos)) {
                 return checkPos; // This is ground level
             }
@@ -314,7 +314,7 @@ public class BuildStructureAction extends BaseAction {
             BlockPos checkPos = startPos.above(i);
             BlockPos belowPos = checkPos.below();
             
-            if (steve.level().getBlockState(checkPos).isAir() && 
+            if (vasyan.level().getBlockState(checkPos).isAir() && 
                 isSolidGround(belowPos)) {
                 return checkPos;
             }
@@ -333,7 +333,7 @@ public class BuildStructureAction extends BaseAction {
      * Check if a position has solid ground suitable for building
      */
     private boolean isSolidGround(BlockPos pos) {
-        var blockState = steve.level().getBlockState(pos);
+        var blockState = vasyan.level().getBlockState(pos);
         var block = blockState.getBlock();
         
         // Not solid if it's air or liquid
@@ -425,7 +425,7 @@ public class BuildStructureAction extends BaseAction {
             
             for (int y = 1; y <= Math.min(height, 3); y++) {
                 BlockPos abovePos = checkPos.above(y);
-                var blockState = steve.level().getBlockState(abovePos);
+                var blockState = vasyan.level().getBlockState(abovePos);
                 
                 if (!blockState.isAir()) {
                     Block block = blockState.getBlock();
@@ -460,7 +460,7 @@ public class BuildStructureAction extends BaseAction {
      * Returns null if no template found (falls back to procedural generation)
      */
     private List<BlockPlacement> tryLoadFromTemplate(String structureName, BlockPos startPos) {
-        if (!(steve.level() instanceof ServerLevel serverLevel)) {
+        if (!(vasyan.level() instanceof ServerLevel serverLevel)) {
             return null;
         }
         
@@ -483,7 +483,7 @@ public class BuildStructureAction extends BaseAction {
      * Find the nearest player to build in front of
      */
     private net.minecraft.world.entity.player.Player findNearestPlayer() {
-        java.util.List<? extends net.minecraft.world.entity.player.Player> players = steve.level().players();
+        java.util.List<? extends net.minecraft.world.entity.player.Player> players = vasyan.level().players();
         
         if (players.isEmpty()) {
             return null;
@@ -497,7 +497,7 @@ public class BuildStructureAction extends BaseAction {
                 continue;
             }
             
-            double distance = steve.distanceTo(player);
+            double distance = vasyan.distanceTo(player);
             if (distance < nearestDistance) {
                 nearest = player;
                 nearestDistance = distance;

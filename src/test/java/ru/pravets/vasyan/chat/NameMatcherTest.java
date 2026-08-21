@@ -30,7 +30,7 @@ class NameMatcherTest {
     }
 
     @Test
-    void dictionaryMatchesStiviToSteve() {
+    void dictionaryMatchesStiviToVasyan() {
         assertEquals("Vasyan", NameMatcher.matchName("васян", BOTS));
         assertEquals("Vasyan", NameMatcher.matchName("вася", BOTS));
     }

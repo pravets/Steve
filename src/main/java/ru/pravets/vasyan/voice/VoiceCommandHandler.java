@@ -115,7 +115,7 @@ public final class VoiceCommandHandler {
                     return;
                 }
                 player.sendSystemMessage(Component.literal("§7Voice: §f" + command));
-                // Single dispatch path shared with /steve tell (panel K)
+                // Single dispatch path shared with /vasyan tell (panel K)
                 VasyanCommandDispatcher.dispatch(player.createCommandSourceStack(), command);
             }));
     }

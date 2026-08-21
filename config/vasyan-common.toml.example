@@ -57,7 +57,7 @@ actionTickDelay = 20
 # Allow Vasyans to respond in chat
 enableChatResponses = true
 # Maximum number of Vasyans that can be active simultaneously
-maxActiveSteves = 10
+maxActiveVasyans = 10
 # Keep the chunk each Vasyan stands in force-loaded so Vasyans keep working
 # on a dedicated server even when no player is online.
 forceLoadChunks = true

@@ -24,10 +24,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * ActionRegistry registry = ActionRegistry.getInstance();
  *
  * // Register an action factory
- * registry.register("mine", (steve, task, ctx) -&gt; new MineBlockAction(steve, task));
+ * registry.register("mine", (vasyan, task, ctx) -&gt; new MineBlockAction(vasyan, task));
  *
  * // Create an action
- * BaseAction action = registry.createAction("mine", steve, task, context);
+ * BaseAction action = registry.createAction("mine", vasyan, task, context);
  *
  * // Check if action exists
  * if (registry.hasAction("mine")) {
@@ -161,12 +161,12 @@ public class ActionRegistry {
      * Creates an action instance using the registered factory.
      *
      * @param actionName Action name
-     * @param steve      Steve entity
+     * @param vasyan      Vasyan entity
      * @param task       Task with parameters
      * @param context    Action context with dependencies
      * @return Created action, or null if action not found
      */
-    public BaseAction createAction(String actionName, VasyanEntity steve, Task task, ActionContext context) {
+    public BaseAction createAction(String actionName, VasyanEntity vasyan, Task task, ActionContext context) {
         if (actionName == null) {
             LOGGER.warn("Cannot create action: actionName is null");
             return null;
@@ -181,7 +181,7 @@ public class ActionRegistry {
         }
 
         try {
-            BaseAction action = entry.factory.create(steve, task, context);
+            BaseAction action = entry.factory.create(vasyan, task, context);
             LOGGER.debug("Created action '{}' from plugin '{}'", normalizedName, entry.pluginId);
             return action;
         } catch (Exception e) {

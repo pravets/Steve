@@ -22,7 +22,7 @@ public class VasyanConfig {
     public static final ForgeConfigSpec.IntValue GATHER_STATIONS_PER_RING;
     public static final ForgeConfigSpec.IntValue ACTION_TICK_DELAY;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CHAT_RESPONSES;
-    public static final ForgeConfigSpec.IntValue MAX_ACTIVE_STEVES;
+    public static final ForgeConfigSpec.IntValue MAX_ACTIVE_VASYANS;
     public static final ForgeConfigSpec.BooleanValue VOICE_ENABLED;
     public static final ForgeConfigSpec.ConfigValue<String> STT_BASE_URL;
     public static final ForgeConfigSpec.ConfigValue<String> STT_API_KEY;
@@ -85,14 +85,14 @@ public class VasyanConfig {
 
         builder.pop();
 
-        builder.comment("Steve Vision (world perception) Configuration",
-            "Steve scans the world around him to find blocks and entities. The scan is",
+        builder.comment("Vasyan Vision (world perception) Configuration",
+            "Vasyan scans the world around him to find blocks and entities. The scan is",
             "honest: a block is only seen if there is a clear line of sight (no cheats).",
             "Scans run on demand and results are cached for a few ticks.")
             .push("vision");
 
         WORLD_SCAN_RADIUS = builder
-            .comment("Vision radius in blocks (how far Steve can see)")
+            .comment("Vision radius in blocks (how far Vasyan can see)")
             .defineInRange("scanRadius", 32, 8, 64);
 
         WORLD_SCAN_STEP = builder
@@ -106,14 +106,14 @@ public class VasyanConfig {
 
         builder.pop();
 
-        builder.comment("Steve Gathering (resource search) Configuration",
-            "How Steve searches for resources: a walking spiral of look-out",
+        builder.comment("Vasyan Gathering (resource search) Configuration",
+            "How Vasyan searches for resources: a walking spiral of look-out",
             "stations around the start point, scanning with vision at each station.",
-            "Steve never digs tunnels - he only mines visible blocks.")
+            "Vasyan never digs tunnels - he only mines visible blocks.")
             .push("gather");
 
         GATHER_SEARCH_RADIUS = builder
-            .comment("Search radius in blocks (how far from the start point Steve walks)")
+            .comment("Search radius in blocks (how far from the start point Vasyan walks)")
             .defineInRange("searchRadius", 32, 8, 128);
 
         GATHER_SEARCH_TIMEOUT = builder
@@ -140,9 +140,9 @@ public class VasyanConfig {
             .comment("Allow Vasyans to respond in chat")
             .define("enableChatResponses", true);
 
-        MAX_ACTIVE_STEVES = builder
+        MAX_ACTIVE_VASYANS = builder
             .comment("Maximum number of Vasyans that can be active simultaneously")
-            .defineInRange("maxActiveSteves", 10, 1, 50);
+            .defineInRange("maxActiveVasyans", 10, 1, 50);
 
         FORCE_LOAD_CHUNKS = builder
             .comment("Keep the chunk each Vasyan stands in force-loaded so Vasyans",

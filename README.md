@@ -103,13 +103,13 @@ Each Vasyan runs an autonomous agent loop that processes natural language comman
 
 ### Core Components
 
-**LLM Integration** (`com.steve.ai.llm`)
+**LLM Integration** (`com.vasyan.ai.llm`)
 - **GeminiClient, GroqClient, OpenAIClient**: Pluggable LLM providers for agent reasoning
 - **TaskPlanner**: Orchestrates LLM calls with context (conversation history, world state, Vasyan capabilities)
 - **PromptBuilder**: Constructs prompts with available actions, examples, and formatting instructions
 - **ResponseParser**: Extracts structured action sequences from LLM responses
 
-**Action System** (`com.steve.ai.action`)
+**Action System** (`com.vasyan.ai.action`)
 - **ActionExecutor**: Tick-based action execution engine (prevents game freezing)
 - **BaseAction**: Abstract class for all actions (mine, build, move, combat, etc.)
 - **Task**: Data model for action parameters and metadata
@@ -122,24 +122,24 @@ Each Vasyan runs an autonomous agent loop that processes natural language comman
   - FollowAction: Player/entity following
   - WaitAction: Controlled delays and synchronization
 
-**Structure Generation** (`com.steve.ai.structure`)
+**Structure Generation** (`com.vasyan.ai.structure`)
 - **StructureGenerators**: Procedural generation algorithms (houses, castles, towers, barns)
 - **StructureLoader**: NBT file loading from resources
 - **BlockPlacement**: Shared data structure for block positioning
 
-**Multi-Agent Collaboration** (`com.steve.ai.action`)
+**Multi-Agent Collaboration** (`com.vasyan.ai.action`)
 - **CollaborativeBuildManager**: Server-side coordination for parallel building
 - **Spatial partitioning**: Automatically divides structures into non-overlapping sections
 - **Work distribution**: Assigns sections to available Vasyans
 - **Conflict prevention**: Atomic block placement with position tracking
 - **Dynamic rebalancing**: Reassigns work when agents finish early
 
-**Memory & Context** (`com.steve.ai.memory`)
+**Memory & Context** (`com.vasyan.ai.memory`)
 - **VasyanMemory**: Per-agent conversation history and task context
 - **WorldKnowledge**: Tracks discovered resources, landmarks, and spatial data
 - **StructureRegistry**: Catalogs built structures for reference and avoidance
 
-**Code Execution** (`com.steve.ai.execution`)
+**Code Execution** (`com.vasyan.ai.execution`)
 - **CodeExecutionEngine**: GraalVM JavaScript engine for LLM-generated scripts
 - **VasyanAPI**: Safe API bridge exposing Minecraft actions to scripts
 - **Sandboxing**: Restricted environment preventing harmful operations
@@ -189,7 +189,7 @@ Output JAR will be in `build/libs/`. To test in development:
 
 **Project Structure:**
 ```
-src/main/java/com/steve/ai/
+src/main/java/com/vasyan/ai/
 ├── entity/          # Vasyan entity, spawning, lifecycle
 ├── llm/             # LLM clients, prompt building, response parsing
 ├── action/          # Action classes and collaborative build manager
@@ -197,7 +197,7 @@ src/main/java/com/steve/ai/
 ├── memory/          # Context management and world knowledge
 ├── execution/       # JavaScript code execution engine
 ├── client/          # GUI overlay
-└── command/         # Minecraft commands (/steve spawn, etc)
+└── command/         # Minecraft commands (/vasyan spawn, etc)
 ```
 
 ## Contributing
@@ -245,7 +245,7 @@ We welcome contributions! Here's how to get started:
 - **Comments**: JavaDoc for public methods
 
 **Adding New Actions:**
-1. Extend `BaseAction` in `com.steve.ai.action.actions`
+1. Extend `BaseAction` in `com.vasyan.ai.action.actions`
 2. Implement `tick()`, `isComplete()`, `onCancel()`
 3. Update `PromptBuilder.java` to inform LLM about new action
 4. Add example usage in prompt template

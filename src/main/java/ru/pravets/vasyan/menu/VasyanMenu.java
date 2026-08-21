@@ -10,27 +10,27 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Container menu for Steve's inventory, laid out as a vanilla single chest
+ * Container menu for Vasyan's inventory, laid out as a vanilla single chest
  * (3 rows x 9 = 27 slots) so the {@code generic_54} texture renders it with
  * the exact vanilla single-chest blits - no custom geometry.
  *
- * <p>Steve's slots are read-only (players can only TAKE items, never place
+ * <p>Vasyan's slots are read-only (players can only TAKE items, never place
  * them).</p>
  */
 public class VasyanMenu extends AbstractContainerMenu {
 
-    private static final int STEVE_SLOTS = 27; // 3 rows x 9, single-chest layout
-    private static final int PLAYER_SLOTS_START = STEVE_SLOTS;
-    private static final int SLOT_COUNT = STEVE_SLOTS + 36;
+    private static final int VASYAN_SLOTS = 27; // 3 rows x 9, single-chest layout
+    private static final int PLAYER_SLOTS_START = VASYAN_SLOTS;
+    private static final int SLOT_COUNT = VASYAN_SLOTS + 36;
 
     private final VasyanInventory container;
 
     public VasyanMenu(int containerId, Inventory playerInventory, VasyanInventory container) {
-        super(ru.pravets.vasyan.menu.VasyanMenus.STEVE_MENU.get(), containerId);
+        super(ru.pravets.vasyan.menu.VasyanMenus.VASYAN_MENU.get(), containerId);
         this.container = container;
         container.startOpen(playerInventory.player);
 
-        // Steve's slots: 3 rows x 9, take-only
+        // Vasyan's slots: 3 rows x 9, take-only
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 this.addSlot(new TakeOnlySlot(container, row * 9 + col, 8 + col * 18, 18 + row * 18));
@@ -53,7 +53,7 @@ public class VasyanMenu extends AbstractContainerMenu {
     /**
      * Client-side factory. The client container starts empty - the server
      * synchronizes the real slot contents right after the menu opens
-     * (vanilla slot sync), so no Steve lookup is needed here.
+     * (vanilla slot sync), so no Vasyan lookup is needed here.
      */
     public static VasyanMenu fromNetwork(int containerId, Inventory playerInventory, FriendlyByteBuf extra) {
         return new VasyanMenu(containerId, playerInventory, new VasyanInventory());
@@ -66,14 +66,14 @@ public class VasyanMenu extends AbstractContainerMenu {
         if (slot != null && slot.hasItem()) {
             ItemStack stack = slot.getItem();
             result = stack.copy();
-            if (index < STEVE_SLOTS) {
-                // Steve's slot -> player inventory
+            if (index < VASYAN_SLOTS) {
+                // Vasyan's slot -> player inventory
                 if (!this.moveItemStackTo(stack, PLAYER_SLOTS_START, SLOT_COUNT, true)) {
                     return ItemStack.EMPTY;
                 }
             } else {
-                // Player slot -> Steve's slots; blocked by mayPlace() = false
-                if (!this.moveItemStackTo(stack, 0, STEVE_SLOTS, false)) {
+                // Player slot -> Vasyan's slots; blocked by mayPlace() = false
+                if (!this.moveItemStackTo(stack, 0, VASYAN_SLOTS, false)) {
                     return ItemStack.EMPTY;
                 }
             }

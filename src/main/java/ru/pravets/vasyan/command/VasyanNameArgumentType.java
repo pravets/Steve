@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * Brigadier argument type for Steve names. Accepts a quoted or unquoted string
+ * Brigadier argument type for Vasyan names. Accepts a quoted or unquoted string
  * and validates it against the allowed character set: letters (any script,
  * including Cyrillic), digits and the extra characters {@code _ - . +}.
  * Quoting (as with {@code StringArgumentType.string()}) is honoured so that
@@ -36,7 +36,7 @@ public final class VasyanNameArgumentType implements ArgumentType<String> {
     VasyanNameArgumentType() {
     }
 
-    public static VasyanNameArgumentType steveName() {
+    public static VasyanNameArgumentType vasyanName() {
         return new VasyanNameArgumentType();
     }
 
@@ -76,11 +76,11 @@ public final class VasyanNameArgumentType implements ArgumentType<String> {
 
     @Override
     public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-        VasyanManager manager = VasyanMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getVasyanManager();
         if (manager == null) {
             return builder.buildFuture();
         }
-        List<String> names = manager.getSteveNames();
+        List<String> names = manager.getVasyanNames();
         if (names == null || names.isEmpty()) {
             return builder.buildFuture();
         }
@@ -89,6 +89,6 @@ public final class VasyanNameArgumentType implements ArgumentType<String> {
 
     @Override
     public Collection<String> getExamples() {
-        return List.of("Васян", "Steve_1", "Майнер-2");
+        return List.of("Васян", "Vasyan_1", "Майнер-2");
     }
 }

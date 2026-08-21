@@ -32,10 +32,10 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class VasyanEntity extends PathfinderMob {
-    private static final EntityDataAccessor<String> STEVE_NAME = 
+    private static final EntityDataAccessor<String> VASYAN_NAME = 
         SynchedEntityData.defineId(VasyanEntity.class, EntityDataSerializers.STRING);
 
-    private String steveName;
+    private String vasyanName;
     private VasyanMemory memory;
     private ActionExecutor actionExecutor;
     private VasyanInventory inventory;
@@ -66,7 +66,7 @@ public class VasyanEntity extends PathfinderMob {
 
     public VasyanEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
-        this.steveName = "Steve";
+        this.vasyanName = "Vasyan";
         this.memory = new VasyanMemory(this);
         this.actionExecutor = new ActionExecutor(this);
         this.inventory = new VasyanInventory(this, VasyanInventory.DEFAULT_SIZE);
@@ -106,13 +106,13 @@ public class VasyanEntity extends PathfinderMob {
     @Override
     protected void defineSynchedData() {
         super.defineSynchedData();
-        this.entityData.define(STEVE_NAME, "Steve");
+        this.entityData.define(VASYAN_NAME, "Vasyan");
     }
 
     @Override
     public void remove(RemovalReason reason) {
-        // Drop the inventory into the world when Steve is killed or discarded
-        // (/kill, /steve remove) instead of silently losing the contents.
+        // Drop the inventory into the world when Vasyan is killed or discarded
+        // (/kill, /vasyan remove) instead of silently losing the contents.
         // Unloading/changing dimension must keep the inventory (it is in NBT).
         // Dedup discards of duplicate bots must NOT drop: the duplicate carries
         // the same NBT inventory, so dropping it would be an item-dupe exploit.
@@ -133,17 +133,17 @@ public class VasyanEntity extends PathfinderMob {
      */
     void releaseForcedChunk(RemovalReason reason) {
         if (!this.level().isClientSide && forcedChunk != null
-                && ru.pravets.vasyan.VasyanMod.getSteveManager() != null
+                && ru.pravets.vasyan.VasyanMod.getVasyanManager() != null
                 && (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED)) {
             // Permanent removal: release our chunk force-load. Transient removals
             // (chunk unload, dimension change) must keep the force so the bot's
             // chunk reloads without a player nearby.
-            ru.pravets.vasyan.VasyanMod.getSteveManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
+            ru.pravets.vasyan.VasyanMod.getVasyanManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
             forcedChunk = null;
         }
     }
 
-    /** Chunk currently force-loaded for this Steve (tracked by VasyanManager). */
+    /** Chunk currently force-loaded for this Vasyan (tracked by VasyanManager). */
     private ChunkForceTracker.ChunkKey forcedChunk;
 
     public ChunkForceTracker.ChunkKey getForcedChunk() {
@@ -174,7 +174,7 @@ public class VasyanEntity extends PathfinderMob {
     }
 
     /**
-     * Periodically picks up nearby item entities into Steve's inventory.
+     * Periodically picks up nearby item entities into Vasyan's inventory.
      */
     private void tickPickup() {
         if (--pickupCooldown > 0) {
@@ -216,14 +216,14 @@ public class VasyanEntity extends PathfinderMob {
         }
     }
 
-    public void setSteveName(String name) {
-        this.steveName = name;
-        this.entityData.set(STEVE_NAME, name);
+    public void setVasyanName(String name) {
+        this.vasyanName = name;
+        this.entityData.set(VASYAN_NAME, name);
         this.setCustomName(Component.literal(name));
     }
 
-    public String getSteveName() {
-        return this.steveName;
+    public String getVasyanName() {
+        return this.vasyanName;
     }
 
     public VasyanMemory getMemory() {
@@ -235,8 +235,8 @@ public class VasyanEntity extends PathfinderMob {
     }
 
     /**
-     * Teleports this Steve to a safe spot near the given player.
-     * Fails (returns false) if the Steve is in another dimension or no
+     * Teleports this Vasyan to a safe spot near the given player.
+     * Fails (returns false) if the Vasyan is in another dimension or no
      * safe spot was found. Reused by the auto-return logic (Stage 3:
      * full inventory -> return to player -> hand over -> go back).
      */
@@ -248,7 +248,7 @@ public class VasyanEntity extends PathfinderMob {
     }
 
     /**
-     * Teleports this Steve to a safe spot near the given position (same
+     * Teleports this Vasyan to a safe spot near the given position (same
      * dimension only). This is the reusable primitive for future teleport
      * targets (mines, home base, ...).
      */
@@ -283,7 +283,7 @@ public class VasyanEntity extends PathfinderMob {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        tag.putString("SteveName", this.steveName);
+        tag.putString("VasyanName", this.vasyanName);
         
         CompoundTag memoryTag = new CompoundTag();
         this.memory.saveToNBT(memoryTag);
@@ -300,8 +300,8 @@ public class VasyanEntity extends PathfinderMob {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.loadedFromNbt = true;
-        if (tag.contains("SteveName")) {
-            this.setSteveName(tag.getString("SteveName"));
+        if (tag.contains("VasyanName")) {
+            this.setVasyanName(tag.getString("VasyanName"));
         }
         
         if (tag.contains("Memory")) {
@@ -330,13 +330,13 @@ public class VasyanEntity extends PathfinderMob {
     public void sendChatMessage(String message) {
         if (this.level().isClientSide) return;
         
-        Component chatComponent = Component.literal("<" + this.steveName + "> " + message);
+        Component chatComponent = Component.literal("<" + this.vasyanName + "> " + message);
         this.level().players().forEach(player -> player.sendSystemMessage(chatComponent));
     }
 
     /**
-     * Right-click on a Steve opens its inventory as a take-only container menu:
-     * the player can selectively take items, but cannot place items into Steve.
+     * Right-click on a Vasyan opens its inventory as a take-only container menu:
+     * the player can selectively take items, but cannot place items into Vasyan.
      */
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
@@ -344,7 +344,7 @@ public class VasyanEntity extends PathfinderMob {
             serverPlayer.openMenu(new SimpleMenuProvider(
                 (containerId, playerInventory, p) ->
                     new VasyanMenu(containerId, playerInventory, this.inventory),
-                Component.literal(this.steveName + "'s Inventory")));
+                Component.literal(this.vasyanName + "'s Inventory")));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);
     }

@@ -19,14 +19,14 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-class SteveEntityChunkForceTest extends AbstractMinecraftTest {
+class VasyanEntityChunkForceTest extends AbstractMinecraftTest {
 
     private static VasyanManager manager;
 
     @BeforeAll
     static void installManager() throws Exception {
         manager = new VasyanManager();
-        Field field = VasyanMod.class.getDeclaredField("steveManager");
+        Field field = VasyanMod.class.getDeclaredField("vasyanManager");
         field.setAccessible(true);
         field.set(null, manager);
     }
@@ -35,7 +35,7 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
     void resetManager() throws Exception {
         // Provide each test with a fresh tracker to avoid cross-test refcount state.
         manager = new VasyanManager();
-        Field field = VasyanMod.class.getDeclaredField("steveManager");
+        Field field = VasyanMod.class.getDeclaredField("vasyanManager");
         field.setAccessible(true);
         field.set(null, manager);
     }
@@ -50,13 +50,13 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         return level;
     }
 
-    private static VasyanEntity testSteve(String name, UUID uuid, ServerLevel level, ChunkPos chunkPos) {
-        VasyanEntity steve = mock(VasyanEntity.class, withSettings().defaultAnswer(CALLS_REAL_METHODS));
-        when(steve.getSteveName()).thenReturn(name);
-        when(steve.getUUID()).thenReturn(uuid);
-        when(steve.level()).thenReturn(level);
-        when(steve.blockPosition()).thenReturn(new BlockPos(chunkPos.getMinBlockX(), 64, chunkPos.getMinBlockZ()));
-        return steve;
+    private static VasyanEntity testVasyan(String name, UUID uuid, ServerLevel level, ChunkPos chunkPos) {
+        VasyanEntity vasyan = mock(VasyanEntity.class, withSettings().defaultAnswer(CALLS_REAL_METHODS));
+        when(vasyan.getVasyanName()).thenReturn(name);
+        when(vasyan.getUUID()).thenReturn(uuid);
+        when(vasyan.level()).thenReturn(level);
+        when(vasyan.blockPosition()).thenReturn(new BlockPos(chunkPos.getMinBlockX(), 64, chunkPos.getMinBlockZ()));
+        return vasyan;
     }
 
     @Test
@@ -64,14 +64,14 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 9);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity vasyan = testVasyan("Vasyan", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
-        steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
+        vasyan.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
 
-        steve.releaseForcedChunk(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+        vasyan.releaseForcedChunk(Entity.RemovalReason.UNLOADED_TO_CHUNK);
 
-        assertNotNull(steve.getForcedChunk(), "forced chunk must survive UNLOADED_TO_CHUNK");
+        assertNotNull(vasyan.getForcedChunk(), "forced chunk must survive UNLOADED_TO_CHUNK");
         assertEquals(1, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
         verify(level, never()).setChunkForced(pos.x, pos.z, false);
     }
@@ -81,14 +81,14 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 10);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity vasyan = testVasyan("Vasyan", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
-        steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
+        vasyan.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
 
-        steve.releaseForcedChunk(Entity.RemovalReason.KILLED);
+        vasyan.releaseForcedChunk(Entity.RemovalReason.KILLED);
 
-        assertNull(steve.getForcedChunk(), "forced chunk must be released on KILLED");
+        assertNull(vasyan.getForcedChunk(), "forced chunk must be released on KILLED");
         assertEquals(0, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
         verify(level).setChunkForced(pos.x, pos.z, false);
     }
@@ -98,14 +98,14 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 11);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity vasyan = testVasyan("Vasyan", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
-        steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
+        vasyan.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
 
-        steve.releaseForcedChunk(Entity.RemovalReason.DISCARDED);
+        vasyan.releaseForcedChunk(Entity.RemovalReason.DISCARDED);
 
-        assertNull(steve.getForcedChunk(), "forced chunk must be released on DISCARDED");
+        assertNull(vasyan.getForcedChunk(), "forced chunk must be released on DISCARDED");
         assertEquals(0, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
         verify(level).setChunkForced(pos.x, pos.z, false);
     }
@@ -115,14 +115,14 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 12);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity vasyan = testVasyan("Vasyan", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
-        steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
+        vasyan.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
 
-        steve.releaseForcedChunk(Entity.RemovalReason.CHANGED_DIMENSION);
+        vasyan.releaseForcedChunk(Entity.RemovalReason.CHANGED_DIMENSION);
 
-        assertNotNull(steve.getForcedChunk(), "forced chunk must survive CHANGED_DIMENSION");
+        assertNotNull(vasyan.getForcedChunk(), "forced chunk must survive CHANGED_DIMENSION");
         assertEquals(1, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
         verify(level, never()).setChunkForced(pos.x, pos.z, false);
     }
@@ -138,11 +138,11 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         manager.forceChunk(level, pos, b);
         assertEquals(2, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
 
-        VasyanEntity steve = testSteve("Steve", a, level, pos);
-        steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
-        steve.releaseForcedChunk(Entity.RemovalReason.KILLED);
+        VasyanEntity vasyan = testVasyan("Vasyan", a, level, pos);
+        vasyan.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
+        vasyan.releaseForcedChunk(Entity.RemovalReason.KILLED);
 
-        assertNull(steve.getForcedChunk());
+        assertNull(vasyan.getForcedChunk());
         assertEquals(1, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
         // The other holder keeps the chunk physically force-loaded.
         verify(level, times(1)).setChunkForced(pos.x, pos.z, true);

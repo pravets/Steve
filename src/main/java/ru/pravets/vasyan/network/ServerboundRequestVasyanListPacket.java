@@ -3,7 +3,7 @@ package ru.pravets.vasyan.network;
 import net.minecraft.network.FriendlyByteBuf;
 
 /**
- * Client -> Server: request the list of active Steve names for the GUI panel.
+ * Client -> Server: request the list of active Vasyan names for the GUI panel.
  */
 public record ServerboundRequestVasyanListPacket() {
 

@@ -120,7 +120,7 @@ OpenAICompatibleClient, обёрнутый в ResilientLLMClient.
 
 1. Собрать мод, положить в mods
 2. Запустить ollama (или использовать opencode go)
-3. `/steve spawn Bob`, команда «mine some iron», убедиться в цепочке
+3. `/vasyan spawn Bob`, команда «mine some iron», убедиться в цепочке
    LLM → план → действия
 
 ## Этап 3 — GTNH (отдельное ТЗ)

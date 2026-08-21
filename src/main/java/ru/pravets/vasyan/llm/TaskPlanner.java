@@ -63,22 +63,22 @@ public class TaskPlanner {
     }
 
     /**
-     * Asynchronously plans tasks for Steve using the configured LLM provider.
+     * Asynchronously plans tasks for Vasyan using the configured LLM provider.
      *
      * <p>Returns immediately with a CompletableFuture; the LLM call runs on a
      * separate thread with resilience patterns (circuit breaker, retry, rate
      * limiting, caching, fallback).</p>
      */
-    public CompletableFuture<ResponseParser.ParsedResponse> planTasksAsync(VasyanEntity steve, String command) {
+    public CompletableFuture<ResponseParser.ParsedResponse> planTasksAsync(VasyanEntity vasyan, String command) {
         try {
             String systemPrompt = PromptBuilder.buildSystemPrompt();
-            WorldKnowledge worldKnowledge = new WorldKnowledge(steve);
-            String userPrompt = PromptBuilder.buildUserPrompt(steve, command, worldKnowledge);
+            WorldKnowledge worldKnowledge = new WorldKnowledge(vasyan);
+            String userPrompt = PromptBuilder.buildUserPrompt(vasyan, command, worldKnowledge);
 
             String provider = VasyanConfig.AI_PROVIDER.get().toLowerCase();
-            VasyanMod.LOGGER.info("[Async] Requesting AI plan for Steve '{}' using {}: {}",
-                steve.getSteveName(), provider, command);
-            AgentDebugBuffer.log(steve.getSteveName(), "COMMAND", "[" + provider + "] " + command);
+            VasyanMod.LOGGER.info("[Async] Requesting AI plan for Vasyan '{}' using {}: {}",
+                vasyan.getVasyanName(), provider, command);
+            AgentDebugBuffer.log(vasyan.getVasyanName(), "COMMAND", "[" + provider + "] " + command);
 
             Map<String, Object> params = Map.of(
                 "systemPrompt", systemPrompt,
@@ -92,18 +92,18 @@ public class TaskPlanner {
                     String content = response.getContent();
                     if (content == null || content.isEmpty()) {
                         VasyanMod.LOGGER.error("[Async] Empty response from LLM");
-                        AgentDebugBuffer.log(steve.getSteveName(), "LLM", "empty response");
+                        AgentDebugBuffer.log(vasyan.getVasyanName(), "LLM", "empty response");
                         return null;
                     }
 
-                    AgentDebugBuffer.log(steve.getSteveName(), "LLM",
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "LLM",
                         "model=" + response.getModel() + " cache=" + response.isFromCache()
                             + " content=" + truncate(content, 400));
 
                     ResponseParser.ParsedResponse parsed = ResponseParser.parseAIResponse(content);
                     if (parsed == null) {
                         VasyanMod.LOGGER.error("[Async] Failed to parse AI response");
-                        AgentDebugBuffer.log(steve.getSteveName(), "PARSE", "FAILED to parse: " + truncate(content, 400));
+                        AgentDebugBuffer.log(vasyan.getVasyanName(), "PARSE", "FAILED to parse: " + truncate(content, 400));
                         return null;
                     }
 
@@ -117,10 +117,10 @@ public class TaskPlanner {
                     // local fallback plan was used, so a wrong-looking
                     // behavior (e.g. follow instead of gather) is explained.
                     if ("fallback".equals(response.getProviderId())) {
-                        steve.sendChatMessage("⚠️ LLM недоступен (" + response.getModel()
+                        vasyan.sendChatMessage("⚠️ LLM недоступен (" + response.getModel()
                             + ") — запасной план: " + parsed.getPlan());
                     }
-                    AgentDebugBuffer.log(steve.getSteveName(), "PARSE",
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "PARSE",
                         "ok, " + parsed.getTasks().size() + " tasks, plan=\"" + truncate(parsed.getPlan(), 200)
                             + "\", tasks=" + truncate(describeTasks(parsed.getTasks()), 300));
 
@@ -198,7 +198,7 @@ public class TaskPlanner {
                 })
                 .exceptionally(throwable -> {
                     VasyanMod.LOGGER.error("[Async] Error planning tasks: {}", throwable.getMessage());
-                    AgentDebugBuffer.log(steve.getSteveName(), "LLM_ERROR",
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "LLM_ERROR",
                         throwable.getClass().getSimpleName() + ": " + truncate(throwable.getMessage(), 300));
                     return null;
                 });
@@ -216,9 +216,9 @@ public class TaskPlanner {
      * @deprecated Use planTasksAsync instead.
      */
     @Deprecated
-    public ResponseParser.ParsedResponse planTasks(VasyanEntity steve, String command) {
+    public ResponseParser.ParsedResponse planTasks(VasyanEntity vasyan, String command) {
         try {
-            return planTasksAsync(steve, command).get(VasyanConfig.LLM_TIMEOUT_SECONDS.get() + 5, TimeUnit.SECONDS);
+            return planTasksAsync(vasyan, command).get(VasyanConfig.LLM_TIMEOUT_SECONDS.get() + 5, TimeUnit.SECONDS);
         } catch (Exception e) {
             VasyanMod.LOGGER.error("Error planning tasks (sync)", e);
             return null;

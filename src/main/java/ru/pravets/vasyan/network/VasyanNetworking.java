@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 /**
  * Simple network channel for client <-> server communication
- * (e.g. the GUI panel requesting a Steve's inventory).
+ * (e.g. the GUI panel requesting a Vasyan's inventory).
  */
 public final class VasyanNetworking {
 
@@ -51,14 +51,14 @@ public final class VasyanNetworking {
             ServerboundRequestVasyanListPacket.class,
             ServerboundRequestVasyanListPacket::encode,
             ServerboundRequestVasyanListPacket::decode,
-            VasyanNetworking::handleRequestSteveList,
+            VasyanNetworking::handleRequestVasyanList,
             Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(id++,
             ClientboundVasyanListPacket.class,
             ClientboundVasyanListPacket::encode,
             ClientboundVasyanListPacket::decode,
-            VasyanNetworking::handleSteveList,
+            VasyanNetworking::handleVasyanList,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
         CHANNEL.registerMessage(id++,
@@ -81,7 +81,7 @@ public final class VasyanNetworking {
         ctx.setPacketHandled(true);
     }
 
-    private static void handleRequestSteveList(ServerboundRequestVasyanListPacket packet,
+    private static void handleRequestVasyanList(ServerboundRequestVasyanListPacket packet,
                                                Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> {
@@ -90,17 +90,17 @@ public final class VasyanNetworking {
                 return;
             }
             ClientboundVasyanListPacket response = new ClientboundVasyanListPacket(
-                VasyanMod.getSteveManager().getSteveNames());
+                VasyanMod.getVasyanManager().getVasyanNames());
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), response);
         });
         ctx.setPacketHandled(true);
     }
 
-    private static void handleSteveList(ClientboundVasyanListPacket packet,
+    private static void handleVasyanList(ClientboundVasyanListPacket packet,
                                         Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-            () -> () -> ru.pravets.vasyan.client.VasyanGUI.setSteveList(packet.steveNames())));
+            () -> () -> ru.pravets.vasyan.client.VasyanGUI.setVasyanList(packet.vasyanNames())));
         ctx.setPacketHandled(true);
     }
 
@@ -112,12 +112,12 @@ public final class VasyanNetworking {
             if (sender == null) {
                 return;
             }
-            var steve = VasyanMod.getSteveManager().getSteve(packet.steveName());
-            if (steve == null) {
+            var vasyan = VasyanMod.getVasyanManager().getVasyan(packet.vasyanName());
+            if (vasyan == null) {
                 return;
             }
             ClientboundInventoryPacket response =
-                ClientboundInventoryPacket.fromInventory(steve.getSteveName(), steve.getInventory());
+                ClientboundInventoryPacket.fromInventory(vasyan.getVasyanName(), vasyan.getInventory());
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), response);
         });
         ctx.setPacketHandled(true);
@@ -127,7 +127,7 @@ public final class VasyanNetworking {
                                         Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-            () -> () -> ru.pravets.vasyan.client.VasyanGUI.setInventoryView(packet.steveName(), packet.stacks())));
+            () -> () -> ru.pravets.vasyan.client.VasyanGUI.setInventoryView(packet.vasyanName(), packet.stacks())));
         ctx.setPacketHandled(true);
     }
 }

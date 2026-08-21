@@ -11,14 +11,14 @@ import java.util.List;
 import java.util.Queue;
 
 public class VasyanMemory {
-    private final VasyanEntity steve;
+    private final VasyanEntity vasyan;
     private String currentGoal;
     private final Queue<String> taskQueue;
     private final LinkedList<String> recentActions;
     private static final int MAX_RECENT_ACTIONS = 20;
 
-    public VasyanMemory(VasyanEntity steve) {
-        this.steve = steve;
+    public VasyanMemory(VasyanEntity vasyan) {
+        this.vasyan = vasyan;
         this.currentGoal = "";
         this.taskQueue = new LinkedList<>();
         this.recentActions = new LinkedList<>();

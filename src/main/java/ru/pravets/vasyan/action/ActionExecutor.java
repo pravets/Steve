@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 /**
- * Executes actions for a Steve entity using the plugin-based action system.
+ * Executes actions for a Vasyan entity using the plugin-based action system.
  *
  * <p><b>Architecture:</b></p>
  * <ul>
@@ -34,7 +34,7 @@ import java.util.concurrent.Future;
  * @since 1.1.0
  */
 public class ActionExecutor {
-    private final VasyanEntity steve;
+    private final VasyanEntity vasyan;
     private TaskPlanner taskPlanner;  // Lazy-initialized to avoid loading dependencies on entity creation
     private final Queue<Task> taskQueue;
 
@@ -42,7 +42,7 @@ public class ActionExecutor {
     private String currentGoal;
     private int ticksSinceLastAction;
     private BaseAction idleFollowAction;  // Follow player when idle
-    /** When true the Steve stays in place (stay/stop command) until the next command. */
+    /** When true the Vasyan stays in place (stay/stop command) until the next command. */
     private volatile boolean staying = false;
 
     // NEW: Async planning support (non-blocking LLM calls)
@@ -63,8 +63,8 @@ public class ActionExecutor {
     private final AgentStateMachine stateMachine;
     private final EventBus eventBus;
 
-    public ActionExecutor(VasyanEntity steve) {
-        this.steve = steve;
+    public ActionExecutor(VasyanEntity vasyan) {
+        this.vasyan = vasyan;
         this.taskPlanner = null;  // Will be initialized when first needed
         this.taskQueue = new LinkedList<>();
         this.ticksSinceLastAction = 0;
@@ -74,13 +74,13 @@ public class ActionExecutor {
 
         // Initialize plugin architecture components
         this.eventBus = new SimpleEventBus();
-        this.stateMachine = new AgentStateMachine(eventBus, steve.getSteveName());
+        this.stateMachine = new AgentStateMachine(eventBus, vasyan.getVasyanName());
         this.interceptorChain = new InterceptorChain();
 
         // Setup interceptors
         interceptorChain.addInterceptor(new LoggingInterceptor());
         interceptorChain.addInterceptor(new MetricsInterceptor());
-        interceptorChain.addInterceptor(new EventPublishingInterceptor(eventBus, steve.getSteveName()));
+        interceptorChain.addInterceptor(new EventPublishingInterceptor(eventBus, vasyan.getVasyanName()));
 
         // Build action context
         ServiceContainer container = new SimpleServiceContainer();
@@ -91,13 +91,13 @@ public class ActionExecutor {
             .interceptorChain(interceptorChain)
             .build();
 
-        VasyanMod.LOGGER.debug("ActionExecutor initialized with plugin architecture for Steve '{}'",
-            steve.getSteveName());
+        VasyanMod.LOGGER.debug("ActionExecutor initialized with plugin architecture for Vasyan '{}'",
+            vasyan.getVasyanName());
     }
     
     private TaskPlanner getTaskPlanner() {
         if (taskPlanner == null) {
-            VasyanMod.LOGGER.info("Initializing TaskPlanner for Steve '{}'", steve.getSteveName());
+            VasyanMod.LOGGER.info("Initializing TaskPlanner for Vasyan '{}'", vasyan.getVasyanName());
             taskPlanner = new TaskPlanner();
         }
         return taskPlanner;
@@ -121,14 +121,14 @@ public class ActionExecutor {
      * @param command The natural language command from the user
      */
     public void processNaturalLanguageCommand(String command) {
-        VasyanMod.LOGGER.info("Steve '{}' processing command (async): {}", steve.getSteveName(), command);
+        VasyanMod.LOGGER.info("Vasyan '{}' processing command (async): {}", vasyan.getVasyanName(), command);
 
         long requestId;
         synchronized (planningLock) {
             // If already planning, ignore new commands
             if (isPlanning) {
-                VasyanMod.LOGGER.warn("Steve '{}' is already planning, ignoring command: {}", steve.getSteveName(), command);
-                sendToGUI(steve.getSteveName(), "Hold on, I'm still thinking about the previous command...");
+                VasyanMod.LOGGER.warn("Vasyan '{}' is already planning, ignoring command: {}", vasyan.getVasyanName(), command);
+                sendToGUI(vasyan.getVasyanName(), "Hold on, I'm still thinking about the previous command...");
                 return;
             }
 
@@ -140,10 +140,10 @@ public class ActionExecutor {
             this.activePlanningRequestId = requestId;
         }
 
-        // A new command wakes the Steve up from "stay in place".
+        // A new command wakes the Vasyan up from "stay in place".
         // Mutate on the server thread: tick() reads this flag on the game
         // thread and processNaturalLanguageCommand runs on a worker thread.
-        var server = steve.level().getServer();
+        var server = vasyan.level().getServer();
         if (server != null && !server.isSameThread()) {
             server.execute(() -> staying = false);
         } else {
@@ -162,17 +162,17 @@ public class ActionExecutor {
         }
 
         // Send immediate feedback to user
-        sendToGUI(steve.getSteveName(), "Thinking...");
+        sendToGUI(vasyan.getVasyanName(), "Thinking...");
 
         // Start async LLM call outside the lock.  The future is published only
         // if the reserved request is still active; a stop/stay that ran in the
         // meantime invalidated it and we must abort the now-stale request.
         CompletableFuture<ResponseParser.ParsedResponse> future;
         try {
-            future = getTaskPlanner().planTasksAsync(steve, command);
+            future = getTaskPlanner().planTasksAsync(vasyan, command);
         } catch (NoClassDefFoundError e) {
             VasyanMod.LOGGER.error("Failed to initialize AI components", e);
-            sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
+            sendToGUI(vasyan.getVasyanName(), "Sorry, I'm having trouble with my AI systems!");
             synchronized (planningLock) {
                 resetPlanningStateLocked();
                 activePlanningRequestId = ++planningRequestSequence;
@@ -180,7 +180,7 @@ public class ActionExecutor {
             return;
         } catch (Exception e) {
             VasyanMod.LOGGER.error("Error starting async planning", e);
-            sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
+            sendToGUI(vasyan.getVasyanName(), "Oops, something went wrong!");
             synchronized (planningLock) {
                 resetPlanningStateLocked();
                 activePlanningRequestId = ++planningRequestSequence;
@@ -191,12 +191,12 @@ public class ActionExecutor {
         synchronized (planningLock) {
             if (activePlanningRequestId == requestId) {
                 this.planningFuture = future;
-                VasyanMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
+                VasyanMod.LOGGER.info("Vasyan '{}' started async planning for: {}", vasyan.getVasyanName(), command);
             } else {
                 // Request was cancelled between reservation and publication.
                 future.cancel(true);
-                VasyanMod.LOGGER.debug("Steve '{}' discarded planning future for cancelled request {}",
-                    steve.getSteveName(), requestId);
+                VasyanMod.LOGGER.debug("Vasyan '{}' discarded planning future for cancelled request {}",
+                    vasyan.getVasyanName(), requestId);
             }
         }
     }
@@ -212,7 +212,7 @@ public class ActionExecutor {
      */
     @Deprecated
     public void processNaturalLanguageCommandSync(String command) {
-        VasyanMod.LOGGER.info("Steve '{}' processing command (SYNC - blocking!): {}", steve.getSteveName(), command);
+        VasyanMod.LOGGER.info("Vasyan '{}' processing command (SYNC - blocking!): {}", vasyan.getVasyanName(), command);
 
         if (currentAction != null) {
             currentAction.cancel();
@@ -226,36 +226,36 @@ public class ActionExecutor {
 
         try {
             // BLOCKING CALL - freezes game for 30-60 seconds!
-            ResponseParser.ParsedResponse response = getTaskPlanner().planTasks(steve, command);
+            ResponseParser.ParsedResponse response = getTaskPlanner().planTasks(vasyan, command);
 
             if (response == null) {
-                sendToGUI(steve.getSteveName(), "I couldn't understand that command.");
+                sendToGUI(vasyan.getVasyanName(), "I couldn't understand that command.");
                 return;
             }
 
             currentGoal = response.getPlan();
-            steve.getMemory().setCurrentGoal(currentGoal);
+            vasyan.getMemory().setCurrentGoal(currentGoal);
 
             taskQueue.clear();
             taskQueue.addAll(response.getTasks());
 
             if (VasyanConfig.ENABLE_CHAT_RESPONSES.get()) {
-                sendToGUI(steve.getSteveName(), "Okay! " + currentGoal);
+                sendToGUI(vasyan.getVasyanName(), "Okay! " + currentGoal);
             }
         } catch (NoClassDefFoundError e) {
             VasyanMod.LOGGER.error("Failed to initialize AI components", e);
-            sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
+            sendToGUI(vasyan.getVasyanName(), "Sorry, I'm having trouble with my AI systems!");
         }
 
-        VasyanMod.LOGGER.info("Steve '{}' queued {} tasks", steve.getSteveName(), taskQueue.size());
+        VasyanMod.LOGGER.info("Vasyan '{}' queued {} tasks", vasyan.getVasyanName(), taskQueue.size());
     }
     
     /**
      * Send a message to the GUI pane (client-side only, no chat spam)
      */
-    private void sendToGUI(String steveName, String message) {
-        if (steve.level().isClientSide) {
-            ru.pravets.vasyan.client.VasyanGUI.addSteveMessage(steveName, message);
+    private void sendToGUI(String vasyanName, String message) {
+        if (vasyan.level().isClientSide) {
+            ru.pravets.vasyan.client.VasyanGUI.addVasyanMessage(vasyanName, message);
         }
     }
 
@@ -292,37 +292,37 @@ public class ActionExecutor {
                 if (expectedId != activePlanningRequestId) {
                     // A stop/start race happened while we were waiting for the future:
                     // this result belongs to an older request, so discard it silently.
-                    VasyanMod.LOGGER.debug("Steve '{}' discarding stale planning result for request {}",
-                        steve.getSteveName(), expectedId);
+                    VasyanMod.LOGGER.debug("Vasyan '{}' discarding stale planning result for request {}",
+                        vasyan.getVasyanName(), expectedId);
                     return;
                 }
 
                 if (planningError instanceof java.util.concurrent.CancellationException) {
-                    VasyanMod.LOGGER.info("Steve '{}' planning was cancelled", steve.getSteveName());
-                    sendToGUI(steve.getSteveName(), "Planning cancelled.");
+                    VasyanMod.LOGGER.info("Vasyan '{}' planning was cancelled", vasyan.getVasyanName());
+                    sendToGUI(vasyan.getVasyanName(), "Planning cancelled.");
                 } else if (planningError != null) {
-                    VasyanMod.LOGGER.error("Steve '{}' failed to get planning result", steve.getSteveName(), planningError);
-                    sendToGUI(steve.getSteveName(), "Oops, something went wrong while planning!");
+                    VasyanMod.LOGGER.error("Vasyan '{}' failed to get planning result", vasyan.getVasyanName(), planningError);
+                    sendToGUI(vasyan.getVasyanName(), "Oops, something went wrong while planning!");
                 } else if (response != null) {
                     currentGoal = response.getPlan();
-                    steve.getMemory().setCurrentGoal(currentGoal);
+                    vasyan.getMemory().setCurrentGoal(currentGoal);
 
                     taskQueue.clear();
                     taskQueue.addAll(response.getTasks());
 
-                    AgentDebugBuffer.log(steve.getSteveName(), "PLAN",
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "PLAN",
                         "goal=\"" + truncate(currentGoal, 200) + "\", queued tasks: " + response.getTasks().size());
 
                     if (VasyanConfig.ENABLE_CHAT_RESPONSES.get()) {
-                        sendToGUI(steve.getSteveName(), "Okay! " + currentGoal);
+                        sendToGUI(vasyan.getVasyanName(), "Okay! " + currentGoal);
                     }
 
-                    VasyanMod.LOGGER.info("Steve '{}' async planning complete: {} tasks queued",
-                        steve.getSteveName(), taskQueue.size());
+                    VasyanMod.LOGGER.info("Vasyan '{}' async planning complete: {} tasks queued",
+                        vasyan.getVasyanName(), taskQueue.size());
                 } else {
-                    sendToGUI(steve.getSteveName(), "I couldn't understand that command.");
-                    AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning returned null (see LLM/PARSE events)");
-                    VasyanMod.LOGGER.warn("Steve '{}' async planning returned null response", steve.getSteveName());
+                    sendToGUI(vasyan.getVasyanName(), "I couldn't understand that command.");
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "PLAN", "planning returned null (see LLM/PARSE events)");
+                    VasyanMod.LOGGER.warn("Vasyan '{}' async planning returned null response", vasyan.getVasyanName());
                 }
 
                 resetPlanningStateLocked();
@@ -336,14 +336,14 @@ public class ActionExecutor {
 
                 int elapsedSeconds = (ticksSinceLastAction - planningStartTick) / 20;
                 if (elapsedSeconds >= VasyanConfig.PLANNING_TIMEOUT_SECONDS.get()) {
-                    VasyanMod.LOGGER.warn("Steve '{}' planning timed out after {}s", steve.getSteveName(), elapsedSeconds);
-                    AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning timed out after " + elapsedSeconds + "s");
+                    VasyanMod.LOGGER.warn("Vasyan '{}' planning timed out after {}s", vasyan.getVasyanName(), elapsedSeconds);
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "PLAN", "planning timed out after " + elapsedSeconds + "s");
 
                     if (planningFuture != null) {
                         planningFuture.cancel(true);
                     }
 
-                    sendToGUI(steve.getSteveName(), "LLM planning timed out — please try again.");
+                    sendToGUI(vasyan.getVasyanName(), "LLM planning timed out — please try again.");
                     resetPlanningStateLocked();
                     activePlanningRequestId = ++planningRequestSequence;
                 }
@@ -353,34 +353,34 @@ public class ActionExecutor {
         if (currentAction != null) {
             if (currentAction.isComplete()) {
                 ActionResult result = currentAction.getResult();
-                VasyanMod.LOGGER.info("Steve '{}' - Action completed: {} (Success: {})", 
-                    steve.getSteveName(), result.getMessage(), result.isSuccess());
-                AgentDebugBuffer.log(steve.getSteveName(), result.isSuccess() ? "ACTION_DONE" : "ACTION_FAIL",
+                VasyanMod.LOGGER.info("Vasyan '{}' - Action completed: {} (Success: {})", 
+                    vasyan.getVasyanName(), result.getMessage(), result.isSuccess());
+                AgentDebugBuffer.log(vasyan.getVasyanName(), result.isSuccess() ? "ACTION_DONE" : "ACTION_FAIL",
                     currentAction.getClass().getSimpleName() + " -> " + truncate(result.getMessage(), 200));
                 
-                steve.getMemory().addAction(currentAction.getDescription());
+                vasyan.getMemory().addAction(currentAction.getDescription());
                 
                 if (!result.isSuccess() && result.requiresReplanning()) {
                     // Action failed, need to replan
                     if (VasyanConfig.ENABLE_CHAT_RESPONSES.get()) {
-                        sendToGUI(steve.getSteveName(), "Problem: " + result.getMessage());
+                        sendToGUI(vasyan.getVasyanName(), "Problem: " + result.getMessage());
                     }
                 }
                 
                 currentAction = null;
             } else {
                 if (ticksSinceLastAction % 100 == 0) {
-                    VasyanMod.LOGGER.info("Steve '{}' - Ticking action: {}", 
-                        steve.getSteveName(), currentAction.getDescription());
+                    VasyanMod.LOGGER.info("Vasyan '{}' - Ticking action: {}", 
+                        vasyan.getVasyanName(), currentAction.getDescription());
                 }
                 try {
                     currentAction.tick();
                 } catch (Exception e) {
-                    // An action crash must never leave the Steve silently
+                    // An action crash must never leave the Vasyan silently
                     // standing: report it as an honest failure.
-                    VasyanMod.LOGGER.error("Steve '{}' action '{}' crashed",
-                        steve.getSteveName(), currentAction.getClass().getSimpleName(), e);
-                    AgentDebugBuffer.log(steve.getSteveName(), "ACTION_FAIL",
+                    VasyanMod.LOGGER.error("Vasyan '{}' action '{}' crashed",
+                        vasyan.getVasyanName(), currentAction.getClass().getSimpleName(), e);
+                    AgentDebugBuffer.log(vasyan.getVasyanName(), "ACTION_FAIL",
                         currentAction.getClass().getSimpleName() + " crashed: " + e);
                     currentAction.cancel();
                     currentAction = null;
@@ -402,11 +402,11 @@ public class ActionExecutor {
         // (unless told to stay in place)
         if (taskQueue.isEmpty() && currentAction == null && currentGoal == null && !staying) {
             if (idleFollowAction == null) {
-                idleFollowAction = new IdleFollowAction(steve);
+                idleFollowAction = new IdleFollowAction(vasyan);
                 idleFollowAction.start();
             } else if (idleFollowAction.isComplete()) {
                 // Restart idle following if it stopped
-                idleFollowAction = new IdleFollowAction(steve);
+                idleFollowAction = new IdleFollowAction(vasyan);
                 idleFollowAction.start();
             } else {
                 // Continue idle following
@@ -419,21 +419,21 @@ public class ActionExecutor {
     }
 
     private void executeTask(Task task) {
-        VasyanMod.LOGGER.info("Steve '{}' executing task: {} (action type: {})", 
-            steve.getSteveName(), task, task.getAction());
+        VasyanMod.LOGGER.info("Vasyan '{}' executing task: {} (action type: {})", 
+            vasyan.getVasyanName(), task, task.getAction());
         
         currentAction = createAction(task);
         
         if (currentAction == null) {
             VasyanMod.LOGGER.error("FAILED to create action for task: {}", task);
-            AgentDebugBuffer.log(steve.getSteveName(), "NO_ACTION",
+            AgentDebugBuffer.log(vasyan.getVasyanName(), "NO_ACTION",
                 "no factory for action '" + task.getAction() + "', params=" + task.getParameters());
             return;
         }
 
         VasyanMod.LOGGER.info("Created action: {} - starting now...", currentAction.getClass().getSimpleName());
         currentAction.start();
-        AgentDebugBuffer.log(steve.getSteveName(), "ACTION_START",
+        AgentDebugBuffer.log(vasyan.getVasyanName(), "ACTION_START",
             currentAction.getClass().getSimpleName() + " " + task.getAction() + " " + task.getParameters());
         VasyanMod.LOGGER.info("Action started! Is complete: {}", currentAction.isComplete());
     }
@@ -454,7 +454,7 @@ public class ActionExecutor {
         // Try registry-based creation first (plugin architecture)
         ActionRegistry registry = ActionRegistry.getInstance();
         if (registry.hasAction(actionType)) {
-            BaseAction action = registry.createAction(actionType, steve, task, actionContext);
+            BaseAction action = registry.createAction(actionType, vasyan, task, actionContext);
             if (action != null) {
                 VasyanMod.LOGGER.debug("Created action '{}' via registry (plugin: {})",
                     actionType, registry.getPluginForAction(actionType));
@@ -481,16 +481,16 @@ public class ActionExecutor {
     @Deprecated
     private BaseAction createActionLegacy(Task task) {
         return switch (task.getAction()) {
-            case "pathfind" -> new PathfindAction(steve, task);
-            case "mine" -> new MineBlockAction(steve, task);
-            case "place" -> new PlaceBlockAction(steve, task);
-            case "craft" -> new CraftItemAction(steve, task);
-            case "attack" -> new CombatAction(steve, task);
-            case "follow" -> new FollowPlayerAction(steve, task);
-            case "teleport" -> new TeleportAction(steve, task);
-            case "stay" -> new StayAction(steve, task);
-            case "gather" -> new GatherResourceAction(steve, task);
-            case "build" -> new BuildStructureAction(steve, task);
+            case "pathfind" -> new PathfindAction(vasyan, task);
+            case "mine" -> new MineBlockAction(vasyan, task);
+            case "place" -> new PlaceBlockAction(vasyan, task);
+            case "craft" -> new CraftItemAction(vasyan, task);
+            case "attack" -> new CombatAction(vasyan, task);
+            case "follow" -> new FollowPlayerAction(vasyan, task);
+            case "teleport" -> new TeleportAction(vasyan, task);
+            case "stay" -> new StayAction(vasyan, task);
+            case "gather" -> new GatherResourceAction(vasyan, task);
+            case "build" -> new BuildStructureAction(vasyan, task);
             default -> {
                 VasyanMod.LOGGER.warn("Unknown action type: {}", task.getAction());
                 yield null;
@@ -500,7 +500,7 @@ public class ActionExecutor {
 
     /**
      * Removes all pending tasks without cancelling the currently running
-     * action. Used by "stay": after the current task, the Steve must not
+     * action. Used by "stay": after the current task, the Vasyan must not
      * continue executing a multi-task plan.
      */
     public void clearTaskQueue() {
@@ -534,10 +534,10 @@ public class ActionExecutor {
                 if (planningFuture != null) {
                     planningFuture.cancel(true);
                 }
-                VasyanMod.LOGGER.info("Steve '{}' planning cancelled by stop", steve.getSteveName());
-                AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning cancelled by stop command");
-                if (steve.level().isClientSide()) {
-                    sendToGUI(steve.getSteveName(), "Planning cancelled.");
+                VasyanMod.LOGGER.info("Vasyan '{}' planning cancelled by stop", vasyan.getVasyanName());
+                AgentDebugBuffer.log(vasyan.getVasyanName(), "PLAN", "planning cancelled by stop command");
+                if (vasyan.level().isClientSide()) {
+                    sendToGUI(vasyan.getVasyanName(), "Planning cancelled.");
                 }
                 resetPlanningStateLocked();
                 activePlanningRequestId = ++planningRequestSequence;
@@ -558,14 +558,14 @@ public class ActionExecutor {
     }
 
     /**
-     * Puts the Steve in (or out of) "stay in place" mode. While staying,
-     * no idle-follow is started and the Steve does not move; any new
+     * Puts the Vasyan in (or out of) "stay in place" mode. While staying,
+     * no idle-follow is started and the Vasyan does not move; any new
      * command wakes it up automatically.
      */
     public void setStaying(boolean staying) {
         this.staying = staying;
         if (staying) {
-            steve.getNavigation().stop();
+            vasyan.getNavigation().stop();
         }
     }
 
@@ -657,7 +657,7 @@ public class ActionExecutor {
     }
 
     /**
-     * One-line summary of the agent state, used by /steve debug.
+     * One-line summary of the agent state, used by /vasyan debug.
      */
     public String getStateSummary() {
         String summary;

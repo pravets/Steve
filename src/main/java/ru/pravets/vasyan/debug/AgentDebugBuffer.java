@@ -12,7 +12,7 @@ import java.util.List;
  *
  * <p>Every significant step of the agent pipeline (command received, LLM
  * response, parse result, task execution, action results) is recorded here
- * and can be inspected with {@code /steve debug}.</p>
+ * and can be inspected with {@code /vasyan debug}.</p>
  *
  * <p>Thread-safe: all access is synchronized on the deque.</p>
  */
@@ -28,14 +28,14 @@ public final class AgentDebugBuffer {
     /**
      * Records a debug event.
      *
-     * @param steveName Steve the event belongs to (or "system" / "?")
+     * @param vasyanName Vasyan the event belongs to (or "system" / "?")
      * @param type      Event type, e.g. COMMAND, LLM, PARSE, PLAN, ACTION_START, ACTION_FAIL
      * @param message   Details
      */
-    public static void log(String steveName, String type, String message) {
+    public static void log(String vasyanName, String type, String message) {
         synchronized (events) {
             String line = String.format("[%s] %s %s: %s",
-                LocalTime.now().format(TIME), steveName, type, message);
+                LocalTime.now().format(TIME), vasyanName, type, message);
             events.addLast(line);
             while (events.size() > MAX_ENTRIES) {
                 events.removeFirst();

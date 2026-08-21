@@ -15,16 +15,16 @@ import ru.pravets.vasyan.execution.ActionContext;
  * <p><b>Example Usage:</b></p>
  * <pre>
  * // Lambda syntax (preferred)
- * ActionFactory mineFactory = (steve, task, ctx) -&gt;
- *     new MineBlockAction(steve, task);
+ * ActionFactory mineFactory = (vasyan, task, ctx) -&gt;
+ *     new MineBlockAction(vasyan, task);
  *
  * // Method reference syntax
  * ActionFactory buildFactory = BuildStructureAction::new;
  *
  * // With dependency injection
- * ActionFactory smartFactory = (steve, task, ctx) -&gt; {
+ * ActionFactory smartFactory = (vasyan, task, ctx) -&gt; {
  *     LLMClient client = ctx.getService(LLMClient.class);
- *     return new SmartAction(steve, task, client);
+ *     return new SmartAction(vasyan, task, client);
  * };
  *
  * // Register with registry
@@ -61,19 +61,19 @@ public interface ActionFactory {
      *
      * <p><b>Example with Validation:</b></p>
      * <pre>
-     * ActionFactory factory = (steve, task, ctx) -&gt; {
+     * ActionFactory factory = (vasyan, task, ctx) -&gt; {
      *     if (!task.hasParameters("block", "quantity")) {
      *         throw new IllegalArgumentException("Mine action requires 'block' and 'quantity'");
      *     }
-     *     return new MineBlockAction(steve, task);
+     *     return new MineBlockAction(vasyan, task);
      * };
      * </pre>
      *
-     * @param steve   The Steve entity that will execute this action
+     * @param vasyan   The Vasyan entity that will execute this action
      * @param task    The task containing action parameters from LLM
      * @param context Action context providing dependencies and services
      * @return New action instance ready for execution
      * @throws IllegalArgumentException if task parameters are invalid
      */
-    BaseAction create(VasyanEntity steve, Task task, ActionContext context);
+    BaseAction create(VasyanEntity vasyan, Task task, ActionContext context);
 }

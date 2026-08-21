@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * Idle behavior for Steve - follows the nearest player when not working.
+ * Idle behavior for Vasyan - follows the nearest player when not working.
  * This action runs continuously until a task is given.
  * Teleports to player if too far away.
  */
@@ -22,8 +22,8 @@ public class IdleFollowAction extends BaseAction {
     private static final double MIN_DISTANCE = 2.5; // Stop moving if closer than this
     private static final double TELEPORT_DISTANCE = 50.0; // Teleport if further than 50 blocks
 
-    public IdleFollowAction(VasyanEntity steve) {
-        super(steve, new Task("idle_follow", new HashMap<>()));
+    public IdleFollowAction(VasyanEntity vasyan) {
+        super(vasyan, new Task("idle_follow", new HashMap<>()));
     }
 
     @Override
@@ -32,7 +32,7 @@ public class IdleFollowAction extends BaseAction {
         findNearestPlayer();
         
         if (targetPlayer == null) {
-            VasyanMod.LOGGER.debug("Steve '{}' has no player to follow (idle)", steve.getSteveName());
+            VasyanMod.LOGGER.debug("Vasyan '{}' has no player to follow (idle)", vasyan.getVasyanName());
         }
     }
 
@@ -50,13 +50,13 @@ public class IdleFollowAction extends BaseAction {
             findNearestPlayer();
             if (targetPlayer == null) {
                 // No players around, just stand idle
-                steve.getNavigation().stop();
+                vasyan.getNavigation().stop();
                 return;
             }
         }
         
         // Follow the player at a comfortable distance
-        double distance = steve.distanceTo(targetPlayer);
+        double distance = vasyan.distanceTo(targetPlayer);
         if (distance > TELEPORT_DISTANCE) {
             // Teleport near the player (3-5 blocks away)
             double offsetX = (Math.random() - 0.5) * 6; // Random offset between -3 and +3
@@ -69,29 +69,29 @@ public class IdleFollowAction extends BaseAction {
             net.minecraft.core.BlockPos checkPos = new net.minecraft.core.BlockPos((int)targetX, (int)targetY, (int)targetZ);
             for (int i = 0; i < 10; i++) {
                 net.minecraft.core.BlockPos groundPos = checkPos.below(i);
-                if (!steve.level().getBlockState(groundPos).isAir() && 
-                    steve.level().getBlockState(groundPos.above()).isAir()) {
+                if (!vasyan.level().getBlockState(groundPos).isAir() && 
+                    vasyan.level().getBlockState(groundPos.above()).isAir()) {
                     // Found solid ground with air above
                     targetY = groundPos.above().getY();
                     break;
                 }
             }
             
-            steve.teleportTo(targetX, targetY, targetZ);
-            steve.getNavigation().stop(); // Clear navigation after teleport
+            vasyan.teleportTo(targetX, targetY, targetZ);
+            vasyan.getNavigation().stop(); // Clear navigation after teleport
             
-            VasyanMod.LOGGER.info("Steve '{}' teleported to player (was {} blocks away)", 
-                steve.getSteveName(), (int)distance);
+            VasyanMod.LOGGER.info("Vasyan '{}' teleported to player (was {} blocks away)", 
+                vasyan.getVasyanName(), (int)distance);
             
         } else if (distance > FOLLOW_DISTANCE) {
             // Too far, move closer (normal walking)
-            steve.getNavigation().moveTo(targetPlayer, 1.0);
+            vasyan.getNavigation().moveTo(targetPlayer, 1.0);
         } else if (distance < MIN_DISTANCE) {
             // Too close, stop
-            steve.getNavigation().stop();
+            vasyan.getNavigation().stop();
         } else {
-            if (!steve.getNavigation().isDone()) {
-                steve.getNavigation().stop();
+            if (!vasyan.getNavigation().isDone()) {
+                vasyan.getNavigation().stop();
             }
         }
         
@@ -100,7 +100,7 @@ public class IdleFollowAction extends BaseAction {
 
     @Override
     protected void onCancel() {
-        steve.getNavigation().stop();
+        vasyan.getNavigation().stop();
     }
 
     @Override
@@ -112,7 +112,7 @@ public class IdleFollowAction extends BaseAction {
      * Find the nearest player to follow
      */
     private void findNearestPlayer() {
-        List<? extends Player> players = steve.level().players();
+        List<? extends Player> players = vasyan.level().players();
         
         if (players.isEmpty()) {
             targetPlayer = null;
@@ -127,7 +127,7 @@ public class IdleFollowAction extends BaseAction {
                 continue;
             }
             
-            double distance = steve.distanceTo(player);
+            double distance = vasyan.distanceTo(player);
             if (distance < nearestDistance) {
                 nearest = player;
                 nearestDistance = distance;
@@ -135,8 +135,8 @@ public class IdleFollowAction extends BaseAction {
         }
         
         if (nearest != targetPlayer && nearest != null) {
-            VasyanMod.LOGGER.debug("Steve '{}' now following {} (idle)", 
-                steve.getSteveName(), nearest.getName().getString());
+            VasyanMod.LOGGER.debug("Vasyan '{}' now following {} (idle)", 
+                vasyan.getVasyanName(), nearest.getName().getString());
         }
         
         targetPlayer = nearest;

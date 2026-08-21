@@ -19,8 +19,8 @@ public class CombatAction extends BaseAction {
     private static final int MAX_TICKS = 600;
     private static final double ATTACK_RANGE = 3.5;
 
-    public CombatAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public CombatAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -30,14 +30,14 @@ public class CombatAction extends BaseAction {
         ticksStuck = 0;
         
         // Make sure we're not flying (in case we were building)
-        steve.setFlying(false);
+        vasyan.setFlying(false);
         
-        steve.setInvulnerableBuilding(true);
+        vasyan.setInvulnerableBuilding(true);
         
         findTarget();
         
         if (target == null) {
-            ru.pravets.vasyan.VasyanMod.LOGGER.warn("Steve '{}' no targets nearby", steve.getSteveName());
+            ru.pravets.vasyan.VasyanMod.LOGGER.warn("Vasyan '{}' no targets nearby", vasyan.getVasyanName());
         }
     }
 
@@ -47,11 +47,11 @@ public class CombatAction extends BaseAction {
         
         if (ticksRunning > MAX_TICKS) {
             // Combat complete - clean up and disable invulnerability
-            steve.setInvulnerableBuilding(false);
-            steve.setSprinting(false);
-            steve.getNavigation().stop();
-            ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' combat complete, invulnerability disabled", 
-                steve.getSteveName());
+            vasyan.setInvulnerableBuilding(false);
+            vasyan.setSprinting(false);
+            vasyan.getNavigation().stop();
+            ru.pravets.vasyan.VasyanMod.LOGGER.info("Vasyan '{}' combat complete, invulnerability disabled", 
+                vasyan.getVasyanName());
             result = ActionResult.success("Combat complete");
             return;
         }
@@ -66,31 +66,31 @@ public class CombatAction extends BaseAction {
             }
         }
         
-        double distance = steve.distanceTo(target);
+        double distance = vasyan.distanceTo(target);
         
-        steve.setSprinting(true);
-        steve.getNavigation().moveTo(target, 2.5); // High speed multiplier for sprinting
+        vasyan.setSprinting(true);
+        vasyan.getNavigation().moveTo(target, 2.5); // High speed multiplier for sprinting
         
-        double currentX = steve.getX();
-        double currentZ = steve.getZ();
+        double currentX = vasyan.getX();
+        double currentZ = vasyan.getZ();
         if (Math.abs(currentX - lastX) < 0.1 && Math.abs(currentZ - lastZ) < 0.1) {
             ticksStuck++;
             
             if (ticksStuck > 40 && distance > ATTACK_RANGE) {
                 // Teleport 4 blocks closer to target
-                double dx = target.getX() - steve.getX();
-                double dz = target.getZ() - steve.getZ();
+                double dx = target.getX() - vasyan.getX();
+                double dz = target.getZ() - vasyan.getZ();
                 double dist = Math.sqrt(dx*dx + dz*dz);
                 double moveAmount = Math.min(4.0, dist - ATTACK_RANGE);
                 
-                steve.teleportTo(
-                    steve.getX() + (dx/dist) * moveAmount,
-                    steve.getY(),
-                    steve.getZ() + (dz/dist) * moveAmount
+                vasyan.teleportTo(
+                    vasyan.getX() + (dx/dist) * moveAmount,
+                    vasyan.getY(),
+                    vasyan.getZ() + (dz/dist) * moveAmount
                 );
                 ticksStuck = 0;
-                ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' was stuck, teleported closer to target", 
-                    steve.getSteveName());
+                ru.pravets.vasyan.VasyanMod.LOGGER.info("Vasyan '{}' was stuck, teleported closer to target", 
+                    vasyan.getVasyanName());
             }
         } else {
             ticksStuck = 0;
@@ -99,25 +99,25 @@ public class CombatAction extends BaseAction {
         lastZ = currentZ;
         
         if (distance <= ATTACK_RANGE) {
-            steve.doHurtTarget(target);
-            steve.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+            vasyan.doHurtTarget(target);
+            vasyan.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
             
             // Attack 3 times per second (every 6-7 ticks)
             if (ticksRunning % 7 == 0) {
-                steve.doHurtTarget(target);
+                vasyan.doHurtTarget(target);
             }
         }
     }
 
     @Override
     protected void onCancel() {
-        steve.setInvulnerableBuilding(false);
-        steve.getNavigation().stop();
-        steve.setSprinting(false);
-        steve.setFlying(false);
+        vasyan.setInvulnerableBuilding(false);
+        vasyan.getNavigation().stop();
+        vasyan.setSprinting(false);
+        vasyan.setFlying(false);
         target = null;
-        ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' combat cancelled, invulnerability disabled", 
-            steve.getSteveName());
+        ru.pravets.vasyan.VasyanMod.LOGGER.info("Vasyan '{}' combat cancelled, invulnerability disabled", 
+            vasyan.getVasyanName());
     }
 
     @Override
@@ -126,15 +126,15 @@ public class CombatAction extends BaseAction {
     }
 
     private void findTarget() {
-        AABB searchBox = steve.getBoundingBox().inflate(32.0);
-        List<Entity> entities = steve.level().getEntities(steve, searchBox);
+        AABB searchBox = vasyan.getBoundingBox().inflate(32.0);
+        List<Entity> entities = vasyan.level().getEntities(vasyan, searchBox);
         
         LivingEntity nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         
         for (Entity entity : entities) {
             if (entity instanceof LivingEntity living && isValidTarget(living)) {
-                double distance = steve.distanceTo(living);
+                double distance = vasyan.distanceTo(living);
                 if (distance < nearestDistance) {
                     nearest = living;
                     nearestDistance = distance;
@@ -144,8 +144,8 @@ public class CombatAction extends BaseAction {
         
         target = nearest;
         if (target != null) {
-            ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' locked onto: {} at {}m", 
-                steve.getSteveName(), target.getType().toString(), (int)nearestDistance);
+            ru.pravets.vasyan.VasyanMod.LOGGER.info("Vasyan '{}' locked onto: {} at {}m", 
+                vasyan.getVasyanName(), target.getType().toString(), (int)nearestDistance);
         }
     }
 
@@ -154,7 +154,7 @@ public class CombatAction extends BaseAction {
             return false;
         }
         
-        // Don't attack other Steves or players
+        // Don't attack other Vasyans or players
         if (entity instanceof VasyanEntity || entity instanceof net.minecraft.world.entity.player.Player) {
             return false;
         }

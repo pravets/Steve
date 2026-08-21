@@ -11,12 +11,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Server -> Client: a Steve's inventory contents for the GUI panel.
+ * Server -> Client: a Vasyan's inventory contents for the GUI panel.
  */
-public record ClientboundInventoryPacket(String steveName, List<ItemStack> stacks) {
+public record ClientboundInventoryPacket(String vasyanName, List<ItemStack> stacks) {
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeUtf(steveName, 64);
+        buf.writeUtf(vasyanName, 64);
         buf.writeVarInt(stacks.size());
         for (ItemStack stack : stacks) {
             buf.writeNbt(stack.save(new CompoundTag()));
@@ -24,7 +24,7 @@ public record ClientboundInventoryPacket(String steveName, List<ItemStack> stack
     }
 
     public static ClientboundInventoryPacket decode(FriendlyByteBuf buf) {
-        String steveName = buf.readUtf(64);
+        String vasyanName = buf.readUtf(64);
         int size = buf.readVarInt();
         List<ItemStack> stacks = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
@@ -34,14 +34,14 @@ public record ClientboundInventoryPacket(String steveName, List<ItemStack> stack
                 stacks.add(stack);
             }
         }
-        return new ClientboundInventoryPacket(steveName, stacks);
+        return new ClientboundInventoryPacket(vasyanName, stacks);
     }
 
-    public static ClientboundInventoryPacket empty(String steveName) {
-        return new ClientboundInventoryPacket(steveName, List.of());
+    public static ClientboundInventoryPacket empty(String vasyanName) {
+        return new ClientboundInventoryPacket(vasyanName, List.of());
     }
 
-    public static ClientboundInventoryPacket fromInventory(String steveName, VasyanInventory inventory) {
+    public static ClientboundInventoryPacket fromInventory(String vasyanName, VasyanInventory inventory) {
         // Deep-copy every stack: the packet must own independent ItemStack
         // objects, because the live inventory can be mutated (grow/shrink) in
         // the server tick while encode() runs later on the network thread
@@ -49,6 +49,6 @@ public record ClientboundInventoryPacket(String steveName, List<ItemStack> stack
         for (ItemStack stack : inventory.getStacks()) {
             copy.add(stack.copy());
         }
-        return new ClientboundInventoryPacket(steveName, copy);
+        return new ClientboundInventoryPacket(vasyanName, copy);
     }
 }

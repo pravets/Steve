@@ -21,12 +21,12 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 @Mod.EventBusSubscriber(modid = VasyanMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ClientSetup {
 
-    private static final ResourceLocation STEVE_TEXTURE = new ResourceLocation("minecraft", "textures/entity/player/wide/steve.png");
+    private static final ResourceLocation VASYAN_TEXTURE = new ResourceLocation("minecraft", "textures/entity/player/wide/vasyan.png");
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            MenuScreens.register(VasyanMenus.STEVE_MENU.get(), VasyanMenuScreen::new);
+            MenuScreens.register(VasyanMenus.VASYAN_MENU.get(), VasyanMenuScreen::new);
         });
     }
 
@@ -39,7 +39,7 @@ public class ClientSetup {
             ) {
                 @Override
                 public ResourceLocation getTextureLocation(VasyanEntity entity) {
-                    return STEVE_TEXTURE;
+                    return VASYAN_TEXTURE;
                 }
             }
         );    }

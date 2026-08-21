@@ -15,12 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import static java.util.Objects.requireNonNull;
 
 public class VasyanManager {
-    private final Map<String, VasyanEntity> activeSteves;
-    private final Map<UUID, VasyanEntity> stevesByUUID;
+    private final Map<String, VasyanEntity> activeVasyans;
+    private final Map<UUID, VasyanEntity> vasyansByUUID;
 
     public VasyanManager() {
-        this.activeSteves = new ConcurrentHashMap<>();
-        this.stevesByUUID = new ConcurrentHashMap<>();
+        this.activeVasyans = new ConcurrentHashMap<>();
+        this.vasyansByUUID = new ConcurrentHashMap<>();
     }
 
     /**
@@ -34,7 +34,7 @@ public class VasyanManager {
         if (name == null) {
             return null;
         }
-        for (Map.Entry<String, VasyanEntity> entry : activeSteves.entrySet()) {
+        for (Map.Entry<String, VasyanEntity> entry : activeVasyans.entrySet()) {
             if (name.equalsIgnoreCase(entry.getKey())) {
                 return entry;
             }
@@ -43,11 +43,11 @@ public class VasyanManager {
     }
 
     /**
-     * Returns the tracked Steve whose canonical name matches the given name
+     * Returns the tracked Vasyan whose canonical name matches the given name
      * ignoring case.
      *
      * @param name the name to look up, may be null
-     * @return the matching entity, or null if no Steve is tracked under a
+     * @return the matching entity, or null if no Vasyan is tracked under a
      *         case-insensitive match
      */
     private VasyanEntity findByNameIgnoreCase(String name) {
@@ -74,81 +74,81 @@ public class VasyanManager {
      * has not entered the world yet, so {@code ServerEventHandler} cancels
      * the join instead. {@code discard()} stays for instances that are
      * already in the world (the NBT-vs-fresh replacement below) and for
-     * {@link #removeSteve(String, MinecraftServer)}.
+     * {@link #removeVasyan(String, MinecraftServer)}.
      *
      * @return the adopted instance, or null if it was rejected as a duplicate
      */
-    public VasyanEntity adopt(VasyanEntity steve) {
-        if (steve == null) {
+    public VasyanEntity adopt(VasyanEntity vasyan) {
+        if (vasyan == null) {
             return null;
         }
-        String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
+        String name = requireNonNull(vasyan.getVasyanName(), "Vasyan name must not be null");
         Map.Entry<String, VasyanEntity> existingEntry = findEntryByNameIgnoreCase(name);
         VasyanEntity existing = existingEntry != null ? existingEntry.getValue() : null;
         if (existing != null) {
-            if (existing == steve) {
-                return steve;
+            if (existing == vasyan) {
+                return vasyan;
             }
             String existingKey = existingEntry.getKey();
             if (!existing.isAlive() || existing.isRemoved()) {
                 // Stale registry entry (e.g. survivor of a crash) - replace it
-                activeSteves.remove(existingKey);
-                stevesByUUID.remove(existing.getUUID());
-            } else if (steve.isLoadedFromNbt() && !existing.isLoadedFromNbt()) {
+                activeVasyans.remove(existingKey);
+                vasyansByUUID.remove(existing.getUUID());
+            } else if (vasyan.isLoadedFromNbt() && !existing.isLoadedFromNbt()) {
                 // The newcomer is the real bot loaded from NBT; the survivor is
                 // a freshly spawned empty copy. Keep the NBT state, discard the
                 // empty copy without dropping its (empty) inventory.
                 VasyanMod.LOGGER.warn("Dedup discard: replacing fresh '{}' ({} alive={}, removed={}) with NBT-loaded original ({})",
-                        name, existing.getUUID(), existing.isAlive(), existing.isRemoved(), steve.getUUID());
+                        name, existing.getUUID(), existing.isAlive(), existing.isRemoved(), vasyan.getUUID());
                 existing.setSuppressInventoryDrop(true);
                 existing.discard();
                 VasyanMod.LOGGER.info("Dedup: replaced fresh duplicate '{}' ({}) with NBT-loaded original ({})",
-                        name, existing.getUUID(), steve.getUUID());
-                activeSteves.remove(existingKey);
-                stevesByUUID.remove(existing.getUUID());
+                        name, existing.getUUID(), vasyan.getUUID());
+                activeVasyans.remove(existingKey);
+                vasyansByUUID.remove(existing.getUUID());
             } else {
                 // Duplicate bot with the same name: reject the newcomer. It has
                 // not entered the world yet during an EntityJoinLevelEvent, so
                 // the join is canceled (see ServerEventHandler) instead of a
                 // discard that would drop the (identical, duplicated) contents.
                 VasyanMod.LOGGER.info("Dedup: rejected duplicate Vasyan '{}' ({}) - another live instance exists",
-                        name, steve.getUUID());
+                        name, vasyan.getUUID());
                 return null;
             }
         }
-        activeSteves.put(name, steve);
-        stevesByUUID.put(steve.getUUID(), steve);
+        activeVasyans.put(name, vasyan);
+        vasyansByUUID.put(vasyan.getUUID(), vasyan);
         if (VasyanConfig.FORCE_LOAD_CHUNKS.get()
-                && steve.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(steve.blockPosition());
+                && vasyan.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(vasyan.blockPosition());
             ChunkForceTracker.ChunkKey key = new ChunkForceTracker.ChunkKey(serverLevel.dimension(), current);
-            // A Steve reloaded from NBT after a chunk unload keeps the same UUID.
+            // A Vasyan reloaded from NBT after a chunk unload keeps the same UUID.
             // The chunk was left force-loaded on unload (issue #14), so reuse
             // that existing force instead of double-counting. Newcomers that do
             // not already hold the chunk force it normally.
-            if (chunkForceTracker.hasHolder(serverLevel.dimension(), current, steve.getUUID())) {
-                AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "adopt existing [" + current.x + "," + current.z + "] in " + serverLevel.dimension().location());
-                steve.setForcedChunk(key);
+            if (chunkForceTracker.hasHolder(serverLevel.dimension(), current, vasyan.getUUID())) {
+                AgentDebugBuffer.log(vasyan.getVasyanName(), "CHUNK", "adopt existing [" + current.x + "," + current.z + "] in " + serverLevel.dimension().location());
+                vasyan.setForcedChunk(key);
             } else {
-                forceChunk(serverLevel, current, steve.getUUID());
-                steve.setForcedChunk(key);
+                forceChunk(serverLevel, current, vasyan.getUUID());
+                vasyan.setForcedChunk(key);
             }
         }
-        return steve;
+        return vasyan;
     }
 
     /**
-     * Spawns a new Steve at the given position if no live Steve with the same
+     * Spawns a new Vasyan at the given position if no live Vasyan with the same
      * name (ignoring case) is already tracked or present in the level.
      *
      * @param level    the level to spawn in
      * @param position the spawn position
-     * @param name     the desired Steve name
+     * @param name     the desired Vasyan name
      * @return the spawned entity, or null if a duplicate exists or limits are reached
      */
-    public VasyanEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
-        name = requireNonNull(name, "Steve name must not be null");
-        VasyanMod.LOGGER.info("Current active Vasyans: {}", activeSteves.size());
+    public VasyanEntity spawnVasyan(ServerLevel level, Vec3 position, String name) {
+        name = requireNonNull(name, "Vasyan name must not be null");
+        VasyanMod.LOGGER.info("Current active Vasyans: {}", activeVasyans.size());
 
         if (findByNameIgnoreCase(name) != null) {
             VasyanMod.LOGGER.warn("Vasyan name '{}' already exists", name);
@@ -157,23 +157,23 @@ public class VasyanManager {
         // Uniqueness check against the world itself: a bot with this name may
         // be loaded from a chunk but not tracked yet - adopt it instead of
         // spawning a duplicate.
-        VasyanEntity existing = findSteveInLevel(level, name);
+        VasyanEntity existing = findVasyanInLevel(level, name);
         if (existing != null) {
             adopt(existing);
             VasyanMod.LOGGER.warn("Vasyan name '{}' already exists in world, adopting existing instance", name);
             return null;
         }
 
-        int maxSteves = VasyanConfig.MAX_ACTIVE_STEVES.get();
-        if (activeSteves.size() >= maxSteves) {
-            VasyanMod.LOGGER.warn("Max Vasyan limit reached: {}", maxSteves);
+        int maxVasyans = VasyanConfig.MAX_ACTIVE_VASYANS.get();
+        if (activeVasyans.size() >= maxVasyans) {
+            VasyanMod.LOGGER.warn("Max Vasyan limit reached: {}", maxVasyans);
             return null;
         }
 
-        VasyanEntity steve;
+        VasyanEntity vasyan;
         try {
             VasyanMod.LOGGER.info("EntityType: {}", VasyanMod.VASYAN_ENTITY.get());
-            steve = new VasyanEntity(VasyanMod.VASYAN_ENTITY.get(), level);
+            vasyan = new VasyanEntity(VasyanMod.VASYAN_ENTITY.get(), level);
         } catch (Throwable e) {
             VasyanMod.LOGGER.error("Failed to create Vasyan entity", e);
             VasyanMod.LOGGER.error("Exception class: {}", e.getClass().getName());
@@ -183,24 +183,24 @@ public class VasyanManager {
         }
 
         try {
-            steve.setSteveName(name);
-            steve.setPos(position.x, position.y, position.z);
-            boolean added = level.addFreshEntity(steve);
+            vasyan.setVasyanName(name);
+            vasyan.setPos(position.x, position.y, position.z);
+            boolean added = level.addFreshEntity(vasyan);
             if (added) {
                 // Registration is done by adopt() via onEntityJoinLevel - do not
                 // touch the registries here. Verify that adopt accepted this
-                // exact instance; a same-named Steve may have been loaded
-                // concurrently and won the dedup, in which case steve was
+                // exact instance; a same-named Vasyan may have been loaded
+                // concurrently and won the dedup, in which case vasyan was
                 // already discarded.
-                if (findByNameIgnoreCase(name) == steve && steve.isAlive()) {
-                    VasyanMod.LOGGER.info("Successfully spawned Vasyan: {} with UUID {} at {}", name, steve.getUUID(), position);
-                    return steve;
+                if (findByNameIgnoreCase(name) == vasyan && vasyan.isAlive()) {
+                    VasyanMod.LOGGER.info("Successfully spawned Vasyan: {} with UUID {} at {}", name, vasyan.getUUID(), position);
+                    return vasyan;
                 } else {
                     VasyanMod.LOGGER.warn("Spawn-adopt mismatch discard for '{}' ({} alive={}, removed={})",
-                            name, steve.getUUID(), steve.isAlive(), steve.isRemoved());
-                    if (!steve.isRemoved()) {
-                        steve.setSuppressInventoryDrop(true);
-                        steve.discard();
+                            name, vasyan.getUUID(), vasyan.isAlive(), vasyan.isRemoved());
+                    if (!vasyan.isRemoved()) {
+                        vasyan.setSuppressInventoryDrop(true);
+                        vasyan.discard();
                     }
                 }
             } else {
@@ -219,40 +219,40 @@ public class VasyanManager {
     /**
      * Scans the given level for a live VasyanEntity that carries this name but
      * is not necessarily tracked yet (e.g. loaded from a chunk). Used to stop
-     * /steve spawn from creating a duplicate over an existing world instance.
+     * /vasyan spawn from creating a duplicate over an existing world instance.
      */
-    private VasyanEntity findSteveInLevel(ServerLevel level, String name) {
+    private VasyanEntity findVasyanInLevel(ServerLevel level, String name) {
         if (level == null || name == null) {
             return null;
         }
         for (Entity entity : level.getAllEntities()) {
-            if (entity instanceof VasyanEntity steve
-                    && name.equalsIgnoreCase(steve.getSteveName())
-                    && steve.isAlive() && !steve.isRemoved()) {
-                return steve;
+            if (entity instanceof VasyanEntity vasyan
+                    && name.equalsIgnoreCase(vasyan.getVasyanName())
+                    && vasyan.isAlive() && !vasyan.isRemoved()) {
+                return vasyan;
             }
         }
         return null;
     }
 
     /**
-     * Looks up a tracked Steve by name, ignoring case.
+     * Looks up a tracked Vasyan by name, ignoring case.
      *
-     * @param name the Steve name to look up
+     * @param name the Vasyan name to look up
      * @return the tracked entity, or null if no match is found
      */
-    public VasyanEntity getSteve(String name) {
+    public VasyanEntity getVasyan(String name) {
         return name == null ? null : findByNameIgnoreCase(name);
     }
 
     /**
-     * Looks up a tracked Steve by UUID.
+     * Looks up a tracked Vasyan by UUID.
      *
      * @param uuid the UUID to look up
      * @return the tracked entity, or null if no match is found
      */
-    public VasyanEntity getSteve(UUID uuid) {
-        return uuid == null ? null : stevesByUUID.get(uuid);
+    public VasyanEntity getVasyan(UUID uuid) {
+        return uuid == null ? null : vasyansByUUID.get(uuid);
     }
 
     /**
@@ -272,7 +272,7 @@ public class VasyanManager {
      * its inventory drop suppressed so the (identical, duplicated) contents
      * are not dropped multiple times - an item-dupe exploit.
      */
-    public boolean removeSteve(String name, MinecraftServer server) {
+    public boolean removeVasyan(String name, MinecraftServer server) {
         if (name == null) {
             return false;
         }
@@ -283,94 +283,94 @@ public class VasyanManager {
             List<VasyanEntity> matches = new ArrayList<>();
             for (ServerLevel level : server.getAllLevels()) {
                 for (Entity entity : level.getAllEntities()) {
-                    if (entity instanceof VasyanEntity steve && name.equalsIgnoreCase(steve.getSteveName())) {
-                        matches.add(steve);
+                    if (entity instanceof VasyanEntity vasyan && name.equalsIgnoreCase(vasyan.getVasyanName())) {
+                        matches.add(vasyan);
                     }
                 }
             }
             VasyanEntity trackedInWorldSweep = findByNameIgnoreCase(name);
-            for (VasyanEntity steve : matches) {
-                if (!steve.isAlive() || steve.isRemoved()) {
+            for (VasyanEntity vasyan : matches) {
+                if (!vasyan.isAlive() || vasyan.isRemoved()) {
                     continue;
                 }
-                if (steve != trackedInWorldSweep) {
+                if (vasyan != trackedInWorldSweep) {
                     // Same-named duplicate: dropping its (identical) contents
                     // would dupe items, so suppress the drop for non-tracked
                     // copies. The tracked instance keeps the normal drop.
-                    steve.setSuppressInventoryDrop(true);
+                    vasyan.setSuppressInventoryDrop(true);
                 }
-                VasyanMod.LOGGER.warn("removeVasyan discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
-                steve.discard();
+                VasyanMod.LOGGER.warn("removeVasyan discard for '{}' ({} tracked={})", name, vasyan.getUUID(), vasyan == trackedInWorldSweep);
+                vasyan.discard();
                 removed = true;
             }
         }
         Map.Entry<String, VasyanEntity> trackedEntry = findEntryByNameIgnoreCase(name);
         if (trackedEntry != null) {
-            activeSteves.remove(trackedEntry.getKey());
-            stevesByUUID.remove(trackedEntry.getValue().getUUID());
+            activeVasyans.remove(trackedEntry.getKey());
+            vasyansByUUID.remove(trackedEntry.getValue().getUUID());
             removed = true;
         }
         return removed;
     }
 
     /**
-     * Cleans up the registries when a tracked Steve leaves the world for a
+     * Cleans up the registries when a tracked Vasyan leaves the world for a
      * reason other than a dimension change: chunk unload, kill or discard.
      * The bot is re-adopted via {@link #adopt(VasyanEntity)} when its chunk
      * loads again. A dimension change keeps the registration: the same live
      * instance continues to exist and is re-adopted (idempotently) on join.
      */
-    public void onSteveUnload(VasyanEntity steve) {
-        if (steve == null) {
+    public void onVasyanUnload(VasyanEntity vasyan) {
+        if (vasyan == null) {
             return;
         }
-        String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
+        String name = requireNonNull(vasyan.getVasyanName(), "Vasyan name must not be null");
         Map.Entry<String, VasyanEntity> trackedEntry = findEntryByNameIgnoreCase(name);
-        if (trackedEntry != null && trackedEntry.getValue() == steve) {
-            activeSteves.remove(trackedEntry.getKey());
-            VasyanMod.LOGGER.info("Vasyan '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
+        if (trackedEntry != null && trackedEntry.getValue() == vasyan) {
+            activeVasyans.remove(trackedEntry.getKey());
+            VasyanMod.LOGGER.info("Vasyan '{}' left the world (reason={}), removed from registry", name, vasyan.getRemovalReason());
         }
-        stevesByUUID.remove(steve.getUUID());
+        vasyansByUUID.remove(vasyan.getUUID());
     }
 
     /**
      * Periodic registry cleanup: drops entries whose entity is dead or
      * removed. Safety net for removal reasons that do not go through
-     * {@link #onSteveUnload(VasyanEntity)}.
+     * {@link #onVasyanUnload(VasyanEntity)}.
      */
     public void tick() {
-        Iterator<Map.Entry<String, VasyanEntity>> iterator = activeSteves.entrySet().iterator();
+        Iterator<Map.Entry<String, VasyanEntity>> iterator = activeVasyans.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, VasyanEntity> entry = iterator.next();
-            VasyanEntity steve = entry.getValue();
-            if (!steve.isAlive() || steve.isRemoved()) {
+            VasyanEntity vasyan = entry.getValue();
+            if (!vasyan.isAlive() || vasyan.isRemoved()) {
                 iterator.remove();
-                stevesByUUID.remove(steve.getUUID());
+                vasyansByUUID.remove(vasyan.getUUID());
                 VasyanMod.LOGGER.info("Cleaned up Vasyan: {}", entry.getKey());
             }
         }
     }
 
-    public void clearAllSteves() {
-        VasyanMod.LOGGER.info("Clearing {} Vasyan entities", activeSteves.size());
-        for (VasyanEntity steve : activeSteves.values()) {
-            VasyanMod.LOGGER.warn("clearAllSteves discard for '{}' ({})", steve.getSteveName(), steve.getUUID());
-            steve.discard();
+    public void clearAllVasyans() {
+        VasyanMod.LOGGER.info("Clearing {} Vasyan entities", activeVasyans.size());
+        for (VasyanEntity vasyan : activeVasyans.values()) {
+            VasyanMod.LOGGER.warn("clearAllVasyans discard for '{}' ({})", vasyan.getVasyanName(), vasyan.getUUID());
+            vasyan.discard();
         }
-        activeSteves.clear();
-        stevesByUUID.clear();
+        activeVasyans.clear();
+        vasyansByUUID.clear();
     }
 
-    public Collection<VasyanEntity> getAllSteves() {
-        return Collections.unmodifiableCollection(activeSteves.values());
+    public Collection<VasyanEntity> getAllVasyans() {
+        return Collections.unmodifiableCollection(activeVasyans.values());
     }
 
-    public List<String> getSteveNames() {
-        return new ArrayList<>(activeSteves.keySet());
+    public List<String> getVasyanNames() {
+        return new ArrayList<>(activeVasyans.keySet());
     }
 
     public int getActiveCount() {
-        return activeSteves.size();
+        return activeVasyans.size();
     }
 
     // ---- chunk force-loading (work without players) ----
@@ -382,7 +382,7 @@ public class VasyanManager {
         return chunkForceTracker;
     }
 
-    /** Force-loads a chunk for a specific Steve (refcounted across Steves). */
+    /** Force-loads a chunk for a specific Vasyan (refcounted across Vasyans). */
     public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos, UUID uuid) {
         boolean newlyLoaded = chunkForceTracker.force(level.dimension(), chunkPos, uuid);
         if (newlyLoaded) {
@@ -392,7 +392,7 @@ public class VasyanManager {
         AgentDebugBuffer.log("system", "CHUNK", action + " [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
     }
 
-    /** Releases a chunk force-load for a specific Steve; un-forces when the last holder leaves. */
+    /** Releases a chunk force-load for a specific Vasyan; un-forces when the last holder leaves. */
     public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos, UUID uuid) {
         boolean fullyUnforced = chunkForceTracker.unforce(level.dimension(), chunkPos, uuid);
         if (fullyUnforced) {
@@ -403,26 +403,26 @@ public class VasyanManager {
     }
 
     /**
-     * Drops a Steve's chunk force-load (on removal). The refcount keeps other
-     * Steves in the same chunk unaffected. Un-forces in the dimension the
-     * chunk actually belongs to (the Steve may have changed dimensions).
+     * Drops a Vasyan's chunk force-load (on removal). The refcount keeps other
+     * Vasyans in the same chunk unaffected. Un-forces in the dimension the
+     * chunk actually belongs to (the Vasyan may have changed dimensions).
      */
-    public void releaseChunk(VasyanEntity steve, ServerLevel level) {
-        ChunkForceTracker.ChunkKey chunkKey = steve.getForcedChunk();
+    public void releaseChunk(VasyanEntity vasyan, ServerLevel level) {
+        ChunkForceTracker.ChunkKey chunkKey = vasyan.getForcedChunk();
         if (chunkKey != null) {
-            AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "release [" + chunkKey.pos().x + "," + chunkKey.pos().z + "] in " + chunkKey.dimension().location());
+            AgentDebugBuffer.log(vasyan.getVasyanName(), "CHUNK", "release [" + chunkKey.pos().x + "," + chunkKey.pos().z + "] in " + chunkKey.dimension().location());
             ServerLevel ownerLevel = level.getServer() != null
                 ? level.getServer().getLevel(chunkKey.dimension())
                 : null;
             if (ownerLevel != null) {
-                unforceChunk(ownerLevel, chunkKey.pos(), steve.getUUID());
+                unforceChunk(ownerLevel, chunkKey.pos(), vasyan.getUUID());
             }
-            steve.setForcedChunk(null);
+            vasyan.setForcedChunk(null);
         }
     }
 
     /**
-     * Keeps every tracked Steve's current chunk force-loaded. Runs from the
+     * Keeps every tracked Vasyan's current chunk force-loaded. Runs from the
      * server tick event (NOT from the entity tick): an entity in an unloaded
      * chunk never ticks, so it could never force its own chunk - the
      * manager is the outside actor that breaks the deadlock.
@@ -431,53 +431,53 @@ public class VasyanManager {
         if (!VasyanConfig.FORCE_LOAD_CHUNKS.get()) {
             // Feature disabled at runtime: release everything we ever forced
             // so no chunk stays force-loaded forever.
-            for (VasyanEntity steve : activeSteves.values()) {
-                ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
+            for (VasyanEntity vasyan : activeVasyans.values()) {
+                ChunkForceTracker.ChunkKey old = vasyan.getForcedChunk();
                 if (old != null) {
                     ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
                     if (ownerLevel != null) {
-                        unforceChunk(ownerLevel, old.pos(), steve.getUUID());
+                        unforceChunk(ownerLevel, old.pos(), vasyan.getUUID());
                     }
-                    steve.setForcedChunk(null);
+                    vasyan.setForcedChunk(null);
                 }
             }
             return;
         }
-        for (VasyanEntity steve : activeSteves.values()) {
-            if (steve.level() != level) {
+        for (VasyanEntity vasyan : activeVasyans.values()) {
+            if (vasyan.level() != level) {
                 continue;
             }
             ChunkForceTracker.ChunkKey current = new ChunkForceTracker.ChunkKey(
-                level.dimension(), new net.minecraft.world.level.ChunkPos(steve.blockPosition()));
-            ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
+                level.dimension(), new net.minecraft.world.level.ChunkPos(vasyan.blockPosition()));
+            ChunkForceTracker.ChunkKey old = vasyan.getForcedChunk();
             if (current.equals(old)) {
                 continue;
             }
-            forceChunk(level, current.pos(), steve.getUUID());
-            AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "force current [" + current.pos().x + "," + current.pos().z + "]");
+            forceChunk(level, current.pos(), vasyan.getUUID());
+            AgentDebugBuffer.log(vasyan.getVasyanName(), "CHUNK", "force current [" + current.pos().x + "," + current.pos().z + "]");
             if (old != null) {
                 // Un-force the previous chunk in ITS dimension (dimension change)
                 ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
                 if (ownerLevel != null) {
-                    unforceChunk(ownerLevel, old.pos(), steve.getUUID());
+                    unforceChunk(ownerLevel, old.pos(), vasyan.getUUID());
                 }
             }
-            steve.setForcedChunk(current);
+            vasyan.setForcedChunk(current);
         }
     }
 
     public void tick(ServerLevel level) {
         updateForcedChunks(level);
 
-        // Clean up dead or removed Steves
-        Iterator<Map.Entry<String, VasyanEntity>> iterator = activeSteves.entrySet().iterator();
+        // Clean up dead or removed Vasyans
+        Iterator<Map.Entry<String, VasyanEntity>> iterator = activeVasyans.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, VasyanEntity> entry = iterator.next();
-            VasyanEntity steve = entry.getValue();
-            if (!steve.isAlive() || steve.isRemoved()) {
-                releaseChunk(steve, level);
+            VasyanEntity vasyan = entry.getValue();
+            if (!vasyan.isAlive() || vasyan.isRemoved()) {
+                releaseChunk(vasyan, level);
                 iterator.remove();
-                stevesByUUID.remove(steve.getUUID());
+                vasyansByUUID.remove(vasyan.getUUID());
                 VasyanMod.LOGGER.info("Removed dead Vasyan: {}", entry.getKey());
             }
         }

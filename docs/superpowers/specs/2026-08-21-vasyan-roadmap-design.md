@@ -5,17 +5,17 @@ Approved 2026-08-21 with Иосиф Правец.
 ## Identity
 
 - **Name:** Vasyan
-- **GitHub repo:** `pravets/Steve` -> `pravets/Vasyan`
+- **GitHub repo:** `pravets/Vasyan` -> `pravets/Vasyan`
 - **Maven group:** `ru.pravets.vasyan`
 - **Mod ID:** `vasyan`
-- **Class prefix:** `Vasyan*` (was `Steve*`)
-- **Package:** `ru.pravets.vasyan` (was `com.steve.ai`)
+- **Class prefix:** `Vasyan*` (was `Vasyan*`)
+- **Package:** `ru.pravets.vasyan` (was `com.vasyan.ai`)
 
 ## Phase 0 — Rebrand
 
-1. Branch `feat/rebrand-steve-to-vasyan` from `master`.
-2. Rename Java package `com.steve.ai` -> `ru.pravets.vasyan`.
-3. Rename `Steve*` classes -> `Vasyan*` (`SteveMod`, `SteveEntity`, `SteveManager`, etc.).
+1. Branch `feat/rebrand-vasyan-to-vasyan` from `master`.
+2. Rename Java package `com.vasyan.ai` -> `ru.pravets.vasyan`.
+3. Rename `Vasyan*` classes -> `Vasyan*` (`VasyanMod`, `VasyanEntity`, `VasyanManager`, etc.).
 4. Update mod ID, entity/item/block IDs, network channel, lang keys, `mods.toml`.
 5. Update `build.gradle` group/archivesBaseName and `settings.gradle` rootProject name.
 6. Rename asset folder, example config file, helper scripts.

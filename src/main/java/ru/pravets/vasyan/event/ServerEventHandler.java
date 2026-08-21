@@ -20,7 +20,7 @@ import net.minecraftforge.fml.common.Mod;
 public class ServerEventHandler {
 
     /**
-     * Register every Steve that enters the world (fresh spawn, chunk load,
+     * Register every Vasyan that enters the world (fresh spawn, chunk load,
      * dimension change) with the manager. Server-side only: client copies
      * must not be tracked. Dedup of world-loaded duplicates happens here too:
      * adopt() rejects a duplicate that has not entered the world yet, and
@@ -31,15 +31,15 @@ public class ServerEventHandler {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        if (event.getEntity() instanceof VasyanEntity steve) {
-            if (VasyanMod.getSteveManager().adopt(steve) == null) {
+        if (event.getEntity() instanceof VasyanEntity vasyan) {
+            if (VasyanMod.getVasyanManager().adopt(vasyan) == null) {
                 event.setCanceled(true);
             }
         }
     }
 
     /**
-     * Drop the vision cache entry when a Steve leaves the level (despawn,
+     * Drop the vision cache entry when a Vasyan leaves the level (despawn,
      * removal, dimension change) to avoid memory leaks. Untrack it from the
      * registries for every removal reason except a dimension change: a
      * CHANGED_DIMENSION bot is still alive (just in another level) and is
@@ -47,11 +47,11 @@ public class ServerEventHandler {
      */
     @SubscribeEvent
     public static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
-        if (event.getEntity() instanceof VasyanEntity steve) {
-            VisionScanner.forget(steve);
+        if (event.getEntity() instanceof VasyanEntity vasyan) {
+            VisionScanner.forget(vasyan);
             if (!event.getLevel().isClientSide()
-                    && steve.getRemovalReason() != Entity.RemovalReason.CHANGED_DIMENSION) {
-                VasyanMod.getSteveManager().onSteveUnload(steve);
+                    && vasyan.getRemovalReason() != Entity.RemovalReason.CHANGED_DIMENSION) {
+                VasyanMod.getVasyanManager().onVasyanUnload(vasyan);
             }
         }
     }
@@ -73,22 +73,22 @@ public class ServerEventHandler {
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerLevel level = (ServerLevel) player.level();
-            VasyanManager manager = VasyanMod.getSteveManager();
+            VasyanManager manager = VasyanMod.getVasyanManager();
             // The "default bots already spawned" marker lives in the world's
             // SavedData, so it survives chunk unloads and player logouts. The
             // default bots are spawned only on the very first world start -
             // never re-spawned on a later login (bug #9).
             VasyanWorldData worldData = getWorldData(level);
             if (!worldData.hasDefaultBotsSpawned()) {
-                // World-loaded Steves are already adopted by onEntityJoinLevel
-                // and keep their NBT state (inventory, memory). spawnSteve()
+                // World-loaded Vasyans are already adopted by onEntityJoinLevel
+                // and keep their NBT state (inventory, memory). spawnVasyan()
                 // skips names that already exist in the registry or in a
                 // loaded chunk, so no duplicate is created over a world bot
                 // that sits in a loaded chunk either.
                 Vec3 playerPos = player.position();
                 Vec3 lookVec = player.getLookAngle();
 
-                String[] names = {"Steve", "Alex", "Bob", "Charlie"};
+                String[] names = {"Vasyan", "Alex", "Bob", "Charlie"};
 
                 for (int i = 0; i < 4; i++) {
                     double offsetX = lookVec.x * 5 + (lookVec.z * (i - 1.5) * 2);
@@ -100,7 +100,7 @@ public class ServerEventHandler {
                         playerPos.z + offsetZ
                     );
 
-                    manager.spawnSteve(level, spawnPos, names[i]);
+                    manager.spawnVasyan(level, spawnPos, names[i]);
                 }
 
                 worldData.markDefaultBotsSpawned();

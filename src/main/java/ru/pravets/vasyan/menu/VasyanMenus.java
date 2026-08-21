@@ -8,14 +8,14 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
 /**
- * Menu type registration for Steve's inventory menu.
+ * Menu type registration for Vasyan's inventory menu.
  */
 public final class VasyanMenus {
 
     public static final DeferredRegister<MenuType<?>> MENUS =
         DeferredRegister.create(ForgeRegistries.MENU_TYPES, VasyanMod.MODID);
 
-    public static final RegistryObject<MenuType<VasyanMenu>> STEVE_MENU =
+    public static final RegistryObject<MenuType<VasyanMenu>> VASYAN_MENU =
         MENUS.register("vasyan_menu", () -> IForgeMenuType.create(VasyanMenu::fromNetwork));
 
     private VasyanMenus() {}

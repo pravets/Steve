@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1 (47.2.0), official mappings, Java 17, JUnit 5.
 
-**Spec:** This plan implements the bug described in the user report: Steve mines `coal_ore` but the inventory receives `coal`; mining `stone` receives `cobblestone`; asking for `cobblestone` should mine `stone`.
+**Spec:** This plan implements the bug described in the user report: Vasyan mines `coal_ore` but the inventory receives `coal`; mining `stone` receives `cobblestone`; asking for `cobblestone` should mine `stone`.
 
 ## Global Constraints
 
@@ -35,13 +35,13 @@ This is wrong for blocks whose dropped item differs from the block item:
 - `stone` drops `cobblestone`.
 - `cobblestone` itself drops `cobblestone`.
 
-`VisionScanner.findVisible(steve, targetBlock)` and `findNearbyBlocks(steve, radius, targetBlock)` also search for exactly one block type, so a request for `cobblestone` never considers mining `stone`.
+`VisionScanner.findVisible(vasyan, targetBlock)` and `findNearbyBlocks(vasyan, radius, targetBlock)` also search for exactly one block type, so a request for `cobblestone` never considers mining `stone`.
 
 ## Task 1: Add `ResourceYield` mapping to `ResourceBlocks`
 
 **Files:**
-- Modify: `src/main/java/com/steve/ai/action/actions/ResourceBlocks.java`
-- Test: `src/test/java/com/steve/ai/action/actions/ResourceBlocksTest.java`
+- Modify: `src/main/java/com/vasyan/ai/action/actions/ResourceBlocks.java`
+- Test: `src/test/java/com/vasyan/ai/action/actions/ResourceBlocksTest.java`
 
 **Interfaces:**
 - Produces: `public static ResourceYield yieldFor(String resourceName)`
@@ -181,7 +181,7 @@ void fallbackYieldUsesBlockAsItem() {
 Run:
 ```bash
 nice -n 19 ionice -c3 ./gradlew compileJava compileTestJava --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" --max-workers=1
-./gradlew test --tests "com.steve.ai.action.actions.ResourceBlocksTest" --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" --max-workers=1
+./gradlew test --tests "com.vasyan.ai.action.actions.ResourceBlocksTest" --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" --max-workers=1
 ```
 
 Expected: `ResourceBlocksTest` passes (new + existing tests).
@@ -189,46 +189,46 @@ Expected: `ResourceBlocksTest` passes (new + existing tests).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/java/com/steve/ai/action/actions/ResourceBlocks.java src/test/java/com/steve/ai/action/actions/ResourceBlocksTest.java
+git add src/main/java/com/vasyan/ai/action/actions/ResourceBlocks.java src/test/java/com/vasyan/ai/action/actions/ResourceBlocksTest.java
 git commit -m "feat(resource): add ResourceYield mapping for block-to-drop matching"
 ```
 
 ## Task 2: Add multi-block search helpers to `VisionScanner`
 
 **Files:**
-- Modify: `src/main/java/com/steve/ai/memory/VisionScanner.java`
+- Modify: `src/main/java/com/vasyan/ai/memory/VisionScanner.java`
 - Test: existing tests should still compile; no new tests needed if behavior is unchanged for single-block callers.
 
 **Interfaces:**
 - Consumes: `ResourceYield.miningBlocks()` from Task 1.
-- Produces: `public static List<BlockPos> findVisible(SteveEntity steve, Set<Block> targets)`
-- Produces: `public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Set<Block> targets)`
+- Produces: `public static List<BlockPos> findVisible(VasyanEntity vasyan, Set<Block> targets)`
+- Produces: `public static List<BlockPos> findNearbyBlocks(VasyanEntity vasyan, int radius, Set<Block> targets)`
 
 - [ ] **Step 1: Add `findVisible` overload for a set of blocks**
 
 ```java
-public static List<BlockPos> findVisible(SteveEntity steve, Set<Block> targets) {
-    Map<Block, List<BlockPos>> visible = scan(steve);
+public static List<BlockPos> findVisible(VasyanEntity vasyan, Set<Block> targets) {
+    Map<Block, List<BlockPos>> visible = scan(vasyan);
     List<BlockPos> found = new ArrayList<>();
     for (Block block : targets) {
         found.addAll(visible.getOrDefault(block, List.of()));
     }
-    BlockPos center = steve.blockPosition();
+    BlockPos center = vasyan.blockPosition();
     return found.stream()
         .sorted(Comparator.comparingDouble(p -> p.distSqr(center)))
         .toList();
 }
 ```
 
-Keep the existing `findVisible(SteveEntity, Block)` and delegate to the set overload with `Set.of(target)`.
+Keep the existing `findVisible(VasyanEntity, Block)` and delegate to the set overload with `Set.of(target)`.
 
 - [ ] **Step 2: Add `findNearbyBlocks` overload for a set of blocks**
 
 ```java
-public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Set<Block> targets) {
-    BlockPos center = steve.blockPosition();
+public static List<BlockPos> findNearbyBlocks(VasyanEntity vasyan, int radius, Set<Block> targets) {
+    BlockPos center = vasyan.blockPosition();
     List<BlockPos> found = new ArrayList<>();
-    Level level = steve.level();
+    Level level = vasyan.level();
     for (int dx = -radius; dx <= radius; dx++) {
         for (int dy = -radius; dy <= radius; dy++) {
             for (int dz = -radius; dz <= radius; dz++) {
@@ -246,7 +246,7 @@ public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Set
 }
 ```
 
-Keep the existing `findNearbyBlocks(SteveEntity, int, Block)` and delegate with `target == null ? null : Set.of(target)`, preserving the `target == null` any-log behavior.
+Keep the existing `findNearbyBlocks(VasyanEntity, int, Block)` and delegate with `target == null ? null : Set.of(target)`, preserving the `target == null` any-log behavior.
 
 - [ ] **Step 3: Compile**
 
@@ -260,19 +260,19 @@ Expected: compiles cleanly.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/main/java/com/steve/ai/memory/VisionScanner.java
+git add src/main/java/com/vasyan/ai/memory/VisionScanner.java
 git commit -m "feat(vision): support searching for a set of block types"
 ```
 
 ## Task 3: Wire `ResourceYield` into `GatherResourceAction`
 
 **Files:**
-- Modify: `src/main/java/com/steve/ai/action/actions/GatherResourceAction.java`
-- Test: `src/test/java/com/steve/ai/action/actions/GatherResourceCountTest.java`
+- Modify: `src/main/java/com/vasyan/ai/action/actions/GatherResourceAction.java`
+- Test: `src/test/java/com/vasyan/ai/action/actions/GatherResourceCountTest.java`
 
 **Interfaces:**
 - Consumes: `ResourceBlocks.ResourceYield` from Task 1.
-- Consumes: `VisionScanner.findVisible(SteveEntity, Set<Block>)` and `findNearbyBlocks(SteveEntity, int, Set<Block>)` from Task 2.
+- Consumes: `VisionScanner.findVisible(VasyanEntity, Set<Block>)` and `findNearbyBlocks(VasyanEntity, int, Set<Block>)` from Task 2.
 - Produces: gathered count uses the yield item matcher; search targets use yield mining blocks.
 
 - [ ] **Step 1: Add `resourceYield` and `miningBlocks` fields**
@@ -329,13 +329,13 @@ Replace lines 290-296:
 
 ```java
 List<BlockPos> visible = anyLogMode
-    ? VisionScanner.findVisibleAnyLog(steve)
-    : VisionScanner.findVisible(steve, miningBlocks);
+    ? VisionScanner.findVisibleAnyLog(vasyan)
+    : VisionScanner.findVisible(vasyan, miningBlocks);
 
 boolean logTarget = anyLogMode
     || (targetBlock != null && targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS));
 
-List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, miningBlocks);
+List<BlockPos> nearby = VisionScanner.findNearbyBlocks(vasyan, NEARBY_SCAN_RADIUS, miningBlocks);
 ```
 
 - [ ] **Step 4: Update `currentTargetItem()` for fill mode**
@@ -371,7 +371,7 @@ private int countResource() {
     } else {
         matcher = item -> false;
     }
-    return countResource(steve.getInventory(), matcher);
+    return countResource(vasyan.getInventory(), matcher);
 }
 ```
 
@@ -381,7 +381,7 @@ Replace lines 881-885 with:
 
 ```java
 private boolean isTargetBlockAt(BlockPos pos) {
-    Block block = steve.level().getBlockState(pos).getBlock();
+    Block block = vasyan.level().getBlockState(pos).getBlock();
     if (fellGatheringMaterial || !anyLogMode) {
         return miningBlocks != null && miningBlocks.contains(block);
     }
@@ -396,7 +396,7 @@ Add to `GatherResourceCountTest`:
 ```java
 @Test
 void coalRequestCountsCoalItemsNotOreBlockItems() {
-    SteveInventory inv = new SteveInventory(9);
+    VasyanInventory inv = new VasyanInventory(9);
     inv.addItem(new ItemStack(Items.COAL, 5));
     inv.addItem(new ItemStack(Items.COAL_ORE, 3)); // should not count
 
@@ -405,7 +405,7 @@ void coalRequestCountsCoalItemsNotOreBlockItems() {
 
 @Test
 void stoneRequestCountsCobblestoneDrops() {
-    SteveInventory inv = new SteveInventory(9);
+    VasyanInventory inv = new VasyanInventory(9);
     inv.addItem(new ItemStack(Items.COBBLESTONE, 12));
     inv.addItem(new ItemStack(Items.STONE, 4)); // block item, not a drop
 
@@ -414,7 +414,7 @@ void stoneRequestCountsCobblestoneDrops() {
 
 @Test
 void deltaCountingUsesYieldMatcher() {
-    SteveInventory inv = new SteveInventory(9);
+    VasyanInventory inv = new VasyanInventory(9);
     inv.addItem(new ItemStack(Items.COAL, 2));
     int baseline = GatherResourceAction.countResource(inv, item -> item == Items.COAL);
 
@@ -429,7 +429,7 @@ void deltaCountingUsesYieldMatcher() {
 Run:
 ```bash
 nice -n 19 ionice -c3 ./gradlew compileJava compileTestJava --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" --max-workers=1
-./gradlew test --tests "com.steve.ai.action.actions.GatherResourceCountTest" --tests "com.steve.ai.action.actions.ResourceBlocksTest" --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" --max-workers=1
+./gradlew test --tests "com.vasyan.ai.action.actions.GatherResourceCountTest" --tests "com.vasyan.ai.action.actions.ResourceBlocksTest" --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" --max-workers=1
 ```
 
 Expected: all targeted tests pass.
@@ -437,7 +437,7 @@ Expected: all targeted tests pass.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/main/java/com/steve/ai/action/actions/GatherResourceAction.java src/test/java/com/steve/ai/action/actions/GatherResourceCountTest.java
+git add src/main/java/com/vasyan/ai/action/actions/GatherResourceAction.java src/test/java/com/vasyan/ai/action/actions/GatherResourceCountTest.java
 git commit -m "fix(gather): use ResourceYield for search targets and inventory counting"
 ```
 
@@ -455,7 +455,7 @@ git push origin feat/resource-yield-matching
 - [ ] **Step 2: Create draft PR**
 
 ```bash
-gh pr create -R pravets/Steve --base master --head feat/resource-yield-matching \
+gh pr create -R pravets/Vasyan --base master --head feat/resource-yield-matching \
   --title "fix: match gathered items to actual block drops" \
   --body-file /tmp/pr-body.md
 ```
@@ -484,7 +484,7 @@ Additionally, a request for `cobblestone` only searched for `cobblestone` blocks
 - [ ] **Step 3: Watch CI**
 
 ```bash
-gh run list -R pravets/Steve --branch feat/resource-yield-matching
+gh run list -R pravets/Vasyan --branch feat/resource-yield-matching
 gh run watch <run-id> --exit-status
 ```
 

@@ -1,10 +1,10 @@
-# Phase 0 Rebrand Plan: Steve -> Vasyan
+# Phase 0 Rebrand Plan: Vasyan -> Vasyan
 
 Approved 2026-08-21 with Иосиф Правец.
 
 ## Goal
 
-Create the foundation for the Steve -> Vasyan rebrand: a dedicated feature
+Create the foundation for the Vasyan -> Vasyan rebrand: a dedicated feature
 branch and an exact, version-controlled rename map that drives all subsequent
 mechanical renaming.
 
@@ -12,15 +12,15 @@ mechanical renaming.
 
 | Item | From | To |
 |------|------|----|
-| Project name | Steve | Vasyan |
-| GitHub repo | `pravets/Steve` | `pravets/Vasyan` |
-| Maven group | `com.steve.ai` | `ru.pravets.vasyan` |
-| Mod ID | `steve` | `vasyan` |
-| Class prefix | `Steve*` | `Vasyan*` |
-| Java package | `com.steve.ai` | `ru.pravets.vasyan` |
-| Archive base name | `steve-ai-mod` | `vasyan-ai-mod` |
-| Root project name | `steve` | `vasyan` |
-| Display name | `Steve AI Mod` | `Vasyan AI Mod` |
+| Project name | Vasyan | Vasyan |
+| GitHub repo | `pravets/Vasyan` | `pravets/Vasyan` |
+| Maven group | `com.vasyan.ai` | `ru.pravets.vasyan` |
+| Mod ID | `vasyan` | `vasyan` |
+| Class prefix | `Vasyan*` | `Vasyan*` |
+| Java package | `com.vasyan.ai` | `ru.pravets.vasyan` |
+| Archive base name | `vasyan-ai-mod` | `vasyan-ai-mod` |
+| Root project name | `vasyan` | `vasyan` |
+| Display name | `Vasyan AI Mod` | `Vasyan AI Mod` |
 
 ## Exact rename map
 
@@ -30,7 +30,7 @@ attribution to `YuvDwi/Steve` is preserved as a no-op entry.
 
 ## Phase 0 tasks
 
-1. Create branch `feat/rebrand-steve-to-vasyan` from `master`.
+1. Create branch `feat/rebrand-vasyan-to-vasyan` from `master`.
 2. Add `scripts/rebrand-map.txt` with the exact rename map.
 3. Commit the map with author `Iosif Pravets <i@pravets.ru>`.
 4. Verify the branch is clean.

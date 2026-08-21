@@ -51,7 +51,7 @@ public class VasyanMod {
         COMMAND_ARGUMENT_TYPES.register("vasyan_name", () -> VasyanNameArgumentInfo.INSTANCE);
     }
 
-    private static VasyanManager steveManager;
+    private static VasyanManager vasyanManager;
 
     public VasyanMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -72,7 +72,7 @@ public class VasyanMod {
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
             MinecraftForge.EVENT_BUS.register(ru.pravets.vasyan.client.VasyanGUI.class);        }
         
-        steveManager = new VasyanManager();
+        vasyanManager = new VasyanManager();
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -92,15 +92,15 @@ public class VasyanMod {
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && steveManager != null && event.getServer() != null) {
+        if (event.phase == TickEvent.Phase.END && vasyanManager != null && event.getServer() != null) {
             for (ServerLevel level : event.getServer().getAllLevels()) {
-                steveManager.tick(level);
+                vasyanManager.tick(level);
             }
         }
     }
 
-    public static VasyanManager getSteveManager() {
-        return steveManager;
+    public static VasyanManager getVasyanManager() {
+        return vasyanManager;
     }
 }
 

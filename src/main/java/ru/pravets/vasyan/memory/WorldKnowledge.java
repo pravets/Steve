@@ -12,13 +12,13 @@ import net.minecraft.world.phys.AABB;
 import java.util.*;
 
 public class WorldKnowledge {
-    private final VasyanEntity steve;
+    private final VasyanEntity vasyan;
     private final int scanRadius = 16;
     private List<Entity> nearbyEntities;
     private String biomeName;
 
-    public WorldKnowledge(VasyanEntity steve) {
-        this.steve = steve;
+    public WorldKnowledge(VasyanEntity vasyan) {
+        this.vasyan = vasyan;
         scan();
     }
 
@@ -28,8 +28,8 @@ public class WorldKnowledge {
     }
 
     private void scanBiome() {
-        Level level = steve.level();
-        BlockPos pos = steve.blockPosition();
+        Level level = vasyan.level();
+        BlockPos pos = vasyan.blockPosition();
         
         Biome biome = level.getBiome(pos).value();
         var biomeRegistry = level.registryAccess().registryOrThrow(Registries.BIOME);
@@ -43,9 +43,9 @@ public class WorldKnowledge {
     }
 
     private void scanEntities() {
-        Level level = steve.level();
-        AABB searchBox = steve.getBoundingBox().inflate(scanRadius);
-        nearbyEntities = level.getEntities(steve, searchBox);
+        Level level = vasyan.level();
+        AABB searchBox = vasyan.getBoundingBox().inflate(scanRadius);
+        nearbyEntities = level.getEntities(vasyan, searchBox);
     }
 
     public String getBiomeName() {
@@ -54,7 +54,7 @@ public class WorldKnowledge {
 
     public String getNearbyBlocksSummary() {
         // Honest vision: only visible blocks with line of sight
-        return VisionScanner.getVisibleSummary(steve);
+        return VisionScanner.getVisibleSummary(vasyan);
     }
 
     public String getNearbyEntitiesSummary() {

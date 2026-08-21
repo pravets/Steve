@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Manages collaborative building where multiple Steves work on DIFFERENT SECTIONS of the same structure
+ * Manages collaborative building where multiple Vasyans work on DIFFERENT SECTIONS of the same structure
  */
 public class CollaborativeBuildManager {
     
@@ -18,17 +18,17 @@ public class CollaborativeBuildManager {
         public final String structureId;
         public final List<BlockPlacement> buildPlan;
         private final List<BuildSection> sections;
-        private final Map<String, Integer> steveToSectionMap;
+        private final Map<String, Integer> vasyanToSectionMap;
         private final AtomicInteger nextSectionIndex;
-        public final Set<String> participatingSteves;
+        public final Set<String> participatingVasyans;
         public final BlockPos startPos;
         
         public CollaborativeBuild(String structureId, List<BlockPlacement> buildPlan, BlockPos startPos) {
             this.structureId = structureId;
             this.buildPlan = buildPlan;
-            this.participatingSteves = ConcurrentHashMap.newKeySet();
+            this.participatingVasyans = ConcurrentHashMap.newKeySet();
             this.startPos = startPos;
-            this.steveToSectionMap = new ConcurrentHashMap<>();
+            this.vasyanToSectionMap = new ConcurrentHashMap<>();
             this.nextSectionIndex = new AtomicInteger(0);
             this.sections = divideBuildIntoSections(buildPlan);
             
@@ -38,7 +38,7 @@ public class CollaborativeBuildManager {
         
         /**
          * Divide the build into 4 QUADRANTS (NW, NE, SW, SE)
-         * Each quadrant is sorted BOTTOM-TO-TOP so each Steve builds their quadrant from the ground up
+         * Each quadrant is sorted BOTTOM-TO-TOP so each Vasyan builds their quadrant from the ground up
          */
         private List<BuildSection> divideBuildIntoSections(List<BlockPlacement> plan) {
             if (plan.isEmpty()) {
@@ -122,7 +122,7 @@ public class CollaborativeBuildManager {
     }
     
     /**
-     * A section of the build that one Steve works on (represents a spatial quadrant)
+     * A section of the build that one Vasyan works on (represents a spatial quadrant)
      */
     public static class BuildSection {
         public final int yLevel; // Used as section ID
@@ -175,20 +175,20 @@ public class CollaborativeBuildManager {
     }
     
     /**
-     * Get the next block for a Steve to place (each Steve works on their own section)
-     * Returns null if Steve's section is complete
+     * Get the next block for a Vasyan to place (each Vasyan works on their own section)
+     * Returns null if Vasyan's section is complete
      */
-    public static BlockPlacement getNextBlock(CollaborativeBuild build, String steveName) {
+    public static BlockPlacement getNextBlock(CollaborativeBuild build, String vasyanName) {
         if (build.isComplete()) {
             return null;
         }
         
-        build.participatingSteves.add(steveName);
+        build.participatingVasyans.add(vasyanName);
         
-        // Assign Steve to a section if not already assigned
-        Integer sectionIndex = build.steveToSectionMap.get(steveName);
+        // Assign Vasyan to a section if not already assigned
+        Integer sectionIndex = build.vasyanToSectionMap.get(vasyanName);
         if (sectionIndex == null) {
-            sectionIndex = assignSteveToSection(build, steveName);
+            sectionIndex = assignVasyanToSection(build, vasyanName);
             if (sectionIndex == null) {
                 // No sections available
                 return null;
@@ -210,21 +210,21 @@ public class CollaborativeBuildManager {
     }
     
     /**
-     * Assign a Steve to a section (quadrant) that needs work
+     * Assign a Vasyan to a section (quadrant) that needs work
      * Prioritizes unassigned sections, but allows helping on large sections
      * Returns the section index, or null if all sections are complete
      */
-    private static Integer assignSteveToSection(CollaborativeBuild build, String steveName) {
+    private static Integer assignVasyanToSection(CollaborativeBuild build, String vasyanName) {
         // First pass: Find a section that isn't complete and isn't already assigned
         for (int i = 0; i < build.sections.size(); i++) {
             BuildSection section = build.sections.get(i);
             if (!section.isComplete()) {
-                boolean alreadyAssigned = build.steveToSectionMap.containsValue(i);
+                boolean alreadyAssigned = build.vasyanToSectionMap.containsValue(i);
                 
                 if (!alreadyAssigned) {
-                    build.steveToSectionMap.put(steveName, i);
-                    VasyanMod.LOGGER.info("Assigned Steve '{}' to {} quadrant - will build {} blocks BOTTOM-TO-TOP", 
-                        steveName, section.sectionName, section.getTotalBlocks());
+                    build.vasyanToSectionMap.put(vasyanName, i);
+                    VasyanMod.LOGGER.info("Assigned Vasyan '{}' to {} quadrant - will build {} blocks BOTTOM-TO-TOP", 
+                        vasyanName, section.sectionName, section.getTotalBlocks());
                     return i;
                 }
             }
@@ -234,9 +234,9 @@ public class CollaborativeBuildManager {
         for (int i = 0; i < build.sections.size(); i++) {
             BuildSection section = build.sections.get(i);
             if (!section.isComplete()) {
-                build.steveToSectionMap.put(steveName, i);
-                VasyanMod.LOGGER.info("Steve '{}' helping with {} quadrant ({} blocks remaining)", 
-                    steveName, section.sectionName, section.getTotalBlocks() - section.getBlocksPlaced());
+                build.vasyanToSectionMap.put(vasyanName, i);
+                VasyanMod.LOGGER.info("Vasyan '{}' helping with {} quadrant ({} blocks remaining)", 
+                    vasyanName, section.sectionName, section.getTotalBlocks() - section.getBlocksPlaced());
                 return i;
             }
         }
@@ -258,8 +258,8 @@ public class CollaborativeBuildManager {
     public static void completeBuild(String structureId) {
         CollaborativeBuild build = activeBuilds.remove(structureId);
         if (build != null) {
-            VasyanMod.LOGGER.info("Collaborative build '{}' completed by {} Steves", 
-                structureId, build.participatingSteves.size());
+            VasyanMod.LOGGER.info("Collaborative build '{}' completed by {} Vasyans", 
+                structureId, build.participatingVasyans.size());
         }
     }
     

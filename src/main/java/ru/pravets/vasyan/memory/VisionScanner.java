@@ -27,13 +27,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Honest vision for Steve: scans the world for interesting blocks (trees, ores,
+ * Honest vision for Vasyan: scans the world for interesting blocks (trees, ores,
  * chests) but only reports blocks with a clear line of sight (no x-ray, no cheats).
  *
  * <p>Scanning is <b>approximate sampling</b> beyond the precise near zone:
  * the near zone ({@value #PRECISE_RADIUS} blocks) is scanned block-by-block,
- * the far zone uses the configured grid step. The cache is per-Steve and is
- * invalidated when Steve moves, changes dimension, or the TTL expires.</p>
+ * the far zone uses the configured grid step. The cache is per-Vasyan and is
+ * invalidated when Vasyan moves, changes dimension, or the TTL expires.</p>
  *
  * <p>Performance safeguards: positions in unloaded chunks are skipped (no
  * synchronous chunk loading), and the effective grid step is automatically
@@ -48,7 +48,7 @@ public final class VisionScanner {
     /** Radius (blocks) scanned block-by-block for exact results. */
     private static final int PRECISE_RADIUS = 16;
 
-    /** Block types Steve considers "interesting" when looking around. */
+    /** Block types Vasyan considers "interesting" when looking around. */
     private static final Set<Block> INTERESTING = new HashSet<>();
 
     static {
@@ -101,26 +101,26 @@ public final class VisionScanner {
     private VisionScanner() {}
 
     /**
-     * Finds all visible blocks of the given type near Steve, nearest first.
+     * Finds all visible blocks of the given type near Vasyan, nearest first.
      * Returns an empty list if nothing is visible.
      */
-    public static List<BlockPos> findVisible(VasyanEntity steve, Block target) {
+    public static List<BlockPos> findVisible(VasyanEntity vasyan, Block target) {
         if (target == null) {
             return List.of();
         }
-        return findVisible(steve, Set.of(target));
+        return findVisible(vasyan, Set.of(target));
     }
 
     /**
-     * Finds all visible blocks of any of the given types near Steve, nearest first.
+     * Finds all visible blocks of any of the given types near Vasyan, nearest first.
      * Returns an empty list if nothing is visible.
      *
      * <p>Requested blocks that are not in the shared {@link #INTERESTING} cache are
      * scanned on demand with the same radius/step budget, so common blocks like
      * stone or cobblestone are still discoverable without polluting the shared cache.
      */
-    public static List<BlockPos> findVisible(VasyanEntity steve, Set<Block> targets) {
-        Map<Block, List<BlockPos>> visible = scan(steve);
+    public static List<BlockPos> findVisible(VasyanEntity vasyan, Set<Block> targets) {
+        Map<Block, List<BlockPos>> visible = scan(vasyan);
         List<BlockPos> found = new ArrayList<>();
         Set<Block> missing = new HashSet<>();
         for (Block block : targets) {
@@ -132,9 +132,9 @@ public final class VisionScanner {
             }
         }
         if (!missing.isEmpty()) {
-            found.addAll(scanTargets(steve, missing));
+            found.addAll(scanTargets(vasyan, missing));
         }
-        BlockPos center = steve.blockPosition();
+        BlockPos center = vasyan.blockPosition();
         return found.stream()
             .sorted(Comparator.comparingDouble(p -> p.distSqr(center)))
             .toList();
@@ -145,15 +145,15 @@ public final class VisionScanner {
      * "gather wood" mode where the bot must chop birch, spruce etc., not just
      * the single oak type the LLM happened to name.
      */
-    public static List<BlockPos> findVisibleAnyLog(VasyanEntity steve) {
-        Map<Block, List<BlockPos>> visible = scan(steve);
+    public static List<BlockPos> findVisibleAnyLog(VasyanEntity vasyan) {
+        Map<Block, List<BlockPos>> visible = scan(vasyan);
         List<BlockPos> found = new java.util.ArrayList<>();
         for (Map.Entry<Block, List<BlockPos>> entry : visible.entrySet()) {
             if (entry.getKey().builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)) {
                 found.addAll(entry.getValue());
             }
         }
-        BlockPos center = steve.blockPosition();
+        BlockPos center = vasyan.blockPosition();
         return found.stream()
             .sorted(Comparator.comparingDouble(p -> p.distSqr(center)))
             .toList();
@@ -168,9 +168,9 @@ public final class VisionScanner {
      *
      * @param target the exact block to look for, or null for ANY log type
      */
-    public static List<BlockPos> findNearbyBlocks(VasyanEntity steve, int radius, Block target) {
+    public static List<BlockPos> findNearbyBlocks(VasyanEntity vasyan, int radius, Block target) {
         Set<Block> targets = target == null ? null : Set.of(target);
-        return findNearbyBlocks(steve, radius, targets);
+        return findNearbyBlocks(vasyan, radius, targets);
     }
 
     /**
@@ -179,10 +179,10 @@ public final class VisionScanner {
      *
      * @param targets the set of blocks to look for, or null for ANY log type
      */
-    public static List<BlockPos> findNearbyBlocks(VasyanEntity steve, int radius, Set<Block> targets) {
-        BlockPos center = steve.blockPosition();
+    public static List<BlockPos> findNearbyBlocks(VasyanEntity vasyan, int radius, Set<Block> targets) {
+        BlockPos center = vasyan.blockPosition();
         List<BlockPos> found = new ArrayList<>();
-        Level level = steve.level();
+        Level level = vasyan.level();
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -205,23 +205,23 @@ public final class VisionScanner {
     /**
      * Finds the nearest visible block of the given type, or null.
      */
-    public static BlockPos findNearestVisible(VasyanEntity steve, Block target) {
-        List<BlockPos> found = findVisible(steve, target);
+    public static BlockPos findNearestVisible(VasyanEntity vasyan, Block target) {
+        List<BlockPos> found = findVisible(vasyan, target);
         return found.isEmpty() ? null : found.get(0);
     }
 
     /**
-     * Human-readable summary of what Steve can see, for the LLM prompt.
+     * Human-readable summary of what Vasyan can see, for the LLM prompt.
      * Example: "oak_log x3 (12m S), iron_ore (8m down), chest (20m W)"
      * Block names are registry ids (oak_log), matching what actions expect.
      */
-    public static String getVisibleSummary(VasyanEntity steve) {
-        Map<Block, List<BlockPos>> visible = scan(steve);
+    public static String getVisibleSummary(VasyanEntity vasyan) {
+        Map<Block, List<BlockPos>> visible = scan(vasyan);
         if (visible.isEmpty()) {
             return "nothing interesting";
         }
 
-        BlockPos center = steve.blockPosition();
+        BlockPos center = vasyan.blockPosition();
         List<String> parts = new ArrayList<>();
 
         visible.entrySet().stream()
@@ -245,14 +245,14 @@ public final class VisionScanner {
     }
 
     /**
-     * Checks whether Steve has a clear line of sight to the given block.
+     * Checks whether Vasyan has a clear line of sight to the given block.
      * Leaves are treated as transparent for the sight ray (a trunk hidden
      * behind the canopy is still a valid target) - everything else with a
      * collision blocks the view.
      */
-    public static boolean hasLineOfSight(VasyanEntity steve, BlockPos target) {
-        Level level = steve.level();
-        Vec3 eye = steve.getEyePosition(1.0F);
+    public static boolean hasLineOfSight(VasyanEntity vasyan, BlockPos target) {
+        Level level = vasyan.level();
+        Vec3 eye = vasyan.getEyePosition(1.0F);
         Vec3 to = Vec3.atCenterOf(target);
         Vec3 dir = to.subtract(eye);
         if (dir.lengthSqr() < 1.0E-4) {
@@ -264,7 +264,7 @@ public final class VisionScanner {
         // hide ores/logs behind the canopy); hard cap on iterations.
         for (int i = 0; i < 16; i++) {
             BlockHitResult hit = level.clip(new ClipContext(eye, to,
-                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, steve));
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, vasyan));
 
             if (hit.getType() == HitResult.Type.MISS) {
                 return true;
@@ -288,10 +288,10 @@ public final class VisionScanner {
     }
 
     /**
-     * Drops the cached scan for a Steve (call when the entity is removed/despawned).
+     * Drops the cached scan for a Vasyan (call when the entity is removed/despawned).
      */
-    public static void forget(VasyanEntity steve) {
-        CACHE.remove(steve);
+    public static void forget(VasyanEntity vasyan) {
+        CACHE.remove(vasyan);
     }
 
     /**
@@ -303,29 +303,29 @@ public final class VisionScanner {
 
     /**
      * Returns the cached (or freshly scanned) map of visible interesting blocks.
-     * Cache is reused only if Steve is still at the same position in the same
+     * Cache is reused only if Vasyan is still at the same position in the same
      * dimension and the TTL has not expired.
      */
-    private static Map<Block, List<BlockPos>> scan(VasyanEntity steve) {
-        long tick = steve.level().getGameTime();
-        BlockPos pos = steve.blockPosition();
-        ResourceKey<Level> dim = steve.level().dimension();
+    private static Map<Block, List<BlockPos>> scan(VasyanEntity vasyan) {
+        long tick = vasyan.level().getGameTime();
+        BlockPos pos = vasyan.blockPosition();
+        ResourceKey<Level> dim = vasyan.level().dimension();
         int ttl = VasyanConfig.WORLD_SCAN_CACHE_TICKS.get();
 
-        ScanCache cached = CACHE.get(steve);
+        ScanCache cached = CACHE.get(vasyan);
         if (cached != null && tick - cached.cachedAtTick < ttl
                 && cached.origin().equals(pos) && cached.dimension() == dim) {
             return cached.visible();
         }
 
-        Map<Block, List<BlockPos>> visible = scanWorld(steve);
-        CACHE.put(steve, new ScanCache(tick, pos.immutable(), dim, visible));
+        Map<Block, List<BlockPos>> visible = scanWorld(vasyan);
+        CACHE.put(vasyan, new ScanCache(tick, pos.immutable(), dim, visible));
         return visible;
     }
 
-    private static Map<Block, List<BlockPos>> scanWorld(VasyanEntity steve) {
-        Level level = steve.level();
-        BlockPos center = steve.blockPosition();
+    private static Map<Block, List<BlockPos>> scanWorld(VasyanEntity vasyan) {
+        Level level = vasyan.level();
+        BlockPos center = vasyan.blockPosition();
         int radius = VasyanConfig.WORLD_SCAN_RADIUS.get();
         int configuredStep = Math.max(1, VasyanConfig.WORLD_SCAN_STEP.get());
 
@@ -344,7 +344,7 @@ public final class VisionScanner {
         collectCandidates(level, center, radius, step, candidates);
 
         // Precise pass: block-by-block in the near zone so thin targets
-        // (e.g. a single oak log trunk) are never missed close to Steve.
+        // (e.g. a single oak log trunk) are never missed close to Vasyan.
         // Set-based collection deduplicates positions that overlap between
         // the coarse and precise passes (no double raycasts, no inflated xN).
         if (step > 1) {
@@ -367,7 +367,7 @@ public final class VisionScanner {
                     break;
                 }
                 checked++;
-                if (hasLineOfSight(steve, pos)) {
+                if (hasLineOfSight(vasyan, pos)) {
                     visible.computeIfAbsent(block, k -> new ArrayList<>()).add(pos);
                 }
             }
@@ -375,9 +375,9 @@ public final class VisionScanner {
         return visible;
     }
 
-    private static List<BlockPos> scanTargets(VasyanEntity steve, Set<Block> targets) {
-        Level level = steve.level();
-        BlockPos center = steve.blockPosition();
+    private static List<BlockPos> scanTargets(VasyanEntity vasyan, Set<Block> targets) {
+        Level level = vasyan.level();
+        BlockPos center = vasyan.blockPosition();
         int radius = VasyanConfig.WORLD_SCAN_RADIUS.get();
         int configuredStep = Math.max(1, VasyanConfig.WORLD_SCAN_STEP.get());
 
@@ -408,7 +408,7 @@ public final class VisionScanner {
                     break;
                 }
                 checked++;
-                if (hasLineOfSight(steve, pos)) {
+                if (hasLineOfSight(vasyan, pos)) {
                     visible.add(pos);
                 }
             }

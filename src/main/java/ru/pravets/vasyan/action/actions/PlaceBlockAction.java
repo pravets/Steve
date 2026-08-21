@@ -16,8 +16,8 @@ public class PlaceBlockAction extends BaseAction {
     private int ticksRunning;
     private static final int MAX_TICKS = 200;
 
-    public PlaceBlockAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public PlaceBlockAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -48,24 +48,24 @@ public class PlaceBlockAction extends BaseAction {
             return;
         }
         
-        if (!steve.blockPosition().closerThan(targetPos, 5.0)) {
-            steve.getNavigation().moveTo(targetPos.getX(), targetPos.getY(), targetPos.getZ(), 1.0);
+        if (!vasyan.blockPosition().closerThan(targetPos, 5.0)) {
+            vasyan.getNavigation().moveTo(targetPos.getX(), targetPos.getY(), targetPos.getZ(), 1.0);
             return;
         }
         
-        BlockState currentState = steve.level().getBlockState(targetPos);
+        BlockState currentState = vasyan.level().getBlockState(targetPos);
         if (!currentState.isAir() && !currentState.liquid()) {
             result = ActionResult.failure("Position is not empty");
             return;
         }
         
-        steve.level().setBlock(targetPos, blockToPlace.defaultBlockState(), 3);
+        vasyan.level().setBlock(targetPos, blockToPlace.defaultBlockState(), 3);
         result = ActionResult.success("Placed " + blockToPlace.getName().getString());
     }
 
     @Override
     protected void onCancel() {
-        steve.getNavigation().stop();
+        vasyan.getNavigation().stop();
     }
 
     @Override

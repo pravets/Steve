@@ -9,11 +9,11 @@ import net.minecraft.world.entity.player.Player;
 import java.util.List;
 
 /**
- * Teleports the Steve instantly to the commanding player.
+ * Teleports the Vasyan instantly to the commanding player.
  *
  * <p>Triggered by natural language like "come to me", "teleport to me",
  * "return to me" from the K-panel chat. Reuses the same primitive as the
- * /steve tp command ({@link VasyanEntity#teleportToPlayer}) so the auto-return
+ * /vasyan tp command ({@link VasyanEntity#teleportToPlayer}) so the auto-return
  * logic of Stage 3 shares one code path.</p>
  */
 public class TeleportAction extends BaseAction {
@@ -21,8 +21,8 @@ public class TeleportAction extends BaseAction {
     private String playerName;
     private Player targetPlayer;
 
-    public TeleportAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public TeleportAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -41,9 +41,9 @@ public class TeleportAction extends BaseAction {
             return;
         }
 
-        if (steve.teleportToPlayer(serverPlayer)) {
+        if (vasyan.teleportToPlayer(serverPlayer)) {
             result = ActionResult.success("Teleported to " + targetPlayer.getName().getString());
-        } else if (steve.level().dimension() != targetPlayer.level().dimension()) {
+        } else if (vasyan.level().dimension() != targetPlayer.level().dimension()) {
             result = ActionResult.failure("Player is in another dimension");
         } else {
             result = ActionResult.failure("No safe spot near " + targetPlayer.getName().getString());
@@ -71,7 +71,7 @@ public class TeleportAction extends BaseAction {
         if (playerName != null && !playerName.isEmpty()
             && !playerName.contains("PLAYER") && !playerName.contains("NAME")
             && !playerName.equalsIgnoreCase("me") && !playerName.equalsIgnoreCase("you")) {
-            var server = steve.level().getServer();
+            var server = vasyan.level().getServer();
             if (server != null) {
                 ServerPlayer exact = server.getPlayerList().getPlayerByName(playerName);
                 if (exact != null) {
@@ -82,12 +82,12 @@ public class TeleportAction extends BaseAction {
         }
 
         // Implicit targets ("me", "you", placeholders, empty) - nearest player
-        // in the Steve's dimension.
-        List<? extends Player> players = steve.level().players();
+        // in the Vasyan's dimension.
+        List<? extends Player> players = vasyan.level().players();
         Player nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         for (Player player : players) {
-            double distance = steve.distanceTo(player);
+            double distance = vasyan.distanceTo(player);
             if (distance < nearestDistance) {
                 nearest = player;
                 nearestDistance = distance;

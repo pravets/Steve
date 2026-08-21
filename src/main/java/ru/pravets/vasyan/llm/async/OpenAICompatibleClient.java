@@ -137,7 +137,7 @@ public class OpenAICompatibleClient implements AsyncLLMClient {
 
     /**
      * Health check: GET {baseUrl}/models with a short timeout.
-     * Used by /steve providers and diagnostics.
+     * Used by /vasyan providers and diagnostics.
      */
     public boolean checkHealth() {
         try {

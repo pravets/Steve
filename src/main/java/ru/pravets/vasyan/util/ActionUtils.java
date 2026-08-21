@@ -15,13 +15,13 @@ import java.util.List;
 public class ActionUtils {
 
     /**
-     * Find the nearest player to a Steve entity
+     * Find the nearest player to a Vasyan entity
      *
-     * @param steve The Steve entity
+     * @param vasyan The Vasyan entity
      * @return The nearest player, or null if no players found
      */
-    public static Player findNearestPlayer(VasyanEntity steve) {
-        List<? extends Player> players = steve.level().players();
+    public static Player findNearestPlayer(VasyanEntity vasyan) {
+        List<? extends Player> players = vasyan.level().players();
 
         if (players.isEmpty()) {
             return null;
@@ -35,7 +35,7 @@ public class ActionUtils {
                 continue;
             }
 
-            double distance = steve.distanceTo(player);
+            double distance = vasyan.distanceTo(player);
             if (distance < nearestDistance) {
                 nearest = player;
                 nearestDistance = distance;

@@ -22,14 +22,14 @@ import java.util.Optional;
  *
  * <p><b>Example Usage in ActionFactory:</b></p>
  * <pre>
- * ActionFactory factory = (steve, task, ctx) -&gt; {
+ * ActionFactory factory = (vasyan, task, ctx) -&gt; {
  *     // Get services from context
  *     EventBus bus = ctx.getEventBus();
  *
  *     // Or use service container for custom services
  *     LLMCache cache = ctx.getService(LLMCache.class);
  *
- *     return new SmartMineAction(steve, task, cache, bus);
+ *     return new SmartMineAction(vasyan, task, cache, bus);
  * };
  * </pre>
  *

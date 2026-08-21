@@ -13,8 +13,8 @@ public class FollowPlayerAction extends BaseAction {
     private int ticksRunning;
     private static final int MAX_TICKS = 6000; // 5 minutes
 
-    public FollowPlayerAction(VasyanEntity steve, Task task) {
-        super(steve, task);
+    public FollowPlayerAction(VasyanEntity vasyan, Task task) {
+        super(vasyan, task);
     }
 
     @Override
@@ -46,17 +46,17 @@ public class FollowPlayerAction extends BaseAction {
             }
         }
         
-        double distance = steve.distanceTo(targetPlayer);
+        double distance = vasyan.distanceTo(targetPlayer);
         if (distance > 3.0) {
-            steve.getNavigation().moveTo(targetPlayer, 1.0);
+            vasyan.getNavigation().moveTo(targetPlayer, 1.0);
         } else if (distance < 2.0) {
-            steve.getNavigation().stop();
+            vasyan.getNavigation().stop();
         }
     }
 
     @Override
     protected void onCancel() {
-        steve.getNavigation().stop();
+        vasyan.getNavigation().stop();
     }
 
     @Override
@@ -65,7 +65,7 @@ public class FollowPlayerAction extends BaseAction {
     }
 
     private void findPlayer() {
-        java.util.List<? extends Player> players = steve.level().players();
+        java.util.List<? extends Player> players = vasyan.level().players();
         
         // First try exact name match
         for (Player player : players) {
@@ -81,7 +81,7 @@ public class FollowPlayerAction extends BaseAction {
             double nearestDistance = Double.MAX_VALUE;
             
             for (Player player : players) {
-                double distance = steve.distanceTo(player);
+                double distance = vasyan.distanceTo(player);
                 if (distance < nearestDistance) {
                     nearest = player;
                     nearestDistance = distance;
@@ -91,8 +91,8 @@ public class FollowPlayerAction extends BaseAction {
             if (nearest != null) {
                 targetPlayer = nearest;
                 playerName = nearest.getName().getString(); // Update to actual name
-                ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' following nearest player: {}", 
-                    steve.getSteveName(), playerName);
+                ru.pravets.vasyan.VasyanMod.LOGGER.info("Vasyan '{}' following nearest player: {}", 
+                    vasyan.getVasyanName(), playerName);
             }
         }
     }

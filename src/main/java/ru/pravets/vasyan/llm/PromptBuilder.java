@@ -34,9 +34,9 @@ public class PromptBuilder {
             5. Use 2-3 block types: oak_planks, cobblestone, glass_pane, stone_bricks
             6. NO extra pathfind tasks unless explicitly requested
             7. Keep reasoning under 15 words
-            8. COLLABORATIVE BUILDING: Multiple Steves can work on same structure simultaneously
+            8. COLLABORATIVE BUILDING: Multiple Vasyans can work on same structure simultaneously
             9. MINING: Can mine any ore (iron, diamond, coal, etc)
-            10. Commands addressed to ALL Steves ("all ...", "everyone ...", "все ...") are sent to every Steve - you MUST execute them too
+            10. Commands addressed to ALL Vasyans ("all ...", "everyone ...", "все ...") are sent to every Vasyan - you MUST execute them too
             11. NEVER dig tunnels. Mine only blocks you can see.
             12. TREES: fell them completely - climb the trunk on a pillar of blocks from your inventory, fell every log (branches too), dismantle the pillar on the way down.
             
@@ -70,12 +70,12 @@ public class PromptBuilder {
             """;
     }
 
-    public static String buildUserPrompt(VasyanEntity steve, String command, WorldKnowledge worldKnowledge) {
+    public static String buildUserPrompt(VasyanEntity vasyan, String command, WorldKnowledge worldKnowledge) {
         StringBuilder prompt = new StringBuilder();
         
         // Give agents FULL situational awareness
         prompt.append("=== YOUR SITUATION ===\n");
-        prompt.append("Position: ").append(formatPosition(steve.blockPosition())).append("\n");
+        prompt.append("Position: ").append(formatPosition(vasyan.blockPosition())).append("\n");
         prompt.append("Nearby Players: ").append(worldKnowledge.getNearbyPlayerNames()).append("\n");
         prompt.append("Nearby Entities: ").append(worldKnowledge.getNearbyEntitiesSummary()).append("\n");
         prompt.append("Visible blocks (what you can see with your own eyes, with distance and direction): ")
@@ -94,7 +94,7 @@ public class PromptBuilder {
         return String.format("[%d, %d, %d]", pos.getX(), pos.getY(), pos.getZ());
     }
 
-    private static String formatInventory(VasyanEntity steve) {
+    private static String formatInventory(VasyanEntity vasyan) {
         return "[empty]";
     }
 }

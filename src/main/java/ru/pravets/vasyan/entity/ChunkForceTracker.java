@@ -11,12 +11,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Reference-counted chunk force-loading (issue: Steves must keep working on a
+ * Reference-counted chunk force-loading (issue: Vasyans must keep working on a
  * server without players - entities only tick in loaded chunks).
  *
- * <p>Multiple Steves in one chunk must not fight over the force flag: the
+ * <p>Multiple Vasyans in one chunk must not fight over the force flag: the
  * first force() actually loads the chunk, the last unforce() releases it.
- * Holders are tracked by UUID so that a Steve reloaded from NBT after a chunk
+ * Holders are tracked by UUID so that a Vasyan reloaded from NBT after a chunk
  * unload does not double-count the force that was intentionally kept across
  * unload (issue #14).</p>
  *
@@ -33,7 +33,7 @@ public class ChunkForceTracker {
     private final Map<ChunkKey, Set<UUID>> holders = new ConcurrentHashMap<>();
 
     /**
-     * Records that the given Steve owns a force-load on this chunk.
+     * Records that the given Vasyan owns a force-load on this chunk.
      *
      * @return true when the chunk should actually be force-loaded
      *         (first holder), false when it was already forced
@@ -48,7 +48,7 @@ public class ChunkForceTracker {
     }
 
     /**
-     * Removes the given Steve from the force holders.
+     * Removes the given Vasyan from the force holders.
      *
      * @return true when the chunk should actually be un-forced
      *         (last holder left), false otherwise
