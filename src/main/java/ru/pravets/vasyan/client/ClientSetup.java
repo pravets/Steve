@@ -21,7 +21,7 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 @Mod.EventBusSubscriber(modid = VasyanMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ClientSetup {
 
-    private static final ResourceLocation VASYAN_TEXTURE = new ResourceLocation("minecraft", "textures/entity/player/wide/vasyan.png");
+    private static final ResourceLocation VASYAN_TEXTURE = new ResourceLocation("minecraft", "textures/entity/player/wide/steve.png");
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
