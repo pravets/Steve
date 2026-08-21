@@ -58,4 +58,33 @@ class ActionExecutorTest extends AbstractMinecraftTest {
         assertFalse(executor.isPlanning(), "Planning flag should be reset after timeout");
         assertTrue(never.isCancelled(), "Stuck future should be cancelled by watchdog");
     }
+
+    @Test
+    void stopCurrentActionCancelsPlanning() {
+        // Given a Steve whose level reports not client-side
+        SteveEntity steve = mock(SteveEntity.class);
+        Level level = mock(Level.class);
+        PathNavigation navigation = mock(PathNavigation.class);
+
+        when(level.isClientSide()).thenReturn(false);
+        when(level.players()).thenReturn(Collections.emptyList());
+        when(steve.level()).thenReturn(level);
+        when(steve.getSteveName()).thenReturn("TestSteve");
+        when(steve.getNavigation()).thenReturn(navigation);
+
+        ActionExecutor executor = new ActionExecutor(steve);
+
+        // Start an async planning future that would never complete
+        CompletableFuture<ResponseParser.ParsedResponse> never = new CompletableFuture<>();
+        executor.setPlanningFutureForTest(never, "chop 5 wood");
+
+        assertTrue(executor.isPlanning(), "Steve should be planning before stop");
+
+        // When stopCurrentAction is called (triggered by /steve stop or stay)
+        executor.stopCurrentAction();
+
+        // Then planning is cancelled and state is reset
+        assertFalse(executor.isPlanning(), "Planning flag should be reset after stop");
+        assertTrue(never.isCancelled(), "Planning future should be cancelled by stop");
+    }
 }

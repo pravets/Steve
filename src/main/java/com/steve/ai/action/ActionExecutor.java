@@ -465,6 +465,29 @@ public class ActionExecutor {
         currentGoal = null;
         // Reset state machine
         stateMachine.reset();
+        cancelPlanning();
+    }
+
+    /**
+     * Cancels an in-progress async LLM planning future and clears all
+     * planning-related state. Called from {@link #stopCurrentAction()} so
+     * stop/stay commands abort planning as well as execution.
+     */
+    private void cancelPlanning() {
+        if (isPlanning || planningFuture != null) {
+            if (planningFuture != null) {
+                planningFuture.cancel(true);
+            }
+            SteveMod.LOGGER.info("Steve '{}' planning cancelled by stop", steve.getSteveName());
+            AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning cancelled by stop command");
+            if (steve.level().isClientSide()) {
+                sendToGUI(steve.getSteveName(), "Planning cancelled.");
+            }
+            isPlanning = false;
+            planningFuture = null;
+            pendingCommand = null;
+            planningStartTick = -1;
+        }
     }
 
     /**
