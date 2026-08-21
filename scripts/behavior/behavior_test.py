@@ -181,7 +181,11 @@ def assert_bot_ticks(rcon, log_path, name):
     assert wait_for(log_path, r"async planning complete: 1 tasks queued", 120, f"{name} ticks in far chunk")
 
 
-def test_chunk_persists_after_restart(workdir, jar_path):
+def test_chunk_persists_after_restart(workdir, jar_path, expected_far_x):
+    """Restart the server with the same world and verify the existing Bob
+    (spawned by the first scenario) is re-adopted, his chunk is still
+    force-loaded, and he keeps ticking with no players online.
+    """
     log_path = os.path.join(workdir, "behavior_restart.log")
     if os.path.exists(log_path):
         os.remove(log_path)
@@ -189,34 +193,6 @@ def test_chunk_persists_after_restart(workdir, jar_path):
     print("Starting server for restart scenario...")
     proc = start_server(workdir, jar_path, log_path)
     try:
-        assert wait_for(log_path, r"Done \(", 180, "server start")
-        time.sleep(3)
-        rcon = RCON()
-
-        spawn_bot(rcon, log_path, "Bob")
-        log_text = open(log_path, "r", errors="replace").read()
-        spawn_match = re.search(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
-        if not spawn_match:
-            print("  [FAIL] Bob spawn position not found in log")
-            return 1
-        spawn_x = float(spawn_match.group(1))
-        spawn_z = float(spawn_match.group(3))
-        uuid = get_bot_uuid(log_text, "Bob")
-        far_x = teleport_to_far(rcon, log_path, uuid, spawn_x, spawn_z)
-        time.sleep(12)
-        assert_chunk_force_loaded(rcon, far_x)
-        assert_bot_ticks(rcon, log_path, "Bob")
-
-        print("Restarting server (no players online)...")
-        rcon.command("stop")
-        assert wait_for(log_path, r"Saving chunks for level 'ServerLevel", 60, "server save")
-        proc.wait(timeout=60)
-        rcon.close()
-
-        # Start again with the SAME world (do NOT delete world/)
-        if os.path.exists(log_path):
-            os.remove(log_path)
-        proc = start_server(workdir, jar_path, log_path)
         assert wait_for(log_path, r"Done \(", 180, "server restart")
         time.sleep(3)
         rcon = RCON()
@@ -224,7 +200,11 @@ def test_chunk_persists_after_restart(workdir, jar_path):
         list_resp = rcon.command("steve list")
         print(f"  steve list after restart: {list_resp}")
         assert "Bob" in list_resp
-        assert_chunk_force_loaded(rcon, far_x)
+
+        # The chunk where Bob was left should still be force-loaded.
+        assert_chunk_force_loaded(rcon, expected_far_x)
+
+        # Verify the re-adopted bot actually ticks.
         rcon.command("steve tell Bob стоп")
         assert wait_for(log_path, r"Bob stopped", 30, "Bob ticks after restart")
 
@@ -406,18 +386,35 @@ def main():
             assert_bot_ticks(rcon, log_path, "Bob")
 
             print("PASS: Steve worked in a force-loaded chunk with no player online.")
+
+            # Cleanly stop the first server so the world (with Bob in the
+            # far force-loaded chunk) is saved for the restart scenario.
+            print("Stopping server to save world for restart scenario...")
+            rcon.command("stop")
+            if not wait_for(log_path, r"Saving chunks for level 'ServerLevel", 60, "server save"):
+                return 1
+            try:
+                proc.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
         finally:
             rcon.close()
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=15)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
     # 6. Restart scenario (issue #14): same world, no players, must survive.
     #    Do NOT delete world/ so Bob's entity data persists across restart.
-    if test_chunk_persists_after_restart(args.dir, args.jar) != 0:
+    if test_chunk_persists_after_restart(args.dir, args.jar, far_x) != 0:
         return 1
 
     return 0
