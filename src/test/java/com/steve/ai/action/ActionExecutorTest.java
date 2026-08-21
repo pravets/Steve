@@ -122,10 +122,11 @@ class ActionExecutorTest extends AbstractMinecraftTest {
         Thread worker = new Thread(executor::stopCurrentAction);
         worker.start();
 
-        // Let the threads race, then release the planning future and wait for the worker
-        Thread.sleep(50);
-        latch.countDown();
+        // Wait for stopCurrentAction() to cancel the future before releasing the latch,
+        // otherwise the async planning task may complete naturally and bypass the
+        // cancellation path.
         worker.join();
+        latch.countDown();
 
         // Then planning state is cleanly reset and the future is cancelled
         assertFalse(executor.isPlanning(), "Planning flag should be reset after concurrent stop");
