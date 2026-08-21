@@ -1,0 +1,56 @@
+# Vasyan Usage Guide
+
+Vasyan is a Forge 1.20.1 mod that adds autonomous AI agents to Minecraft.
+
+## Installation
+
+1. Download `vasyan-<version>-all.jar` from the GitHub releases.
+2. Put it in your `mods` folder alongside Forge 1.20.1.
+3. Start Minecraft.
+4. Copy `config/vasyan-common.toml.example` to `config/vasyan-common.toml`.
+5. Add your API key and choose a provider.
+
+## Spawning a bot
+
+Open chat and run:
+
+```
+/vasyan spawn Bob
+```
+
+Names may contain letters (any script), digits and `_ - . +`. Cyrillic names are supported.
+
+## Basic commands
+
+- `/vasyan list` — show active bots.
+- `/vasyan stop <name>` — stop all tasks for a bot.
+- `/vasyan remove <name>` — remove a bot from the world.
+- `/vasyan tp <name>` — teleport a bot to a safe spot near you.
+- `/vasyan tell <name> <task>` — give a natural-language task.
+- `/vasyan inv <name>` — open the bot's inventory.
+
+## Natural-language tasks
+
+Press **K** to open the Vasyan panel, or use `/vasyan tell`:
+
+- "mine 20 iron ore"
+- "build a small house here"
+- "follow me"
+- "gather wood from that forest"
+
+## Configuration
+
+See `config/vasyan-common.toml`:
+
+```toml
+[llm]
+provider = "opencode-go"
+baseUrl = "https://opencode.ai/zen/go/v1"
+apiKey = "your-key"
+model = "deepseek-v4-flash"
+```
+
+## Links
+
+- Repository: https://github.com/pravets/Vasyan
+- Upstream: https://github.com/YuvDwi/Steve (MIT)

@@ -1,8 +1,8 @@
-# Steve AI - Complete Technical Deep Dive
+# Vasyan - Complete Technical Deep Dive
 
 **Date**: November 2025
-**Project**: Steve AI - LLM-Powered Minecraft Autonomous Agents
-**Repository**: https://github.com/YuvDwi/Steve
+**Project**: Vasyan - LLM-Powered Minecraft Autonomous Agents
+**Repository**: https://github.com/pravets/Vasyan
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### What Is This?
 
-Steve is **"Cursor for Minecraft"** - an AI companion that plays the game with you. Instead of typing Minecraft commands, you press `K`, type natural language like "build me a castle" or "mine 20 diamonds," and AI agents autonomously execute the tasks.
+Vasyan is **"Cursor for Minecraft"** - an AI companion that plays the game with you. Instead of typing Minecraft commands, you press `K`, type natural language like "build me a castle" or "mine 20 diamonds," and AI agents autonomously execute the tasks.
 
 ### The Magic
 
@@ -49,7 +49,7 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
 ┌─────────────────────────────────────────────────────────────────┐
 │                         USER INTERFACE                           │
 │  • Cursor-inspired sliding panel GUI (Press K)                  │
-│  • Minecraft chat commands (/steve spawn, /steve tell)          │
+│  • Minecraft chat commands (/vasyan spawn, /vasyan tell)          │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
@@ -125,17 +125,17 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
 ### Data Flow Example: "Build a house"
 
 1. **User Input**: Player presses `K`, types "build a house", hits Enter
-2. **GUI Handler** (`SteveGUI.java`): Sends command to ActionExecutor
+2. **GUI Handler** (`VasyanGUI.java`): Sends command to ActionExecutor
 3. **World Scan** (`WorldKnowledge.java`): Scans 16-block radius
    - Nearby blocks: grass, dirt, oak_log, stone
    - Nearby entities: 1 player (Steve), 2 sheep
    - Biome: plains
-   - Steve position: [100, 64, 200]
+   - Vasyan position: [100, 64, 200]
 4. **Prompt Construction** (`PromptBuilder.java`):
    ```
    === YOUR SITUATION ===
    Position: [100, 64, 200]
-   Nearby Players: Steve
+   Nearby Players: Vasyan
    Nearby Entities: 2 sheep
    Nearby Blocks: grass, dirt, oak_log, stone
    Biome: plains
@@ -173,7 +173,7 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
    - Renders particles and plays sounds
    - Teleports to next block position when >5 blocks away
 9. **Multi-Agent Coordination** (`CollaborativeBuildManager.java`):
-   - If another Steve starts "build a house" mid-construction:
+   - If another Vasyan starts "build a house" mid-construction:
      - Joins existing build instead of creating new one
      - Gets assigned to a quadrant (NW, NE, SW, SE)
      - Works bottom-to-top within their quadrant
@@ -184,9 +184,9 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
 
 ## Detailed Low-Level Technical Overview
 
-### 1. Entity System (`SteveEntity.java`)
+### 1. Entity System (`VasyanEntity.java`)
 
-Steve agents are custom Minecraft entities extending `PathfinderMob`.
+Vasyan agents are custom Minecraft entities extending `PathfinderMob`.
 
 **Key Features**:
 - **Invulnerability**: Agents are permanently invulnerable to all damage sources
@@ -220,7 +220,7 @@ Steve agents are custom Minecraft entities extending `PathfinderMob`.
   @Override
   public void addAdditionalSaveData(CompoundTag tag) {
       super.addAdditionalSaveData(tag);
-      tag.putString("SteveName", this.steveName);
+      tag.putString("VasyanName", this.vasyanName);
 
       CompoundTag memoryTag = new CompoundTag();
       this.memory.saveToNBT(memoryTag);
@@ -331,19 +331,19 @@ RULES:
 3. Use 2-3 block types
 4. NO extra pathfind tasks
 5. Keep reasoning under 15 words
-6. COLLABORATIVE BUILDING: Multiple Steves can work simultaneously
+6. COLLABORATIVE BUILDING: Multiple Vasyans can work simultaneously
 
 CRITICAL: Output ONLY valid JSON. No markdown, no explanations.
 ```
 
 **User Prompt** - Rich contextual awareness:
 ```java
-public static String buildUserPrompt(SteveEntity steve, String command, WorldKnowledge worldKnowledge) {
+public static String buildUserPrompt(VasyanEntity vasyan, String command, WorldKnowledge worldKnowledge) {
     StringBuilder prompt = new StringBuilder();
 
     // Full situational awareness
     prompt.append("=== YOUR SITUATION ===\n");
-    prompt.append("Position: ").append(formatPosition(steve.blockPosition())).append("\n");
+    prompt.append("Position: ").append(formatPosition(vasyan.blockPosition())).append("\n");
     prompt.append("Nearby Players: ").append(worldKnowledge.getNearbyPlayerNames()).append("\n");
     prompt.append("Nearby Entities: ").append(worldKnowledge.getNearbyEntitiesSummary()).append("\n");
     prompt.append("Nearby Blocks: ").append(worldKnowledge.getNearbyBlocksSummary()).append("\n");
@@ -462,14 +462,14 @@ private static Task parseTask(JsonObject taskObj) {
 ```java
 private void scanBlocks() {
     nearbyBlocks = new HashMap<>();
-    Level level = steve.level();
-    BlockPos stevePos = steve.blockPosition();
+    Level level = vasyan.level();
+    BlockPos vasyanPos = vasyan.blockPosition();
 
     // Sample every 2 blocks for performance (8x8x8 = 512 samples instead of 32^3 = 32768)
     for (int x = -scanRadius; x <= scanRadius; x += 2) {
         for (int y = -scanRadius; y <= scanRadius; y += 2) {
             for (int z = -scanRadius; z <= scanRadius; z += 2) {
-                BlockPos checkPos = stevePos.offset(x, y, z);
+                BlockPos checkPos = vasyanPos.offset(x, y, z);
                 BlockState state = level.getBlockState(checkPos);
                 Block block = state.getBlock();
 
@@ -485,7 +485,7 @@ private void scanBlocks() {
 **Entity Detection** (AABB-based):
 ```java
 private void scanEntities() {
-    Level level = steve.level();
+    Level level = vasyan.level();
     AABB searchBox = steve.getBoundingBox().inflate(scanRadius);
     nearbyEntities = level.getEntities(steve, searchBox);
 }
@@ -1157,7 +1157,7 @@ private void findNextBlock() {
 **Automatic Lighting**:
 ```java
 private void placeTorchIfDark() {
-    BlockPos stevePos = steve.blockPosition();
+    BlockPos vasyanPos = vasyan.blockPosition();
     int lightLevel = steve.level().getBrightness(LightLayer.BLOCK, stevePos);
 
     if (lightLevel < MIN_LIGHT_LEVEL) { // MIN_LIGHT_LEVEL = 8
