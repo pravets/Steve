@@ -98,6 +98,8 @@ public class SteveManager {
                 // The newcomer is the real bot loaded from NBT; the survivor is
                 // a freshly spawned empty copy. Keep the NBT state, discard the
                 // empty copy without dropping its (empty) inventory.
+                SteveMod.LOGGER.warn("Dedup discard: replacing fresh '{}' ({} alive={}, removed={}) with NBT-loaded original ({})",
+                        name, existing.getUUID(), existing.isAlive(), existing.isRemoved(), steve.getUUID());
                 existing.setSuppressInventoryDrop(true);
                 existing.discard();
                 SteveMod.LOGGER.info("Dedup: replaced fresh duplicate '{}' ({}) with NBT-loaded original ({})",
@@ -194,7 +196,8 @@ public class SteveManager {
                     SteveMod.LOGGER.info("Successfully spawned Steve: {} with UUID {} at {}", name, steve.getUUID(), position);
                     return steve;
                 } else {
-                    SteveMod.LOGGER.warn("Steve '{}' was added to the world but adopt() did not register it - discarding", name);
+                    SteveMod.LOGGER.warn("Spawn-adopt mismatch discard for '{}' ({} alive={}, removed={})",
+                            name, steve.getUUID(), steve.isAlive(), steve.isRemoved());
                     if (!steve.isRemoved()) {
                         steve.setSuppressInventoryDrop(true);
                         steve.discard();
@@ -296,6 +299,7 @@ public class SteveManager {
                     // copies. The tracked instance keeps the normal drop.
                     steve.setSuppressInventoryDrop(true);
                 }
+                SteveMod.LOGGER.warn("removeSteve discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
                 steve.discard();
                 removed = true;
             }
@@ -350,6 +354,7 @@ public class SteveManager {
     public void clearAllSteves() {
         SteveMod.LOGGER.info("Clearing {} Steve entities", activeSteves.size());
         for (SteveEntity steve : activeSteves.values()) {
+            SteveMod.LOGGER.warn("clearAllSteves discard for '{}' ({})", steve.getSteveName(), steve.getUUID());
             steve.discard();
         }
         activeSteves.clear();
