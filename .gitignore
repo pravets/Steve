@@ -43,6 +43,7 @@ Desktop.ini
 
 # Misc
 *.log
+__pycache__/
 
 # Python
 __pycache__/
