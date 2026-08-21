@@ -65,6 +65,27 @@ Then spawn a Vasyan with `/vasyan spawn Bob` and press K to start giving command
 
 The agents are pretty good at figuring out what you mean. You don't need to be super specific.
 
+
+## Voice Commands
+
+Press and hold **V** to record a voice command. The audio is sent to the server, transcribed by the configured STT endpoint, and then executed as a normal chat command.
+
+Enable voice in `config/vasyan-common.toml`:
+
+```toml
+[voice]
+enabled = true
+sttBaseUrl = "https://routerai.ru/api/v1"
+sttApiKey = "your-stt-key"
+sttModel = "openai/whisper-large-v3-turbo"
+sttLanguage = "ru"
+```
+
+Any OpenAI-compatible `/audio/transcriptions` endpoint works. Examples:
+- [RouterAI STT](https://routerai.ru) — public, Russian-friendly
+- OpenAI Whisper API
+- Self-hosted `whisper-asr-webservice` or similar
+
 ## Technical Architecture
 
 ### System Overview

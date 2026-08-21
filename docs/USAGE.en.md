@@ -54,3 +54,20 @@ model = "deepseek-v4-flash"
 
 - Repository: https://github.com/pravets/Vasyan
 - Upstream: https://github.com/YuvDwi/Steve (MIT)
+
+## Voice commands
+
+Hold **V** to record a voice command. The audio is transcribed by the server-side STT provider and executed as text.
+
+Enable in `config/vasyan-common.toml`:
+
+```toml
+[voice]
+enabled = true
+sttBaseUrl = "https://routerai.ru/api/v1"
+sttApiKey = "your-stt-key"
+sttModel = "openai/whisper-large-v3-turbo"
+sttLanguage = "ru"
+```
+
+Any OpenAI-compatible `/audio/transcriptions` endpoint works.

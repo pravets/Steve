@@ -54,3 +54,20 @@ model = "deepseek-v4-flash"
 
 - Репозиторий: https://github.com/pravets/Vasyan
 - Апстрим: https://github.com/YuvDwi/Steve (MIT)
+
+## Голосовые команды
+
+Зажмите **V** и говорите команду. Аудио транскрибирует STT-провайдер на стороне сервера, а текст выполняется как обычная команда.
+
+Включите в `config/vasyan-common.toml`:
+
+```toml
+[voice]
+enabled = true
+sttBaseUrl = "https://routerai.ru/api/v1"
+sttApiKey = "your-stt-key"
+sttModel = "openai/whisper-large-v3-turbo"
+sttLanguage = "ru"
+```
+
+Подойдёт любой OpenAI-совместимый эндпоинт `/audio/transcriptions`.

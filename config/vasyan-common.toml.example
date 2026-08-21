@@ -1,4 +1,4 @@
-# Steve AI Mod - LLM provider configuration
+# Vasyan Mod - configuration example
 # All providers speak the OpenAI-compatible Chat Completions API.
 
 [llm]
@@ -54,7 +54,41 @@ timeoutSeconds = 60
 [behavior]
 # Ticks between action checks (20 ticks = 1 second)
 actionTickDelay = 20
-# Allow Steves to respond in chat
+# Allow Vasyans to respond in chat
 enableChatResponses = true
-# Maximum number of Steves that can be active simultaneously
+# Maximum number of Vasyans that can be active simultaneously
 maxActiveSteves = 10
+# Keep the chunk each Vasyan stands in force-loaded so Vasyans keep working
+# on a dedicated server even when no player is online.
+forceLoadChunks = true
+
+[voice]
+# Push-to-talk voice commands (key V): the client records the microphone and
+# sends the audio to the server, which transcribes it via ANY OpenAI-compatible
+# /audio/transcriptions endpoint and dispatches the text as a normal chat command.
+
+# Enable voice commands (requires a microphone and an STT endpoint).
+# Disabled by default: audio leaves the client and reaches the configured STT
+# endpoint - enable explicitly after setting sttApiKey.
+enabled = false
+
+# Base URL of an OpenAI-compatible STT endpoint.
+# Any provider works: set your own, e.g. https://routerai.ru/api/v1
+# The transcription call is POST {baseUrl}/audio/transcriptions
+sttBaseUrl = "https://routerai.ru/api/v1"
+
+# API key for the STT endpoint (stored server-side only).
+sttApiKey = ""
+
+# STT model name (any model your endpoint supports).
+sttModel = "openai/whisper-large-v3-turbo"
+
+# STT language hint; empty = auto-detect.
+# e.g. "ru" for Russian commands, "en" for English.
+sttLanguage = "ru"
+
+# Maximum recording length in seconds (auto-stop).
+maxRecordingSeconds = 10
+
+# Audio chunk size in bytes sent per network packet.
+chunkSize = 16384

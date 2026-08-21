@@ -130,28 +130,28 @@ public class VasyanConfig {
 
         builder.pop();
 
-        builder.comment("Steve Behavior Configuration").push("behavior");
+        builder.comment("Vasyan Behavior Configuration").push("behavior");
 
         ACTION_TICK_DELAY = builder
             .comment("Ticks between action checks (20 ticks = 1 second)")
             .defineInRange("actionTickDelay", 20, 1, 100);
 
         ENABLE_CHAT_RESPONSES = builder
-            .comment("Allow Steves to respond in chat")
+            .comment("Allow Vasyans to respond in chat")
             .define("enableChatResponses", true);
 
         MAX_ACTIVE_STEVES = builder
-            .comment("Maximum number of Steves that can be active simultaneously")
+            .comment("Maximum number of Vasyans that can be active simultaneously")
             .defineInRange("maxActiveSteves", 10, 1, 50);
 
         FORCE_LOAD_CHUNKS = builder
-            .comment("Keep the chunk each Steve stands in force-loaded so Steves",
+            .comment("Keep the chunk each Vasyan stands in force-loaded so Vasyans",
                 "keep working on a dedicated server even when no player is online")
             .define("forceLoadChunks", true);
 
         builder.pop();
 
-        builder.comment("Steve Voice Commands Configuration",
+        builder.comment("Vasyan Voice Commands Configuration",
             "Push-to-talk voice commands (key V): the client records the microphone",
             "and sends the audio to the server, which transcribes it via ANY",
             "OpenAI-compatible /audio/transcriptions endpoint and dispatches the",
