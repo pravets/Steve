@@ -122,6 +122,14 @@ public final class ResourceBlocks {
         if (block == null) {
             return null;
         }
+        // If the resolved block is part of a registered yield (e.g. "iron_ore"
+        // or "minecraft:iron_ore"), reuse that yield so the correct drop item is
+        // counted instead of the block-as-item.
+        for (ResourceYield registeredYield : RESOURCE_TO_YIELD.values()) {
+            if (registeredYield.miningBlocks().contains(block)) {
+                return registeredYield;
+            }
+        }
         Item item = block.asItem();
         if (item == Items.AIR) {
             item = Item.byBlock(block);

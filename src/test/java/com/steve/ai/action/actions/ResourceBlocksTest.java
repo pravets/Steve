@@ -112,4 +112,22 @@ class ResourceBlocksTest extends AbstractMinecraftTest {
         assertTrue(yield.miningBlocks().contains(Blocks.OAK_LOG));
         assertTrue(yield.itemMatcher().test(Items.OAK_LOG));
     }
+
+    @Test
+    void explicitOreNameReusesRegisteredYield() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("iron_ore");
+        assertTrue(yield.miningBlocks().contains(Blocks.IRON_ORE));
+        assertTrue(yield.miningBlocks().contains(Blocks.DEEPSLATE_IRON_ORE));
+        assertTrue(yield.itemMatcher().test(Items.RAW_IRON));
+        assertFalse(yield.itemMatcher().test(Items.IRON_ORE));
+    }
+
+    @Test
+    void namespacedOreNameReusesRegisteredYield() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("minecraft:coal_ore");
+        assertTrue(yield.miningBlocks().contains(Blocks.COAL_ORE));
+        assertTrue(yield.miningBlocks().contains(Blocks.DEEPSLATE_COAL_ORE));
+        assertTrue(yield.itemMatcher().test(Items.COAL));
+        assertFalse(yield.itemMatcher().test(Items.COAL_ORE));
+    }
 }
