@@ -30,14 +30,14 @@ jobs:
         run: bash scripts/behavior/setup_server.sh /tmp/fgtest
 
       - name: Install mod into server
-        run: cp build/libs/steve-ai-mod-1.0.0-all.jar /tmp/fgtest/mods/
+        run: cp build/libs/vasyan-1.0.0-all.jar /tmp/fgtest/mods/
 
       - name: Run chunk force-load behavior test
         # Runs both the original force-load scenario and the restart scenario
-        # (issue #14): a Steve teleported far away must keep its chunk
+        # (issue #14): a Vasyan teleported far away must keep its chunk
         # force-loaded and continue ticking after a server restart with no
         # players online.
-        run: python3 scripts/behavior/behavior_test.py --dir /tmp/fgtest --jar build/libs/steve-ai-mod-1.0.0-all.jar
+        run: python3 scripts/behavior/behavior_test.py --dir /tmp/fgtest --jar build/libs/vasyan-1.0.0-all.jar
 
       - name: Upload server logs on failure
         if: failure()

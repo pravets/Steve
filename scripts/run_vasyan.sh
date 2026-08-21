@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Steve AI Mod - Launch Script
+# Vasyan - Launch Script
 # This script sets up Java and runs Minecraft with the mod
 
 cd "$(dirname "$0")"
 
-echo "🎮 Steve AI Mod - Launcher"
+echo "🎮 Vasyan - Launcher"
 echo "================================"
 echo ""
 

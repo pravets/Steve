@@ -111,7 +111,7 @@ public class VasyanManager {
                 // not entered the world yet during an EntityJoinLevelEvent, so
                 // the join is canceled (see ServerEventHandler) instead of a
                 // discard that would drop the (identical, duplicated) contents.
-                VasyanMod.LOGGER.info("Dedup: rejected duplicate Steve '{}' ({}) - another live instance exists",
+                VasyanMod.LOGGER.info("Dedup: rejected duplicate Vasyan '{}' ({}) - another live instance exists",
                         name, steve.getUUID());
                 return null;
             }
@@ -148,10 +148,10 @@ public class VasyanManager {
      */
     public VasyanEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
         name = requireNonNull(name, "Steve name must not be null");
-        VasyanMod.LOGGER.info("Current active Steves: {}", activeSteves.size());
+        VasyanMod.LOGGER.info("Current active Vasyans: {}", activeSteves.size());
 
         if (findByNameIgnoreCase(name) != null) {
-            VasyanMod.LOGGER.warn("Steve name '{}' already exists", name);
+            VasyanMod.LOGGER.warn("Vasyan name '{}' already exists", name);
             return null;
         }
         // Uniqueness check against the world itself: a bot with this name may
@@ -160,13 +160,13 @@ public class VasyanManager {
         VasyanEntity existing = findSteveInLevel(level, name);
         if (existing != null) {
             adopt(existing);
-            VasyanMod.LOGGER.warn("Steve name '{}' already exists in world, adopting existing instance", name);
+            VasyanMod.LOGGER.warn("Vasyan name '{}' already exists in world, adopting existing instance", name);
             return null;
         }
 
         int maxSteves = VasyanConfig.MAX_ACTIVE_STEVES.get();
         if (activeSteves.size() >= maxSteves) {
-            VasyanMod.LOGGER.warn("Max Steve limit reached: {}", maxSteves);
+            VasyanMod.LOGGER.warn("Max Vasyan limit reached: {}", maxSteves);
             return null;
         }
 
@@ -175,7 +175,7 @@ public class VasyanManager {
             VasyanMod.LOGGER.info("EntityType: {}", VasyanMod.VASYAN_ENTITY.get());
             steve = new VasyanEntity(VasyanMod.VASYAN_ENTITY.get(), level);
         } catch (Throwable e) {
-            VasyanMod.LOGGER.error("Failed to create Steve entity", e);
+            VasyanMod.LOGGER.error("Failed to create Vasyan entity", e);
             VasyanMod.LOGGER.error("Exception class: {}", e.getClass().getName());
             VasyanMod.LOGGER.error("Exception message: {}", e.getMessage());
             e.printStackTrace();
@@ -193,7 +193,7 @@ public class VasyanManager {
                 // concurrently and won the dedup, in which case steve was
                 // already discarded.
                 if (findByNameIgnoreCase(name) == steve && steve.isAlive()) {
-                    VasyanMod.LOGGER.info("Successfully spawned Steve: {} with UUID {} at {}", name, steve.getUUID(), position);
+                    VasyanMod.LOGGER.info("Successfully spawned Vasyan: {} with UUID {} at {}", name, steve.getUUID(), position);
                     return steve;
                 } else {
                     VasyanMod.LOGGER.warn("Spawn-adopt mismatch discard for '{}' ({} alive={}, removed={})",
@@ -204,7 +204,7 @@ public class VasyanManager {
                     }
                 }
             } else {
-                VasyanMod.LOGGER.error("Failed to add Steve entity to world (addFreshEntity returned false)");
+                VasyanMod.LOGGER.error("Failed to add Vasyan entity to world (addFreshEntity returned false)");
                 VasyanMod.LOGGER.error("=== SPAWN ATTEMPT FAILED ===");
             }
         } catch (Throwable e) {
@@ -299,7 +299,7 @@ public class VasyanManager {
                     // copies. The tracked instance keeps the normal drop.
                     steve.setSuppressInventoryDrop(true);
                 }
-                VasyanMod.LOGGER.warn("removeSteve discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
+                VasyanMod.LOGGER.warn("removeVasyan discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
                 steve.discard();
                 removed = true;
             }
@@ -328,7 +328,7 @@ public class VasyanManager {
         Map.Entry<String, VasyanEntity> trackedEntry = findEntryByNameIgnoreCase(name);
         if (trackedEntry != null && trackedEntry.getValue() == steve) {
             activeSteves.remove(trackedEntry.getKey());
-            VasyanMod.LOGGER.info("Steve '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
+            VasyanMod.LOGGER.info("Vasyan '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
         }
         stevesByUUID.remove(steve.getUUID());
     }
@@ -346,13 +346,13 @@ public class VasyanManager {
             if (!steve.isAlive() || steve.isRemoved()) {
                 iterator.remove();
                 stevesByUUID.remove(steve.getUUID());
-                VasyanMod.LOGGER.info("Cleaned up Steve: {}", entry.getKey());
+                VasyanMod.LOGGER.info("Cleaned up Vasyan: {}", entry.getKey());
             }
         }
     }
 
     public void clearAllSteves() {
-        VasyanMod.LOGGER.info("Clearing {} Steve entities", activeSteves.size());
+        VasyanMod.LOGGER.info("Clearing {} Vasyan entities", activeSteves.size());
         for (VasyanEntity steve : activeSteves.values()) {
             VasyanMod.LOGGER.warn("clearAllSteves discard for '{}' ({})", steve.getSteveName(), steve.getUUID());
             steve.discard();
@@ -478,7 +478,7 @@ public class VasyanManager {
                 releaseChunk(steve, level);
                 iterator.remove();
                 stevesByUUID.remove(steve.getUUID());
-                VasyanMod.LOGGER.info("Removed dead Steve: {}", entry.getKey());
+                VasyanMod.LOGGER.info("Removed dead Vasyan: {}", entry.getKey());
             }
         }
     }

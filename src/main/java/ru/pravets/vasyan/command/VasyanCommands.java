@@ -55,8 +55,8 @@ public class VasyanCommands {
     }
 
     /**
-     * /vasyan tp <name|all> - instantly teleports the named Steve (or all
-     * Steves) to a safe spot near the commanding player.
+     * /vasyan tp <name|all> - instantly teleports the named Vasyan (or all
+     * Vasyans) to a safe spot near the commanding player.
      */
     private static int tpSteve(CommandContext<CommandSourceStack> context) {
         String name = VasyanNameArgumentType.getName(context, "name");
@@ -72,7 +72,7 @@ public class VasyanCommands {
         if ("all".equalsIgnoreCase(name)) {
             List<String> names = manager.getSteveNames();
             if (names.isEmpty()) {
-                source.sendFailure(Component.literal("§cNo Steves spawned. Use /vasyan spawn <name>"));
+                source.sendFailure(Component.literal("§cNo Vasyans spawned. Use /vasyan spawn <name>"));
                 return 0;
             }
             int teleported = 0;
@@ -92,7 +92,7 @@ public class VasyanCommands {
                 }
             }
             if (teleported == 0) {
-                String failure = "§cNo Steve teleported"
+                String failure = "§cNo Vasyan teleported"
                     + (wrongDimension > 0 ? " (" + wrongDimension + " in another dimension" : "")
                     + (wrongDimension > 0 && noSpot > 0 ? ", " : "")
                     + (noSpot > 0 ? noSpot + " no safe spot" : "")
@@ -100,14 +100,14 @@ public class VasyanCommands {
                 source.sendFailure(Component.literal(failure));
                 return 0;
             }
-            String result = "§aTeleported " + teleported + "/" + names.size() + " Steve(s) to you";
+            String result = "§aTeleported " + teleported + "/" + names.size() + " Vasyan(s) to you";
             source.sendSuccess(() -> Component.literal(result), false);
             return 1;
         }
 
         VasyanEntity steve = manager.getSteve(name);
         if (steve == null) {
-            source.sendFailure(Component.literal("§cSteve not found: " + name));
+            source.sendFailure(Component.literal("§cVasyan not found: " + name));
             return 0;
         }
         if (steve.level().dimension() != player.level().dimension()) {
@@ -128,7 +128,7 @@ public class VasyanCommands {
 
         VasyanEntity steve = VasyanMod.getSteveManager().getSteve(name);
         if (steve == null) {
-            source.sendFailure(Component.literal("Steve not found: " + name));
+            source.sendFailure(Component.literal("Vasyan not found: " + name));
             return 0;
         }
 
@@ -181,7 +181,7 @@ public class VasyanCommands {
         // Per-Steve state
         var steves = manager.getAllSteves();
         if (steves.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("§7No Steves spawned. Use /vasyan spawn <name>"), false);
+            source.sendSuccess(() -> Component.literal("§7No Vasyans spawned. Use /vasyan spawn <name>"), false);
         } else {
             for (VasyanEntity steve : steves) {
                 source.sendSuccess(() -> Component.literal(
@@ -269,10 +269,10 @@ public class VasyanCommands {
         
         VasyanEntity steve = manager.spawnSteve(serverLevel, spawnPos, name);
         if (steve != null) {
-            source.sendSuccess(() -> Component.literal("Spawned Steve: " + name), true);
+            source.sendSuccess(() -> Component.literal("Spawned Vasyan: " + name), true);
             return 1;
         } else {
-            source.sendFailure(Component.literal("Failed to spawn Steve. Name may already exist or max limit reached."));
+            source.sendFailure(Component.literal("Failed to spawn Vasyan. Name may already exist or max limit reached."));
             return 0;
         }
     }
@@ -283,10 +283,10 @@ public class VasyanCommands {
         
         VasyanManager manager = VasyanMod.getSteveManager();
         if (manager.removeSteve(name, source.getServer())) {
-            source.sendSuccess(() -> Component.literal("Removed Steve: " + name), true);
+            source.sendSuccess(() -> Component.literal("Removed Vasyan: " + name), true);
             return 1;
         } else {
-            source.sendFailure(Component.literal("Steve not found: " + name));
+            source.sendFailure(Component.literal("Vasyan not found: " + name));
             return 0;
         }
     }
@@ -297,9 +297,9 @@ public class VasyanCommands {
         
         var names = manager.getSteveNames();
         if (names.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No active Steves"), false);
+            source.sendSuccess(() -> Component.literal("No active Vasyans"), false);
         } else {
-            source.sendSuccess(() -> Component.literal("Active Steves (" + names.size() + "): " + String.join(", ", names)), false);
+            source.sendSuccess(() -> Component.literal("Active Vasyans (" + names.size() + "): " + String.join(", ", names)), false);
         }
         return 1;
     }
@@ -315,10 +315,10 @@ public class VasyanCommands {
             steve.getActionExecutor().stopCurrentAction();
             steve.getActionExecutor().setStaying(true);
             steve.getMemory().clearTaskQueue();
-            source.sendSuccess(() -> Component.literal("Stopped Steve: " + name), true);
+            source.sendSuccess(() -> Component.literal("Stopped Vasyan: " + name), true);
             return 1;
         } else {
-            source.sendFailure(Component.literal("Steve not found: " + name));
+            source.sendFailure(Component.literal("Vasyan not found: " + name));
             return 0;
         }
     }
