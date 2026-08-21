@@ -1,11 +1,11 @@
 # Vasyan Usage Guide
 
-Vasyan is a Forge 1.20.1 mod that adds autonomous AI agents to Minecraft.
+Vasyan is a Minecraft 1.20.1 mod (Forge) that adds autonomous AI agents to Minecraft.
 
 ## Installation
 
 1. Download `vasyan-ai-mod-<version>-all.jar` from the GitHub releases.
-2. Put the JAR into your Minecraft instance's `mods` folder (Forge 1.20.1 must already be installed).
+2. Put the JAR into your Minecraft instance's `mods` folder (Minecraft 1.20.1 with Forge must already be installed).
 3. Start Minecraft.
 4. Copy `config/vasyan-common.toml.example` to `config/vasyan-common.toml`.
 5. Add your API key and choose a provider.

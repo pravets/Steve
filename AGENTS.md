@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Vasyan is a Minecraft Forge 1.20.1 mod that adds autonomous AI agents ("bots") controlled via natural-language commands. It is a rebrand and continuation of the upstream `YuvDwi/Steve` project, preserved under the MIT license.
+Vasyan is a Minecraft 1.20.1 mod (Forge) that adds autonomous AI agents ("bots") controlled via natural-language commands. It is a rebrand and continuation of the upstream `YuvDwi/Steve` project, preserved under the MIT license.
 
 ## Quick commands
 
