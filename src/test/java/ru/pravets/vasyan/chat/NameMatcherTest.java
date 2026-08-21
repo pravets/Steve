@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class NameMatcherTest {
 
-    private static final List<String> BOTS = List.of("Alex", "Steve", "Bob", "Алекс");
+    private static final List<String> BOTS = List.of("Alex", "Vasyan", "Bob", "Алекс");
 
     @Test
     void exactLatinMatch() {
@@ -25,14 +25,14 @@ class NameMatcherTest {
     void transliterationMatchesAlex() {
         // BOTS contains no Cyrillic "Алекс" here - the spoken "алекс" must
         // resolve to the LATIN "Alex" (transcription dictionary)
-        List<String> latinOnly = List.of("Alex", "Steve", "Bob");
+        List<String> latinOnly = List.of("Alex", "Vasyan", "Bob");
         assertEquals("Alex", NameMatcher.matchName("алекс", latinOnly));
     }
 
     @Test
     void dictionaryMatchesStiviToSteve() {
-        assertEquals("Steve", NameMatcher.matchName("стиви", BOTS));
-        assertEquals("Steve", NameMatcher.matchName("стеви", BOTS));
+        assertEquals("Vasyan", NameMatcher.matchName("васян", BOTS));
+        assertEquals("Vasyan", NameMatcher.matchName("вася", BOTS));
     }
 
     @Test
@@ -59,6 +59,6 @@ class NameMatcherTest {
     void transliterateRoundTrip() {
         // Per-character transliteration is literal: к+с -> ks
         assertEquals("aleks", NameMatcher.transliterate("алекс"));
-        assertEquals("stivi", NameMatcher.transliterate("стиви"));
+        assertEquals("vasyan", NameMatcher.transliterate("васян"));
     }
 }

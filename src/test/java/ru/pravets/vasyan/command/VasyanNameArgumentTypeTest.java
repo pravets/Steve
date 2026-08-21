@@ -13,11 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /**
- * Verifies that all /steve commands accept Cyrillic Steve names. The default
+ * Verifies that all /vasyan commands accept Cyrillic Vasyan names. The default
  * Brigadier string argument is ASCII-only for unquoted tokens; the custom
  * VasyanNameArgumentType must accept letters of any script.
  */
-class SteveNameArgumentTypeTest {
+class VasyanNameArgumentTypeTest {
 
     private static final CommandSourceStack SOURCE = mock(CommandSourceStack.class);
 
@@ -47,41 +47,41 @@ class SteveNameArgumentTypeTest {
 
     @Test
     void acceptsCyrillicNames() {
-        assertParses("steve spawn Васян");
-        assertParses("steve remove Васян");
-        assertParses("steve stop Васян");
-        assertParses("steve tell Васян стой");
-        assertParses("steve inventory Васян");
-        assertParses("steve tp Васян");
+        assertParses("vasyan spawn Васян");
+        assertParses("vasyan remove Васян");
+        assertParses("vasyan stop Васян");
+        assertParses("vasyan tell Васян стой");
+        assertParses("vasyan inventory Васян");
+        assertParses("vasyan tp Васян");
     }
 
     @Test
     void acceptsLatinDigitsAndMixedNames() {
-        assertParses("steve spawn Steve");
-        assertParses("steve spawn 123");
-        assertParses("steve spawn Васян_2-й");
-        assertParses("steve spawn Miner.7+1");
+        assertParses("vasyan spawn Vasyan");
+        assertParses("vasyan spawn 123");
+        assertParses("vasyan spawn Васян_2-й");
+        assertParses("vasyan spawn Miner.7+1");
     }
 
     @Test
     void acceptsQuotedNames() {
-        assertParses("steve spawn \"Васян\"");
-        assertParses("steve spawn 'Steve_1'");
-        assertParses("steve tell \"Майнер\" стой");
+        assertParses("vasyan spawn \"Васян\"");
+        assertParses("vasyan spawn 'Vasyan_1'");
+        assertParses("vasyan tell \"Майнер\" стой");
     }
 
     @Test
     void rejectsInvalidNames() {
-        assertRejected("steve spawn");
-        assertRejected("steve spawn Васян!");
-        assertRejected("steve spawn Васян#");
-        assertRejected("steve spawn Васян Петров");
-        assertRejected("steve spawn \"Васян Петров\"");
+        assertRejected("vasyan spawn");
+        assertRejected("vasyan spawn Васян!");
+        assertRejected("vasyan spawn Васян#");
+        assertRejected("vasyan spawn Васян Петров");
+        assertRejected("vasyan spawn \"Васян Петров\"");
     }
 
     @Test
     void parsesNameArgumentValue() {
-        ParseResults<CommandSourceStack> results = dispatcher.parse("steve spawn Васян", SOURCE);
+        ParseResults<CommandSourceStack> results = dispatcher.parse("vasyan spawn Васян", SOURCE);
         assertEquals("Васян", results.getContext().getArguments().get("name").getResult());
     }
 }
