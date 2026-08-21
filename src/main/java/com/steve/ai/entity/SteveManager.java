@@ -372,22 +372,29 @@ public class SteveManager {
 
     private final ChunkForceTracker chunkForceTracker = new ChunkForceTracker();
 
+    /** Package-private accessor for tests. */
+    ChunkForceTracker getChunkForceTracker() {
+        return chunkForceTracker;
+    }
+
     /** Force-loads a chunk for a specific Steve (refcounted across Steves). */
     public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos, UUID uuid) {
-        boolean forced = chunkForceTracker.force(level.dimension(), chunkPos, uuid);
-        if (forced) {
+        boolean newlyLoaded = chunkForceTracker.force(level.dimension(), chunkPos, uuid);
+        if (newlyLoaded) {
             level.setChunkForced(chunkPos.x, chunkPos.z, true);
-            AgentDebugBuffer.log("system", "CHUNK", "force [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
         }
+        String action = newlyLoaded ? "force" : "add-holder";
+        AgentDebugBuffer.log("system", "CHUNK", action + " [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
     }
 
     /** Releases a chunk force-load for a specific Steve; un-forces when the last holder leaves. */
     public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos, UUID uuid) {
-        boolean unforced = chunkForceTracker.unforce(level.dimension(), chunkPos, uuid);
-        if (unforced) {
+        boolean fullyUnforced = chunkForceTracker.unforce(level.dimension(), chunkPos, uuid);
+        if (fullyUnforced) {
             level.setChunkForced(chunkPos.x, chunkPos.z, false);
-            AgentDebugBuffer.log("system", "CHUNK", "unforce [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
         }
+        String action = fullyUnforced ? "unforce" : "remove-holder";
+        AgentDebugBuffer.log("system", "CHUNK", action + " [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
     }
 
     /**
