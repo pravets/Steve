@@ -324,7 +324,7 @@ public class SteveManager {
         Map.Entry<String, SteveEntity> trackedEntry = findEntryByNameIgnoreCase(name);
         if (trackedEntry != null && trackedEntry.getValue() == steve) {
             activeSteves.remove(trackedEntry.getKey());
-            SteveMod.LOGGER.info("Steve '{}' left the world, removed from registry", name);
+            SteveMod.LOGGER.info("Steve '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
         }
         stevesByUUID.remove(steve.getUUID());
     }

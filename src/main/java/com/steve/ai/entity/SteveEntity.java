@@ -71,7 +71,8 @@ public class SteveEntity extends PathfinderMob {
         this.actionExecutor = new ActionExecutor(this);
         this.inventory = new SteveInventory(this, SteveInventory.DEFAULT_SIZE);
         this.setCustomNameVisible(true);
-        
+        this.setPersistenceRequired();
+
         this.isInvulnerable = true;
         this.setInvulnerable(true);
     }
