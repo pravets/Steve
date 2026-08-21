@@ -30,7 +30,7 @@ jobs:
         run: |
           VERSION=$(grep -oP "version = '\K[^']+" build.gradle)
           mkdir -p dist
-          cp build/libs/vasyan-${VERSION}-all.jar dist/vasyan-${VERSION}.jar
+          cp build/libs/vasyan-ai-mod-${VERSION}-all.jar dist/vasyan-${VERSION}.jar
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v5

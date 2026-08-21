@@ -12,7 +12,7 @@ version = '1.0.0'
 group = 'ru.pravets.vasyan'
 
 base {
-    archivesName = 'vasyan'
+    archivesName = 'vasyan-ai-mod'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)

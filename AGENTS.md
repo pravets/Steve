@@ -8,7 +8,7 @@ Vasyan is a Minecraft Forge 1.20.1 mod that adds autonomous AI agents ("bots") c
 
 ```bash
 ./gradlew compileJava compileTestJava
-./gradlew jarJar          # produces build/libs/vasyan-1.0.0-all.jar
+./gradlew jarJar          # produces build/libs/vasyan-ai-mod-1.0.0-all.jar
 ./gradlew runClient       # start a development client
 ```
 
