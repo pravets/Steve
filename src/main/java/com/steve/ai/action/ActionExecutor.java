@@ -48,6 +48,8 @@ public class ActionExecutor {
     private CompletableFuture<ResponseParser.ParsedResponse> planningFuture;
     private boolean isPlanning = false;
     private String pendingCommand;  // Store command while planning
+    private int planningStartTick = -1;
+    private static final int PLANNING_CHECK_INTERVAL = 20; // once per second
 
     // NEW: Plugin architecture components
     private final ActionContext actionContext;
@@ -147,6 +149,7 @@ public class ActionExecutor {
             // Store command and start async planning
             this.pendingCommand = command;
             this.isPlanning = true;
+            this.planningStartTick = this.ticksSinceLastAction;
 
             // Send immediate feedback to user
             sendToGUI(steve.getSteveName(), "Thinking...");
@@ -267,6 +270,28 @@ public class ActionExecutor {
                 isPlanning = false;
                 planningFuture = null;
                 pendingCommand = null;
+                planningStartTick = -1;
+            }
+        }
+
+        if (isPlanning && planningStartTick >= 0 &&
+            (ticksSinceLastAction - planningStartTick) % PLANNING_CHECK_INTERVAL == 0 &&
+            (ticksSinceLastAction - planningStartTick) / PLANNING_CHECK_INTERVAL >= 1) {
+
+            int elapsedSeconds = (ticksSinceLastAction - planningStartTick) / 20;
+            if (elapsedSeconds >= SteveConfig.PLANNING_TIMEOUT_SECONDS.get()) {
+                SteveMod.LOGGER.warn("Steve '{}' planning timed out after {}s", steve.getSteveName(), elapsedSeconds);
+                AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning timed out after " + elapsedSeconds + "s");
+
+                if (planningFuture != null) {
+                    planningFuture.cancel(true);
+                }
+
+                sendToGUI(steve.getSteveName(), "LLM planning timed out — please try again.");
+                isPlanning = false;
+                planningFuture = null;
+                pendingCommand = null;
+                planningStartTick = -1;
             }
         }
 

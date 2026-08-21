@@ -12,6 +12,7 @@ public class SteveConfig {
     public static final ForgeConfigSpec.IntValue MAX_TOKENS;
     public static final ForgeConfigSpec.DoubleValue TEMPERATURE;
     public static final ForgeConfigSpec.IntValue LLM_TIMEOUT_SECONDS;
+    public static final ForgeConfigSpec.IntValue PLANNING_TIMEOUT_SECONDS;
     public static final ForgeConfigSpec.IntValue WORLD_SCAN_RADIUS;
     public static final ForgeConfigSpec.IntValue WORLD_SCAN_STEP;
     public static final ForgeConfigSpec.IntValue WORLD_SCAN_CACHE_TICKS;
@@ -76,6 +77,11 @@ public class SteveConfig {
         LLM_TIMEOUT_SECONDS = builder
             .comment("Per-request timeout in seconds")
             .defineInRange("timeoutSeconds", 60, 5, 300);
+
+        PLANNING_TIMEOUT_SECONDS = builder
+            .comment("Maximum time in seconds the ActionExecutor will wait for async LLM planning to complete.",
+                "This is a safety guard above the per-HTTP-request timeout.")
+            .defineInRange("planningTimeoutSeconds", 75, 5, 600);
 
         builder.pop();
 
