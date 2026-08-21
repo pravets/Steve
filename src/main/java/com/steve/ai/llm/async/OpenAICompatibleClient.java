@@ -50,6 +50,8 @@ public class OpenAICompatibleClient implements AsyncLLMClient {
         this.jsonMode = jsonMode;
         this.timeout = Duration.ofSeconds(timeoutSeconds);
 
+        // The per-request timeout (connect + response) is applied on each HttpRequest
+        // via .timeout(timeout); the builder-level connectTimeout covers TCP handshake.
         this.httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
