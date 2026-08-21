@@ -205,8 +205,8 @@ def test_chunk_persists_after_restart(workdir, jar_path, expected_far_x):
         assert_chunk_force_loaded(rcon, expected_far_x)
 
         # Verify the re-adopted bot actually ticks.
-        rcon.command("steve tell Bob стоп")
-        assert wait_for(log_path, r"Bob stopped", 30, "Bob ticks after restart")
+        print("Sending 'gather 50 wood' to restarted Bob...")
+        assert_bot_ticks(rcon, log_path, "Bob")
 
         print("PASS: Bob survived server restart in force-loaded chunk.")
         rcon.close()
