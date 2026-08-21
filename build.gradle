@@ -88,7 +88,7 @@ test {
 tasks.named('jar', Jar).configure {
     manifest {
         attributes([
-            'Specification-Title': 'Vasyan',
+            'Specification-Title': 'Vasyan AI mod',
             'Specification-Vendor': 'Iosif Pravets',
             'Specification-Version': '1',
             'Implementation-Title': project.name,

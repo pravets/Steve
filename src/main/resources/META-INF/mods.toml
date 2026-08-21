@@ -5,7 +5,7 @@ license="MIT"
 [[mods]]
 modId="vasyan"
 version="1.0.0"
-displayName="Vasyan"
+displayName="Vasyan AI mod"
 description='''
 AI-controlled Vasyan entities that follow natural language commands,
 mine resources, build structures, and behave like real players.
