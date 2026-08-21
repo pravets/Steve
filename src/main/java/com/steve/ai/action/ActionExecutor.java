@@ -123,6 +123,7 @@ public class ActionExecutor {
     public void processNaturalLanguageCommand(String command) {
         SteveMod.LOGGER.info("Steve '{}' processing command (async): {}", steve.getSteveName(), command);
 
+        long requestId;
         synchronized (planningLock) {
             // If already planning, ignore new commands
             if (isPlanning) {
@@ -131,30 +132,12 @@ public class ActionExecutor {
                 return;
             }
 
-            // Store command and start async planning
+            // Reserve the planning request atomically with the state check.
             this.pendingCommand = command;
             this.isPlanning = true;
             this.planningStartTick = this.ticksSinceLastAction;
-            long requestId = ++planningRequestSequence;
+            requestId = ++planningRequestSequence;
             this.activePlanningRequestId = requestId;
-
-            try {
-                // Start async LLM call - returns immediately!
-                CompletableFuture<ResponseParser.ParsedResponse> future = getTaskPlanner().planTasksAsync(steve, command);
-                this.planningFuture = future;
-
-                SteveMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
-            } catch (NoClassDefFoundError e) {
-                SteveMod.LOGGER.error("Failed to initialize AI components", e);
-                sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
-                resetPlanningStateLocked();
-                activePlanningRequestId = ++planningRequestSequence;
-            } catch (Exception e) {
-                SteveMod.LOGGER.error("Error starting async planning", e);
-                sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
-                resetPlanningStateLocked();
-                activePlanningRequestId = ++planningRequestSequence;
-            }
         }
 
         // A new command wakes the Steve up from "stay in place".
@@ -180,6 +163,42 @@ public class ActionExecutor {
 
         // Send immediate feedback to user
         sendToGUI(steve.getSteveName(), "Thinking...");
+
+        // Start async LLM call outside the lock.  The future is published only
+        // if the reserved request is still active; a stop/stay that ran in the
+        // meantime invalidated it and we must abort the now-stale request.
+        CompletableFuture<ResponseParser.ParsedResponse> future;
+        try {
+            future = getTaskPlanner().planTasksAsync(steve, command);
+        } catch (NoClassDefFoundError e) {
+            SteveMod.LOGGER.error("Failed to initialize AI components", e);
+            sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
+            synchronized (planningLock) {
+                resetPlanningStateLocked();
+                activePlanningRequestId = ++planningRequestSequence;
+            }
+            return;
+        } catch (Exception e) {
+            SteveMod.LOGGER.error("Error starting async planning", e);
+            sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
+            synchronized (planningLock) {
+                resetPlanningStateLocked();
+                activePlanningRequestId = ++planningRequestSequence;
+            }
+            return;
+        }
+
+        synchronized (planningLock) {
+            if (activePlanningRequestId == requestId) {
+                this.planningFuture = future;
+                SteveMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
+            } else {
+                // Request was cancelled between reservation and publication.
+                future.cancel(true);
+                SteveMod.LOGGER.debug("Steve '{}' discarded planning future for cancelled request {}",
+                    steve.getSteveName(), requestId);
+            }
+        }
     }
 
     /**
