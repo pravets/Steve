@@ -1,7 +1,7 @@
 # ТЗ: поддержка локальных и альтернативных LLM-провайдеров
 
 **Дата:** 2026-08-11
-**Ветка:** master (форк pravets/Steve, апстрим YuvDwi/Steve — только в main)
+**Ветка:** master (форк pravets/Vasyan, апстрим YuvDwi/Steve (MIT) — только в main)
 **Статус:** согласовано, этап 1 в реализации
 
 ## Контекст
@@ -37,7 +37,7 @@
 
 ## Этап 1 — реализация
 
-### 1. Конфиг (SteveConfig), секция `llm`
+### 1. Конфиг (VasyanConfig), секция `llm`
 
 ```
 provider = "ollama"      # openai | groq | gemini | ollama | lmstudio | opencode-go | custom
@@ -62,7 +62,7 @@ timeoutSeconds = 60
 | opencode-go | https://opencode.ai/zen/go/v1 | deepseek-v4-flash | да |
 | custom | — (обязателен) | — (обязателен) | нет |
 
-### 2. Единый клиент `OpenAICompatibleClient` (com.steve.ai.llm.async)
+### 2. Единый клиент `OpenAICompatibleClient` (ru.pravets.vasyan.llm.async)
 
 - Реализует `AsyncLLMClient` (async-ядро, как прежний AsyncOpenAIClient)
 - Синхронный метод `sendRequest(systemPrompt, userPrompt)` поверх async-ядра
@@ -103,7 +103,7 @@ OpenAICompatibleClient, обёрнутый в ResilientLLMClient.
 | stop/wait | follow | player=USE_NEARBY_PLAYER_NAME (безопасный дефолт; wait-экшена нет) |
 | default | follow | player=USE_NEARBY_PLAYER_NAME |
 
-### 6. Диагностика `/steve providers`
+### 6. Диагностика `/vasyan providers`
 
 Список провайдеров: имя, baseUrl, модель, наличие ключа, health активного
 (GET /models, таймаут 3 сек; health остальных — без проверки, чтобы не
@@ -120,7 +120,7 @@ OpenAICompatibleClient, обёрнутый в ResilientLLMClient.
 
 1. Собрать мод, положить в mods
 2. Запустить ollama (или использовать opencode go)
-3. `/steve spawn Bob`, команда «mine some iron», убедиться в цепочке
+3. `/vasyan spawn Bob`, команда «mine some iron», убедиться в цепочке
    LLM → план → действия
 
 ## Этап 3 — GTNH (отдельное ТЗ)

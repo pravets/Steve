@@ -30,8 +30,8 @@ max-tick-time=0
 spawn-protection=0
 enable-rcon=true
 rcon.port=25575
-rcon.password=steve_test
-motd=steve behavior test
+rcon.password=vasyan_test
+motd=vasyan behavior test
 EOF
 
 mkdir -p mods config
@@ -39,7 +39,7 @@ mkdir -p mods config
 # LLM config: point at an unreachable endpoint on purpose - the mod's
 # LLMFallbackHandler kicks in and produces a deterministic "mine" task
 # (no network, no keys, stable across CI and local runs).
-cat > config/steve-common.toml <<EOF
+cat > config/vasyan-common.toml <<EOF
 [llm]
 	provider = "custom"
 	baseUrl = "http://127.0.0.1:1/v1"

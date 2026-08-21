@@ -43,7 +43,7 @@
 ### 3. Инвентарь
 - Честный лимит слотов **как у игрока (36)**, NBT-сохранение
 - Дропы зачисляются напрямую при ломании + периодический подбор ItemEntity рядом
-- Просмотр: **и панель K, и `/steve inventory <имя>`**
+- Просмотр: **и панель K, и `/vasyan inventory <имя>`**
 - Апгрейд (рюкзаки и т.п.) — в будущем, не сейчас
 
 ### 4. Отдача ресурсов
@@ -66,12 +66,12 @@
 
 | Этап | Содержание | Ключевые файлы |
 |------|-----------|----------------|
-| **1. Зрение** | Честный скан (raycast), целевой поиск, кэш, радиус в конфиге, сводка для промпта | WorldKnowledge, SteveConfig, PromptBuilder |
-| **2. Инвентарь** | 27 слотов (одинарный сундук; задел под апгрейды вместимости) + NBT, зачисление дропов, подбор ItemEntity, панель K + `/steve inventory`, ПКМ по боту — take-only меню | SteveEntity, SteveGUI, SteveCommands, SteveInventory, SteveMenu |
-| **3. Умный сбор** | Стратегия поверхность/руда, расширение поиска, инструменты, счёт по предметам, авто-возврат при полном инвентаре (переиспользует `SteveEntity.teleportToPlayer` из фичи `tp`) | MineBlockAction, GatherResourceAction, новое HarvestAction, SteveEntity |
+| **1. Зрение** | Честный скан (raycast), целевой поиск, кэш, радиус в конфиге, сводка для промпта | WorldKnowledge, VasyanConfig, PromptBuilder |
+| **2. Инвентарь** | 27 слотов (одинарный сундук; задел под апгрейды вместимости) + NBT, зачисление дропов, подбор ItemEntity, панель K + `/vasyan inventory`, ПКМ по боту — take-only меню | VasyanEntity, VasyanGUI, VasyanCommands, VasyanInventory, VasyanMenu |
+| **3. Умный сбор** | Стратегия поверхность/руда, расширение поиска, инструменты, счёт по предметам, авто-возврат при полном инвентаре (переиспользует `VasyanEntity.teleportToPlayer` из фичи `tp`) | MineBlockAction, GatherResourceAction, новое HarvestAction, VasyanEntity |
 | **4. Передача** | `give` (авто + команда), передача игроку, склад в сундуки | GiveAction, TaskPlanner (валидация), PromptBuilder |
 | **5. Мозги/диалог** | `respond`, `look`, обогащённый промпт, fallback-паттерны; чат-команды частично работают уже сейчас (`teleport` через панель K) | PromptBuilder, ResponseParser, LLMFallbackHandler |
-| **6. Полировка** | Кэш/производительность (10 ботов), тесты на Forge-сервере, `/steve debug` расширить | — |
+| **6. Полировка** | Кэш/производительность (10 ботов), тесты на Forge-сервере, `/vasyan debug` расширить | — |
 
 Каждый этап — отдельный коммит, после 3-го и 5-го — проверка на живом сервере.
 

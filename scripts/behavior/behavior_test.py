@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Behavior test: a Steve force-loads its chunk and keeps working with no player.
+"""Behavior test: a Vasyan force-loads its chunk and keeps working with no player.
 
 Scenario (headless server, RCON, no LLM needed - "стоп" is a stay pre-trigger):
 
   0. Cyrillic names (issue #16): spawn/tell/remove Васян, reject Бот#1.
   1. Start the Forge server (nogui), wait for "Done (".
-  2. /steve spawn Bob -> bot appears in the world (spawn chunks).
+  2. /vasyan spawn Bob -> bot appears in the world (spawn chunks).
   3. /tp <uuid> 5000 80 5000 -> teleport far away from spawn chunks.
   4. Wait for the bot to force-load its chunk (updateForcedChunk every 40 ticks).
-  5. /steve tell Bob стоп -> stay command must be EXECUTED by the bot's tick
+  5. /vasyan tell Bob стоп -> stay command must be EXECUTED by the bot's tick
      ("executing: Stay" only appears from ActionExecutor.tick, i.e. only when
      the entity is actually ticking in its force-loaded chunk).
   6. Without the chunk force-load feature the bot would not tick at x=5000
@@ -28,7 +28,7 @@ import sys
 import time
 
 RCON_PORT = 25575
-RCON_PASSWORD = "steve_test"
+RCON_PASSWORD = "vasyan_test"
 
 
 class RCON:
@@ -154,12 +154,12 @@ def wait_for(log_path, pattern, timeout, label):
 
 
 def spawn_bot(rcon, log_path, name):
-    rcon.command(f"steve spawn {name}")
-    assert wait_for(log_path, rf"[Ss]pawned Steve: {name}", 30, f"spawn {name}")
+    rcon.command(f"vasyan spawn {name}")
+    assert wait_for(log_path, rf"[Ss]pawned Vasyan: {name}", 30, f"spawn {name}")
 
 
 def get_bot_uuid(log_text, name):
-    m = re.search(rf"[Ss]pawned Steve: {name} with UUID ([0-9a-f-]+)", log_text)
+    m = re.search(rf"[Ss]pawned Vasyan: {name} with UUID ([0-9a-f-]+)", log_text)
     return m.group(1) if m else None
 
 
@@ -177,7 +177,7 @@ def assert_chunk_force_loaded(rcon, far_x, z=0):
 
 
 def assert_bot_ticks(rcon, log_path, name):
-    rcon.command(f"steve tell {name} gather 50 wood")
+    rcon.command(f"vasyan tell {name} gather 50 wood")
     assert wait_for(log_path, r"async planning complete: 1 tasks queued", 120, f"{name} ticks in far chunk")
 
 
@@ -197,8 +197,8 @@ def test_chunk_persists_after_restart(workdir, jar_path, expected_far_x):
         time.sleep(3)
         rcon = RCON()
 
-        list_resp = rcon.command("steve list")
-        print(f"  steve list after restart: {list_resp}")
+        list_resp = rcon.command("vasyan list")
+        print(f"  vasyan list after restart: {list_resp}")
         assert "Bob" in list_resp
 
         # The chunk where Bob was left should still be force-loaded.
@@ -223,16 +223,16 @@ def main():
     """Run the headless Forge server behavior test and return an exit code."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True, help="server directory")
-    ap.add_argument("--jar", required=True, help="path to steve mod jar")
+    ap.add_argument("--jar", required=True, help="path to vasyan mod jar")
     args = ap.parse_args()
 
     log_path = os.path.join(args.dir, "behavior.log")
     if os.path.exists(log_path):
         os.remove(log_path)
 
-    # Fresh world every run: a previous run leaves adopted Steve entities in
+    # Fresh world every run: a previous run leaves adopted Vasyan entities in
     # the world files, and adopt-on-join would then reject the spawn
-    # ("Steve name already exists").
+    # ("Vasyan name already exists").
     for stale in ("world", "world_nether", "world_the_end"):
         p = os.path.join(args.dir, stale)
         if os.path.isdir(p):
@@ -248,79 +248,79 @@ def main():
         time.sleep(3)
         rcon = RCON()
         try:
-            # 0. Cyrillic-name scenario (issue #16): SteveNameArgumentType
-            #    accepts unicode letters, so /steve commands work with
+            # 0. Cyrillic-name scenario (issue #16): VasyanNameArgumentType
+            #    accepts unicode letters, so /vasyan commands work with
             #    cyrillic bot names. Runs first - it is fast and local
             #    (spawn chunks, no LLM needed). RCON command bodies are
             #    UTF-8 encoded (RCON._send), so cyrillic survives the wire.
-            print("Testing cyrillic Steve names (issue #16)...")
+            print("Testing cyrillic Vasyan names (issue #16)...")
 
-            spawn_resp = rcon.command("steve spawn Васян")
-            print(f"  steve spawn Васян -> {spawn_resp!r}")
-            if "Spawned Steve" not in spawn_resp or "Васян" not in spawn_resp:
+            spawn_resp = rcon.command("vasyan spawn Васян")
+            print(f"  vasyan spawn Васян -> {spawn_resp!r}")
+            if "Spawned Vasyan" not in spawn_resp or "Васян" not in spawn_resp:
                 print("  [FAIL] cyrillic spawn: unexpected response")
                 return 1
-            if not wait_for(log_path, r"[Ss]pawned Steve: Васян with UUID [0-9a-f-]+ at \(", 30, "cyrillic spawn"):
+            if not wait_for(log_path, r"[Ss]pawned Vasyan: Васян with UUID [0-9a-f-]+ at \(", 30, "cyrillic spawn"):
                 return 1
 
             # Stay pre-trigger is deterministic (no LLM round-trip) and
             # answers "<name> stopped" immediately.
-            stay_resp = rcon.command("steve tell Васян стоп")
-            print(f"  steve tell Васян стоп -> {stay_resp!r}")
+            stay_resp = rcon.command("vasyan tell Васян стоп")
+            print(f"  vasyan tell Васян стоп -> {stay_resp!r}")
             if "Васян stopped" not in stay_resp:
                 print("  [FAIL] cyrillic stay command did not stop Васян")
                 return 1
 
-            remove_resp = rcon.command("steve remove Васян")
-            print(f"  steve remove Васян -> {remove_resp!r}")
-            if "Removed Steve" not in remove_resp or "Васян" not in remove_resp:
+            remove_resp = rcon.command("vasyan remove Васян")
+            print(f"  vasyan remove Васян -> {remove_resp!r}")
+            if "Removed Vasyan" not in remove_resp or "Васян" not in remove_resp:
                 print("  [FAIL] cyrillic remove: unexpected response")
                 return 1
 
             # Negative case: '#' is outside the allowed charset, so Brigadier
-            # must reject the name (translatable key 'argument.steve.steve_name.invalid'
+            # must reject the name (translatable key 'argument.vasyan.vasyan_name.invalid'
             # or its rendered text) and no bot may be spawned.
-            bad_resp = rcon.command("steve spawn Бот#1")
-            print(f"  steve spawn Бот#1 -> {bad_resp!r}")
+            bad_resp = rcon.command("vasyan spawn Бот#1")
+            print(f"  vasyan spawn Бот#1 -> {bad_resp!r}")
             if "invalid" not in bad_resp.lower():
                 print("  [FAIL] invalid cyrillic name was not rejected")
                 return 1
             with open(log_path, "r", errors="replace") as f:
-                if re.search(r"[Ss]pawned Steve: Бот#1", f.read()):
-                    print("  [FAIL] invalid name spawned a Steve anyway")
+                if re.search(r"[Ss]pawned Vasyan: Бот#1", f.read()):
+                    print("  [FAIL] invalid name spawned a Vasyan anyway")
                     return 1
             print("  -> cyrillic names work, invalid name rejected")
 
             # 0b. Case-insensitive name handling (issue #4): the canonical
             # bot is named "Bob", but commands with different casing must
             # resolve to the same entity.
-            print("Testing case-insensitive Steve names (issue #4)...")
+            print("Testing case-insensitive Vasyan names (issue #4)...")
 
-            rcon.command("steve spawn Bob")
-            if not wait_for(log_path, r"[Ss]pawned Steve: Bob", 30, "case-insensitive spawn"):
+            rcon.command("vasyan spawn Bob")
+            if not wait_for(log_path, r"[Ss]pawned Vasyan: Bob", 30, "case-insensitive spawn"):
                 return 1
 
-            stay_resp = rcon.command("steve tell BOB стоп")
-            print(f"  steve tell BOB стоп -> {stay_resp!r}")
+            stay_resp = rcon.command("vasyan tell BOB стоп")
+            print(f"  vasyan tell BOB стоп -> {stay_resp!r}")
             # The dispatcher replies with the canonical bot name.
             if "stopped" not in stay_resp.lower() or "bob" not in stay_resp.lower():
                 print("  [FAIL] case-insensitive tell did not stop Bob")
                 return 1
 
-            gather_resp = rcon.command("steve tell bob gather 50 wood")
-            print(f"  steve tell bob gather 50 wood -> {gather_resp!r}")
+            gather_resp = rcon.command("vasyan tell bob gather 50 wood")
+            print(f"  vasyan tell bob gather 50 wood -> {gather_resp!r}")
             if not wait_for(log_path, r"async planning complete: 1 tasks queued", 120, "case-insensitive task queued"):
                 print("  [FAIL] case-insensitive tell did not queue a task for Bob")
                 return 1
 
-            stop_resp = rcon.command("steve stop BOB")
-            print(f"  steve stop BOB -> {stop_resp!r}")
+            stop_resp = rcon.command("vasyan stop BOB")
+            print(f"  vasyan stop BOB -> {stop_resp!r}")
             if "stopped" not in stop_resp.lower() or "bob" not in stop_resp.lower():
                 print("  [FAIL] case-insensitive stop did not stop Bob")
                 return 1
 
-            remove_resp = rcon.command("steve remove bob")
-            print(f"  steve remove bob -> {remove_resp!r}")
+            remove_resp = rcon.command("vasyan remove bob")
+            print(f"  vasyan remove bob -> {remove_resp!r}")
             if "removed" not in remove_resp.lower() or "bob" not in remove_resp.lower():
                 print("  [FAIL] case-insensitive remove did not remove Bob")
                 return 1
@@ -336,7 +336,7 @@ def main():
             with open(log_path, "r", errors="replace") as f:
                 log_text = f.read()
             uuid_m = None
-            uuid_matches = re.findall(r"[Ss]pawned Steve: Bob with UUID ([0-9a-f-]+)", log_text)
+            uuid_matches = re.findall(r"[Ss]pawned Vasyan: Bob with UUID ([0-9a-f-]+)", log_text)
             if uuid_matches:
                 uuid_m = uuid_matches[-1]
             if not uuid_m:
@@ -351,7 +351,7 @@ def main():
             #    spawn, so anything within 9 chunks ticks even without our
             #    force-loading. y=4 = flat surface: teleporting high up makes
             #    the bot fall for ages and stalls the 1-core runner.
-            spawn_pos_matches = re.findall(r"[Ss]pawned Steve: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
+            spawn_pos_matches = re.findall(r"[Ss]pawned Vasyan: Bob with UUID [0-9a-f-]+ at \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)", log_text)
             if not spawn_pos_matches:
                 print("  [FAIL] Bob spawn position not found in log")
                 return 1
@@ -362,7 +362,7 @@ def main():
             if not wait_for(log_path, r"Teleported", 30, "teleport"):
                 return 1
 
-            # 3. Give the chunk force-load a few seconds. SteveMod.onServerTick
+            # 3. Give the chunk force-load a few seconds. VasyanMod.onServerTick
             #    calls updateForcedChunks every tick, so the force flag is set
             #    almost immediately - the sleep is just buffer for chunk I/O.
             print("Waiting for chunk force-load...")
@@ -385,7 +385,7 @@ def main():
             print("Sending 'gather 50 wood'...")
             assert_bot_ticks(rcon, log_path, "Bob")
 
-            print("PASS: Steve worked in a force-loaded chunk with no player online.")
+            print("PASS: Vasyan worked in a force-loaded chunk with no player online.")
 
             # Cleanly stop the first server so the world (with Bob in the
             # far force-loaded chunk) is saved for the restart scenario.

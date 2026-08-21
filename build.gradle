@@ -9,10 +9,10 @@ plugins {
 jarJar.enable()
 
 version = '1.0.0'
-group = 'com.steve.ai'
+group = 'ru.pravets.vasyan'
 
 base {
-    archivesName = 'steve-ai-mod'
+    archivesName = 'vasyan-ai-mod'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -27,7 +27,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
 
             mods {
-                steve {
+                vasyan {
                     source sourceSets.main
                 }
             }
@@ -39,7 +39,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
 
             mods {
-                steve {
+                vasyan {
                     source sourceSets.main
                 }
             }
@@ -88,12 +88,12 @@ test {
 tasks.named('jar', Jar).configure {
     manifest {
         attributes([
-            'Specification-Title': 'Steve AI Mod',
-            'Specification-Vendor': 'Steve AI',
+            'Specification-Title': 'Vasyan AI mod',
+            'Specification-Vendor': 'Iosif Pravets',
             'Specification-Version': '1',
             'Implementation-Title': project.name,
             'Implementation-Version': project.jar.archiveVersion,
-            'Implementation-Vendor': 'Steve AI'
+            'Implementation-Vendor': 'Iosif Pravets'
         ])
     }
 

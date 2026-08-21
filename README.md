@@ -1,4 +1,4 @@
-# Steve AI - Autonomous AI Agent for Minecraft
+# Vasyan - Autonomous AI Agent for Minecraft
 
 We built Cursor for Minecraft. Instead of AI that helps you write code, you get AI agents that actually play the game with you.
 
@@ -6,11 +6,11 @@ https://github.com/user-attachments/assets/23f0ccdd-7a7a-4d49-9dd9-215ebf67265a
 
 ## What It Does
 
-Steve acts as an Agent, or a series of Agents if you choose to employ all of them. You describe what you want, and he understands the context and executes. Same concept here, except instead of code editing, you get embodied Steves that operate in your Minecraft world.
+Vasyan acts as an Agent, or a series of Agents if you choose to employ all of them. You describe what you want, and he understands the context and executes. Same concept here, except instead of code editing, you get embodied Vasyans that operate in your Minecraft world.
 
 The interface is simple: press K to open a panel, type what you need. The agents handle the interpretation, planning, and execution. Say "mine some iron" and the agent reasons about where iron spawns, navigates to the appropriate depth, locates ore veins, and extracts the resources. Ask for a house and it considers the available materials, generates an appropriate structure, and builds it block by block.
 
-What makes this interesting is the multi-agent coordination. When multiple Steves work on the same task, they don't just independently execute, they actively coordinate to avoid conflicts and optimize workload distribution. Tell three agents to build a castle and they'll automatically partition the structure, divide sections among themselves, and parallelize the construction.
+What makes this interesting is the multi-agent coordination. When multiple Vasyans work on the same task, they don't just independently execute, they actively coordinate to avoid conflicts and optimize workload distribution. Tell three agents to build a castle and they'll automatically partition the structure, divide sections among themselves, and parallelize the construction.
 
 The agents aren't following predefined scripts. They're operating off natural language instructions, which means:
 - **Resource extraction** where agents determine optimal mining locations and strategies
@@ -28,9 +28,9 @@ The agents aren't following predefined scripts. They're operating off natural la
 
 **Installation:**
 1. Download the JAR from releases
-2. Put it in your `mods` folder
+2. Put the JAR into your Minecraft instance's `mods` folder
 3. Launch Minecraft
-4. Copy `config/steve-common.toml.example` to `config/steve-common.toml`
+4. Copy `config/vasyan-common.toml.example` to `config/vasyan-common.toml`
 5. Add your API key to the config
 
 **Config example:**
@@ -42,11 +42,11 @@ maxTokens = 1000
 temperature = 0.7
 ```
 
-Then spawn a Steve with `/steve spawn Bob` and press K to start giving commands.
+Then spawn a Vasyan with `/vasyan spawn Bob` and press K to start giving commands.
 
-> **Steve names** may contain letters of any script (including Cyrillic), digits
+> **Vasyan names** may contain letters of any script (including Cyrillic), digits
 > and `_ - . +` only — no spaces, quotes or other characters (quoted input still
-> parses, but the name itself must match that set). If a Steve was created before
+> parses, but the name itself must match that set). If a Vasyan was created before
 > this restriction with a name outside the set, it can no longer be addressed by
 > command; respawn it under an allowed name.
 
@@ -65,11 +65,32 @@ Then spawn a Steve with `/steve spawn Bob` and press K to start giving commands.
 
 The agents are pretty good at figuring out what you mean. You don't need to be super specific.
 
+
+## Voice Commands
+
+Press and hold **V** to record a voice command. The audio is sent to the server, transcribed by the configured STT endpoint, and then executed as a normal chat command.
+
+Enable voice in `config/vasyan-common.toml`:
+
+```toml
+[voice]
+enabled = true
+sttBaseUrl = "https://routerai.ru/api/v1"
+sttApiKey = "your-stt-key"
+sttModel = "openai/whisper-large-v3-turbo"
+sttLanguage = "ru"
+```
+
+Any OpenAI-compatible `/audio/transcriptions` endpoint works. Examples:
+- [RouterAI STT](https://routerai.ru) — public, Russian-friendly
+- OpenAI Whisper API
+- Self-hosted `whisper-asr-webservice` or similar
+
 ## Technical Architecture
 
 ### System Overview
 
-Each Steve runs an autonomous agent loop that processes natural language commands through an LLM, converts them into structured actions, and executes them using Minecraft's game mechanics. The system uses a direct action execution model optimized for real-time gameplay rather than a traditional ReAct framework.
+Each Vasyan runs an autonomous agent loop that processes natural language commands through an LLM, converts them into structured actions, and executes them using Minecraft's game mechanics. The system uses a direct action execution model optimized for real-time gameplay rather than a traditional ReAct framework.
 
 **Core execution flow:**
 1. User input captured via GUI (press K)
@@ -82,13 +103,13 @@ Each Steve runs an autonomous agent loop that processes natural language command
 
 ### Core Components
 
-**LLM Integration** (`com.steve.ai.llm`)
+**LLM Integration** (`com.vasyan.ai.llm`)
 - **GeminiClient, GroqClient, OpenAIClient**: Pluggable LLM providers for agent reasoning
-- **TaskPlanner**: Orchestrates LLM calls with context (conversation history, world state, Steve capabilities)
+- **TaskPlanner**: Orchestrates LLM calls with context (conversation history, world state, Vasyan capabilities)
 - **PromptBuilder**: Constructs prompts with available actions, examples, and formatting instructions
 - **ResponseParser**: Extracts structured action sequences from LLM responses
 
-**Action System** (`com.steve.ai.action`)
+**Action System** (`com.vasyan.ai.action`)
 - **ActionExecutor**: Tick-based action execution engine (prevents game freezing)
 - **BaseAction**: Abstract class for all actions (mine, build, move, combat, etc.)
 - **Task**: Data model for action parameters and metadata
@@ -101,26 +122,26 @@ Each Steve runs an autonomous agent loop that processes natural language command
   - FollowAction: Player/entity following
   - WaitAction: Controlled delays and synchronization
 
-**Structure Generation** (`com.steve.ai.structure`)
+**Structure Generation** (`com.vasyan.ai.structure`)
 - **StructureGenerators**: Procedural generation algorithms (houses, castles, towers, barns)
 - **StructureLoader**: NBT file loading from resources
 - **BlockPlacement**: Shared data structure for block positioning
 
-**Multi-Agent Collaboration** (`com.steve.ai.action`)
+**Multi-Agent Collaboration** (`com.vasyan.ai.action`)
 - **CollaborativeBuildManager**: Server-side coordination for parallel building
 - **Spatial partitioning**: Automatically divides structures into non-overlapping sections
-- **Work distribution**: Assigns sections to available Steves
+- **Work distribution**: Assigns sections to available Vasyans
 - **Conflict prevention**: Atomic block placement with position tracking
 - **Dynamic rebalancing**: Reassigns work when agents finish early
 
-**Memory & Context** (`com.steve.ai.memory`)
-- **SteveMemory**: Per-agent conversation history and task context
+**Memory & Context** (`com.vasyan.ai.memory`)
+- **VasyanMemory**: Per-agent conversation history and task context
 - **WorldKnowledge**: Tracks discovered resources, landmarks, and spatial data
 - **StructureRegistry**: Catalogs built structures for reference and avoidance
 
-**Code Execution** (`com.steve.ai.execution`)
+**Code Execution** (`com.vasyan.ai.execution`)
 - **CodeExecutionEngine**: GraalVM JavaScript engine for LLM-generated scripts
-- **SteveAPI**: Safe API bridge exposing Minecraft actions to scripts
+- **VasyanAPI**: Safe API bridge exposing Minecraft actions to scripts
 - **Sandboxing**: Restricted environment preventing harmful operations
 
 ### Key Design Decisions
@@ -132,15 +153,15 @@ Actions run incrementally across multiple game ticks rather than blocking. This 
 While inspired by ReAct, we use direct action execution for real-time gameplay. The LLM generates complete action sequences upfront rather than iterative observe-think-act cycles. This reduces API calls and latency, critical for game responsiveness.
 
 **Multi-Agent Coordination**
-Collaborative builds use deterministic spatial partitioning. Structures are divided into rectangular sections based on agent count. Each Steve claims a section atomically, preventing conflicts. The manager is fully server-side using ConcurrentHashMap for thread safety.
+Collaborative builds use deterministic spatial partitioning. Structures are divided into rectangular sections based on agent count. Each Vasyan claims a section atomically, preventing conflicts. The manager is fully server-side using ConcurrentHashMap for thread safety.
 
 **Memory Management**
-Context windows are managed by pruning old messages while keeping recent exchanges and critical world state. Each LLM call includes: conversation history (last 10 exchanges), current task details, Steve's position/inventory, and known world features.
+Context windows are managed by pruning old messages while keeping recent exchanges and critical world state. Each LLM call includes: conversation history (last 10 exchanges), current task details, Vasyan's position/inventory, and known world features.
 
 ### Integration with Minecraft
 
 **Entity Registration**
-Steves are custom EntityType registered via Forge's deferred registry system. They extend PathfinderMob for vanilla pathfinding integration and implement custom goals for AI behavior.
+Vasyans are custom EntityType registered via Forge's deferred registry system. They extend PathfinderMob for vanilla pathfinding integration and implement custom goals for AI behavior.
 
 **Event Hooks**
 - ServerStarting: Initialize collaborative build manager
@@ -155,8 +176,8 @@ Custom overlay GUI activated with K key. Uses Minecraft's Screen class with cust
 Standard Gradle workflow:
 
 ```bash
-git clone https://github.com/YuvDwi/Steve.git
-cd Steve
+git clone https://github.com/pravets/Vasyan.git
+cd Vasyan
 ./gradlew build
 ```
 
@@ -168,15 +189,15 @@ Output JAR will be in `build/libs/`. To test in development:
 
 **Project Structure:**
 ```
-src/main/java/com/steve/ai/
-├── entity/          # Steve entity, spawning, lifecycle
+src/main/java/com/vasyan/ai/
+├── entity/          # Vasyan entity, spawning, lifecycle
 ├── llm/             # LLM clients, prompt building, response parsing
 ├── action/          # Action classes and collaborative build manager
 ├── structure/       # Procedural generation and template loading
 ├── memory/          # Context management and world knowledge
 ├── execution/       # JavaScript code execution engine
 ├── client/          # GUI overlay
-└── command/         # Minecraft commands (/steve spawn, etc)
+└── command/         # Minecraft commands (/vasyan spawn, etc)
 ```
 
 ## Contributing
@@ -185,9 +206,9 @@ We welcome contributions! Here's how to get started:
 
 ### Reporting Bugs
 
-1. Check [existing issues](https://github.com/YuvDwi/Steve/issues) first
+1. Check [existing issues](https://github.com/pravets/Vasyan/issues) first
 2. Include:
-   - Minecraft/Forge/Steve AI versions
+   - Minecraft/Forge/Vasyan versions
    - Steps to reproduce
    - Expected vs actual behavior
    - Logs from `logs/latest.log`
@@ -196,8 +217,8 @@ We welcome contributions! Here's how to get started:
 
 1. **Fork and clone**
    ```bash
-   git clone https://github.com/YourUsername/Steve.git
-   cd Steve
+   git clone https://github.com/pravets/Vasyan.git
+   cd Vasyan
    ```
 
 2. **Create feature branch**
@@ -224,14 +245,14 @@ We welcome contributions! Here's how to get started:
 - **Comments**: JavaDoc for public methods
 
 **Adding New Actions:**
-1. Extend `BaseAction` in `com.steve.ai.action.actions`
+1. Extend `BaseAction` in `com.vasyan.ai.action.actions`
 2. Implement `tick()`, `isComplete()`, `onCancel()`
 3. Update `PromptBuilder.java` to inform LLM about new action
 4. Add example usage in prompt template
 
 ## Configuration
 
-Edit `config/steve-common.toml`:
+Edit `config/vasyan-common.toml`:
 
 ```toml
 [llm]
@@ -265,7 +286,7 @@ maxTokens = 1000
 
 **No crafting yet.** Agents can mine and place blocks but can't craft tools. We're working on it.
 
-**Actions are synchronous.** If a Steve is mining, it can't do anything else until done. Planning to add proper async execution.
+**Actions are synchronous.** If a Vasyan is mining, it can't do anything else until done. Planning to add proper async execution.
 
 **Memory resets on restart.** Right now context only persists during a play session. We're adding persistent memory with a vector DB.
 
@@ -301,4 +322,4 @@ MIT
 
 ## Issues
 
-Found a bug? Open an issue: https://github.com/YuvDwi/Steve/issues
+Found a bug? Open an issue: https://github.com/pravets/Vasyan/issues

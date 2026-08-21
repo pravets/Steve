@@ -1,8 +1,8 @@
-# Steve AI - Complete Technical Deep Dive
+# Vasyan - Complete Technical Deep Dive
 
 **Date**: November 2025
-**Project**: Steve AI - LLM-Powered Minecraft Autonomous Agents
-**Repository**: https://github.com/YuvDwi/Steve
+**Project**: Vasyan - LLM-Powered Minecraft Autonomous Agents
+**Repository**: https://github.com/pravets/Vasyan
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### What Is This?
 
-Steve is **"Cursor for Minecraft"** - an AI companion that plays the game with you. Instead of typing Minecraft commands, you press `K`, type natural language like "build me a castle" or "mine 20 diamonds," and AI agents autonomously execute the tasks.
+Vasyan is **"Cursor for Minecraft"** - an AI companion that plays the game with you. Instead of typing Minecraft commands, you press `K`, type natural language like "build me a castle" or "mine 20 diamonds," and AI agents autonomously execute the tasks.
 
 ### The Magic
 
@@ -49,7 +49,7 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
 ┌─────────────────────────────────────────────────────────────────┐
 │                         USER INTERFACE                           │
 │  • Cursor-inspired sliding panel GUI (Press K)                  │
-│  • Minecraft chat commands (/steve spawn, /steve tell)          │
+│  • Minecraft chat commands (/vasyan spawn, /vasyan tell)          │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
@@ -125,17 +125,17 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
 ### Data Flow Example: "Build a house"
 
 1. **User Input**: Player presses `K`, types "build a house", hits Enter
-2. **GUI Handler** (`SteveGUI.java`): Sends command to ActionExecutor
+2. **GUI Handler** (`VasyanGUI.java`): Sends command to ActionExecutor
 3. **World Scan** (`WorldKnowledge.java`): Scans 16-block radius
    - Nearby blocks: grass, dirt, oak_log, stone
-   - Nearby entities: 1 player (Steve), 2 sheep
+   - Nearby entities: 1 player (Vasyan), 2 sheep
    - Biome: plains
-   - Steve position: [100, 64, 200]
+   - Vasyan position: [100, 64, 200]
 4. **Prompt Construction** (`PromptBuilder.java`):
    ```
    === YOUR SITUATION ===
    Position: [100, 64, 200]
-   Nearby Players: Steve
+   Nearby Players: Vasyan
    Nearby Entities: 2 sheep
    Nearby Blocks: grass, dirt, oak_log, stone
    Biome: plains
@@ -173,7 +173,7 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
    - Renders particles and plays sounds
    - Teleports to next block position when >5 blocks away
 9. **Multi-Agent Coordination** (`CollaborativeBuildManager.java`):
-   - If another Steve starts "build a house" mid-construction:
+   - If another Vasyan starts "build a house" mid-construction:
      - Joins existing build instead of creating new one
      - Gets assigned to a quadrant (NW, NE, SW, SE)
      - Works bottom-to-top within their quadrant
@@ -184,9 +184,9 @@ Built a production-grade agentic AI system with LLM-driven natural language unde
 
 ## Detailed Low-Level Technical Overview
 
-### 1. Entity System (`SteveEntity.java`)
+### 1. Entity System (`VasyanEntity.java`)
 
-Steve agents are custom Minecraft entities extending `PathfinderMob`.
+Vasyan agents are custom Minecraft entities extending `PathfinderMob`.
 
 **Key Features**:
 - **Invulnerability**: Agents are permanently invulnerable to all damage sources
@@ -220,7 +220,7 @@ Steve agents are custom Minecraft entities extending `PathfinderMob`.
   @Override
   public void addAdditionalSaveData(CompoundTag tag) {
       super.addAdditionalSaveData(tag);
-      tag.putString("SteveName", this.steveName);
+      tag.putString("VasyanName", this.vasyanName);
 
       CompoundTag memoryTag = new CompoundTag();
       this.memory.saveToNBT(memoryTag);
@@ -331,19 +331,19 @@ RULES:
 3. Use 2-3 block types
 4. NO extra pathfind tasks
 5. Keep reasoning under 15 words
-6. COLLABORATIVE BUILDING: Multiple Steves can work simultaneously
+6. COLLABORATIVE BUILDING: Multiple Vasyans can work simultaneously
 
 CRITICAL: Output ONLY valid JSON. No markdown, no explanations.
 ```
 
 **User Prompt** - Rich contextual awareness:
 ```java
-public static String buildUserPrompt(SteveEntity steve, String command, WorldKnowledge worldKnowledge) {
+public static String buildUserPrompt(VasyanEntity vasyan, String command, WorldKnowledge worldKnowledge) {
     StringBuilder prompt = new StringBuilder();
 
     // Full situational awareness
     prompt.append("=== YOUR SITUATION ===\n");
-    prompt.append("Position: ").append(formatPosition(steve.blockPosition())).append("\n");
+    prompt.append("Position: ").append(formatPosition(vasyan.blockPosition())).append("\n");
     prompt.append("Nearby Players: ").append(worldKnowledge.getNearbyPlayerNames()).append("\n");
     prompt.append("Nearby Entities: ").append(worldKnowledge.getNearbyEntitiesSummary()).append("\n");
     prompt.append("Nearby Blocks: ").append(worldKnowledge.getNearbyBlocksSummary()).append("\n");
@@ -462,14 +462,14 @@ private static Task parseTask(JsonObject taskObj) {
 ```java
 private void scanBlocks() {
     nearbyBlocks = new HashMap<>();
-    Level level = steve.level();
-    BlockPos stevePos = steve.blockPosition();
+    Level level = vasyan.level();
+    BlockPos vasyanPos = vasyan.blockPosition();
 
     // Sample every 2 blocks for performance (8x8x8 = 512 samples instead of 32^3 = 32768)
     for (int x = -scanRadius; x <= scanRadius; x += 2) {
         for (int y = -scanRadius; y <= scanRadius; y += 2) {
             for (int z = -scanRadius; z <= scanRadius; z += 2) {
-                BlockPos checkPos = stevePos.offset(x, y, z);
+                BlockPos checkPos = vasyanPos.offset(x, y, z);
                 BlockState state = level.getBlockState(checkPos);
                 Block block = state.getBlock();
 
@@ -485,9 +485,9 @@ private void scanBlocks() {
 **Entity Detection** (AABB-based):
 ```java
 private void scanEntities() {
-    Level level = steve.level();
-    AABB searchBox = steve.getBoundingBox().inflate(scanRadius);
-    nearbyEntities = level.getEntities(steve, searchBox);
+    Level level = vasyan.level();
+    AABB searchBox = vasyan.getBoundingBox().inflate(scanRadius);
+    nearbyEntities = level.getEntities(vasyan, searchBox);
 }
 ```
 
@@ -540,7 +540,7 @@ public class ActionExecutor {
             if (currentAction.isComplete()) {
                 ActionResult result = currentAction.getResult();
 
-                steve.getMemory().addAction(currentAction.getDescription());
+                vasyan.getMemory().addAction(currentAction.getDescription());
 
                 if (!result.isSuccess() && result.requiresReplanning()) {
                     // Could re-plan here with LLM
@@ -566,10 +566,10 @@ public class ActionExecutor {
         // Idle behavior: follow nearest player
         if (taskQueue.isEmpty() && currentAction == null && currentGoal == null) {
             if (idleFollowAction == null) {
-                idleFollowAction = new IdleFollowAction(steve);
+                idleFollowAction = new IdleFollowAction(vasyan);
                 idleFollowAction.start();
             } else if (idleFollowAction.isComplete()) {
-                idleFollowAction = new IdleFollowAction(steve);
+                idleFollowAction = new IdleFollowAction(vasyan);
                 idleFollowAction.start();
             } else {
                 idleFollowAction.tick();
@@ -583,14 +583,14 @@ public class ActionExecutor {
 ```java
 private BaseAction createAction(Task task) {
     return switch (task.getAction()) {
-        case "pathfind" -> new PathfindAction(steve, task);
-        case "mine" -> new MineBlockAction(steve, task);
-        case "place" -> new PlaceBlockAction(steve, task);
-        case "craft" -> new CraftItemAction(steve, task);
-        case "attack" -> new CombatAction(steve, task);
-        case "follow" -> new FollowPlayerAction(steve, task);
-        case "gather" -> new GatherResourceAction(steve, task);
-        case "build" -> new BuildStructureAction(steve, task);
+        case "pathfind" -> new PathfindAction(vasyan, task);
+        case "mine" -> new MineBlockAction(vasyan, task);
+        case "place" -> new PlaceBlockAction(vasyan, task);
+        case "craft" -> new CraftItemAction(vasyan, task);
+        case "attack" -> new CombatAction(vasyan, task);
+        case "follow" -> new FollowPlayerAction(vasyan, task);
+        case "gather" -> new GatherResourceAction(vasyan, task);
+        case "build" -> new BuildStructureAction(vasyan, task);
         default -> null;
     };
 }
@@ -601,7 +601,7 @@ private BaseAction createAction(Task task) {
 **Lifecycle Hooks**:
 ```java
 public abstract class BaseAction {
-    protected final SteveEntity steve;
+    protected final VasyanEntity vasyan;
     protected final Task task;
     protected ActionResult result;
     protected boolean started = false;
@@ -652,7 +652,7 @@ protected void onStart() {
     if (collaborativeBuild != null) {
         // JOIN existing build
         isCollaborative = true;
-        steve.setFlying(true);
+        vasyan.setFlying(true);
         return;
     }
 
@@ -670,7 +670,7 @@ protected void onStart() {
 
         groundPos = findGroundLevel(new BlockPos(targetPos));
     } else {
-        groundPos = findGroundLevel(steve.blockPosition().offset(2, 0, 2));
+        groundPos = findGroundLevel(vasyan.blockPosition().offset(2, 0, 2));
     }
 
     // Try loading from NBT template
@@ -691,7 +691,7 @@ protected void onStart() {
         groundPos
     );
 
-    steve.setFlying(true); // Enable flying for building
+    vasyan.setFlying(true); // Enable flying for building
 }
 ```
 
@@ -787,7 +787,7 @@ private BlockPos findGroundLevel(BlockPos startPos) {
         BlockPos checkPos = startPos.below(i);
         BlockPos belowPos = checkPos.below();
 
-        if (steve.level().getBlockState(checkPos).isAir() &&
+        if (vasyan.level().getBlockState(checkPos).isAir() &&
             isSolidGround(belowPos)) {
             return checkPos; // Found ground level (air above solid block)
         }
@@ -798,7 +798,7 @@ private BlockPos findGroundLevel(BlockPos startPos) {
         BlockPos checkPos = startPos.above(i);
         BlockPos belowPos = checkPos.below();
 
-        if (steve.level().getBlockState(checkPos).isAir() &&
+        if (vasyan.level().getBlockState(checkPos).isAir() &&
             isSolidGround(belowPos)) {
             return checkPos;
         }
@@ -814,7 +814,7 @@ private BlockPos findGroundLevel(BlockPos startPos) {
 }
 
 private boolean isSolidGround(BlockPos pos) {
-    var blockState = steve.level().getBlockState(pos);
+    var blockState = vasyan.level().getBlockState(pos);
     var block = blockState.getBlock();
 
     // Not solid if air or liquid
@@ -833,14 +833,14 @@ protected void onTick() {
     ticksRunning++;
 
     if (ticksRunning > MAX_TICKS) {
-        steve.setFlying(false);
+        vasyan.setFlying(false);
         result = ActionResult.failure("Building timeout");
         return;
     }
 
     if (collaborativeBuild.isComplete()) {
         CollaborativeBuildManager.completeBuild(collaborativeBuild.structureId);
-        steve.setFlying(false);
+        vasyan.setFlying(false);
         result = ActionResult.success("Built " + structureType + " collaboratively!");
         return;
     }
@@ -848,40 +848,40 @@ protected void onTick() {
     // Place BLOCKS_PER_TICK blocks per tick
     for (int i = 0; i < BLOCKS_PER_TICK; i++) {
         BlockPlacement placement =
-            CollaborativeBuildManager.getNextBlock(collaborativeBuild, steve.getSteveName());
+            CollaborativeBuildManager.getNextBlock(collaborativeBuild, vasyan.getVasyanName());
 
         if (placement == null) {
             break; // No more blocks in this agent's section
         }
 
         BlockPos pos = placement.pos;
-        double distance = Math.sqrt(steve.blockPosition().distSqr(pos));
+        double distance = Math.sqrt(vasyan.blockPosition().distSqr(pos));
 
         // Teleport if too far (>5 blocks)
         if (distance > 5) {
-            steve.teleportTo(pos.getX() + 2, pos.getY(), pos.getZ() + 2);
+            vasyan.teleportTo(pos.getX() + 2, pos.getY(), pos.getZ() + 2);
         }
 
         // Look at block position
-        steve.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        vasyan.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 
         // Swing arm animation
-        steve.swing(InteractionHand.MAIN_HAND, true);
+        vasyan.swing(InteractionHand.MAIN_HAND, true);
 
         // Place block
         BlockState blockState = placement.block.defaultBlockState();
-        steve.level().setBlock(pos, blockState, 3);
+        vasyan.level().setBlock(pos, blockState, 3);
 
         // Particles and sound
-        if (steve.level() instanceof ServerLevel serverLevel) {
+        if (vasyan.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(
                 new BlockParticleOption(ParticleTypes.BLOCK, blockState),
                 pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                 15, 0.4, 0.4, 0.4, 0.15
             );
 
-            var soundType = blockState.getSoundType(steve.level(), pos, steve);
-            steve.level().playSound(null, pos, soundType.getPlaceSound(),
+            var soundType = blockState.getSoundType(vasyan.level(), pos, vasyan);
+            vasyan.level().playSound(null, pos, soundType.getPlaceSound(),
                 SoundSource.BLOCKS, 1.0f, soundType.getPitch());
         }
     }
@@ -889,12 +889,12 @@ protected void onTick() {
     // Progress logging every 5 seconds
     if (ticksRunning % 100 == 0) {
         int percentComplete = collaborativeBuild.getProgressPercentage();
-        SteveMod.LOGGER.info("{} build progress: {}/{} ({}%) - {} Steves working",
+        VasyanMod.LOGGER.info("{} build progress: {}/{} ({}%) - {} Vasyans working",
             structureType,
             collaborativeBuild.getBlocksPlaced(),
             collaborativeBuild.getTotalBlocks(),
             percentComplete,
-            collaborativeBuild.participatingSteves.size());
+            collaborativeBuild.participatingVasyans.size());
     }
 }
 ```
@@ -907,9 +907,9 @@ public class CollaborativeBuild {
     public final String structureId;
     public final List<BlockPlacement> buildPlan;
     private final List<BuildSection> sections; // 4 quadrants (NW, NE, SW, SE)
-    private final Map<String, Integer> steveToSectionMap;
+    private final Map<String, Integer> vasyanToSectionMap;
     private final AtomicInteger nextSectionIndex;
-    public final Set<String> participatingSteves;
+    public final Set<String> participatingVasyans;
 
     /**
      * Divide build into 4 QUADRANTS sorted BOTTOM-TO-TOP
@@ -994,19 +994,19 @@ public static class BuildSection {
 }
 ```
 
-**Steve-to-Section Assignment**:
+**Vasyan-to-Section Assignment**:
 ```java
-private static Integer assignSteveToSection(CollaborativeBuild build, String steveName) {
+private static Integer assignVasyanToSection(CollaborativeBuild build, String vasyanName) {
     // First pass: Find unassigned section
     for (int i = 0; i < build.sections.size(); i++) {
         BuildSection section = build.sections.get(i);
         if (!section.isComplete()) {
-            boolean alreadyAssigned = build.steveToSectionMap.containsValue(i);
+            boolean alreadyAssigned = build.vasyanToSectionMap.containsValue(i);
 
             if (!alreadyAssigned) {
-                build.steveToSectionMap.put(steveName, i);
-                SteveMod.LOGGER.info("Assigned Steve '{}' to {} quadrant - will build {} blocks BOTTOM-TO-TOP",
-                    steveName, section.sectionName, section.getTotalBlocks());
+                build.vasyanToSectionMap.put(vasyanName, i);
+                VasyanMod.LOGGER.info("Assigned Vasyan '{}' to {} quadrant - will build {} blocks BOTTOM-TO-TOP",
+                    vasyanName, section.sectionName, section.getTotalBlocks());
                 return i;
             }
         }
@@ -1016,9 +1016,9 @@ private static Integer assignSteveToSection(CollaborativeBuild build, String ste
     for (int i = 0; i < build.sections.size(); i++) {
         BuildSection section = build.sections.get(i);
         if (!section.isComplete()) {
-            build.steveToSectionMap.put(steveName, i);
-            SteveMod.LOGGER.info("Steve '{}' helping with {} quadrant ({} blocks remaining)",
-                steveName, section.sectionName, section.getTotalBlocks() - section.getBlocksPlaced());
+            build.vasyanToSectionMap.put(vasyanName, i);
+            VasyanMod.LOGGER.info("Vasyan '{}' helping with {} quadrant ({} blocks remaining)",
+                vasyanName, section.sectionName, section.getTotalBlocks() - section.getBlocksPlaced());
             return i;
         }
     }
@@ -1030,7 +1030,7 @@ private static Integer assignSteveToSection(CollaborativeBuild build, String ste
 **Concurrency Safety**:
 - `ConcurrentHashMap` for active builds map
 - `AtomicInteger` for block index (lock-free compare-and-swap)
-- `ConcurrentHashMap.newKeySet()` for participating Steves set
+- `ConcurrentHashMap.newKeySet()` for participating Vasyans set
 - All access happens on server thread (single-threaded), but safe for future parallelization
 
 #### 5.3 Mining Action (`MineBlockAction.java`)
@@ -1081,16 +1081,16 @@ protected void onStart() {
         // Find solid ground
         for (int y = miningStartPos.getY(); y > -64; y--) {
             BlockPos groundCheck = new BlockPos(miningStartPos.getX(), y, miningStartPos.getZ());
-            if (steve.level().getBlockState(groundCheck).isSolid()) {
+            if (vasyan.level().getBlockState(groundCheck).isSolid()) {
                 miningStartPos = groundCheck.above();
                 break;
             }
         }
 
-        steve.teleportTo(miningStartPos.getX() + 0.5, miningStartPos.getY(), miningStartPos.getZ() + 0.5);
+        vasyan.teleportTo(miningStartPos.getX() + 0.5, miningStartPos.getY(), miningStartPos.getZ() + 0.5);
     }
 
-    steve.setFlying(true);
+    vasyan.setFlying(true);
     equipIronPickaxe(); // Give agent an iron pickaxe
 }
 ```
@@ -1103,23 +1103,23 @@ private void mineNearbyBlock() {
     BlockPos belowPos = centerPos.below();
 
     // Mine 3-block-tall tunnel (center, above, below)
-    BlockState centerState = steve.level().getBlockState(centerPos);
+    BlockState centerState = vasyan.level().getBlockState(centerPos);
     if (!centerState.isAir() && centerState.getBlock() != Blocks.BEDROCK) {
-        steve.teleportTo(centerPos.getX() + 0.5, centerPos.getY(), centerPos.getZ() + 0.5);
-        steve.swing(InteractionHand.MAIN_HAND, true);
-        steve.level().destroyBlock(centerPos, true); // true = drop items
+        vasyan.teleportTo(centerPos.getX() + 0.5, centerPos.getY(), centerPos.getZ() + 0.5);
+        vasyan.swing(InteractionHand.MAIN_HAND, true);
+        vasyan.level().destroyBlock(centerPos, true); // true = drop items
     }
 
-    BlockState aboveState = steve.level().getBlockState(abovePos);
+    BlockState aboveState = vasyan.level().getBlockState(abovePos);
     if (!aboveState.isAir() && aboveState.getBlock() != Blocks.BEDROCK) {
-        steve.swing(InteractionHand.MAIN_HAND, true);
-        steve.level().destroyBlock(abovePos, true);
+        vasyan.swing(InteractionHand.MAIN_HAND, true);
+        vasyan.level().destroyBlock(abovePos, true);
     }
 
-    BlockState belowState = steve.level().getBlockState(belowPos);
+    BlockState belowState = vasyan.level().getBlockState(belowPos);
     if (!belowState.isAir() && belowState.getBlock() != Blocks.BEDROCK) {
-        steve.swing(InteractionHand.MAIN_HAND, true);
-        steve.level().destroyBlock(belowPos, true);
+        vasyan.swing(InteractionHand.MAIN_HAND, true);
+        vasyan.level().destroyBlock(belowPos, true);
     }
 
     // Advance tunnel position in mining direction
@@ -1139,7 +1139,7 @@ private void findNextBlock() {
         // Check center, above, below
         for (int y = -1; y <= 1; y++) {
             BlockPos orePos = checkPos.offset(0, y, 0);
-            if (steve.level().getBlockState(orePos).getBlock() == targetBlock) {
+            if (vasyan.level().getBlockState(orePos).getBlock() == targetBlock) {
                 foundBlocks.add(orePos);
             }
         }
@@ -1157,15 +1157,15 @@ private void findNextBlock() {
 **Automatic Lighting**:
 ```java
 private void placeTorchIfDark() {
-    BlockPos stevePos = steve.blockPosition();
-    int lightLevel = steve.level().getBrightness(LightLayer.BLOCK, stevePos);
+    BlockPos vasyanPos = vasyan.blockPosition();
+    int lightLevel = vasyan.level().getBrightness(LightLayer.BLOCK, vasyanPos);
 
     if (lightLevel < MIN_LIGHT_LEVEL) { // MIN_LIGHT_LEVEL = 8
-        BlockPos torchPos = findTorchPosition(stevePos);
+        BlockPos torchPos = findTorchPosition(vasyanPos);
 
-        if (torchPos != null && steve.level().getBlockState(torchPos).isAir()) {
-            steve.level().setBlock(torchPos, Blocks.TORCH.defaultBlockState(), 3);
-            steve.swing(InteractionHand.MAIN_HAND, true);
+        if (torchPos != null && vasyan.level().getBlockState(torchPos).isAir()) {
+            vasyan.level().setBlock(torchPos, Blocks.TORCH.defaultBlockState(), 3);
+            vasyan.swing(InteractionHand.MAIN_HAND, true);
         }
     }
 }
@@ -1176,15 +1176,15 @@ private void placeTorchIfDark() {
 **Target Acquisition**:
 ```java
 private void findTarget() {
-    AABB searchBox = steve.getBoundingBox().inflate(32.0); // 32-block search radius
-    List<Entity> entities = steve.level().getEntities(steve, searchBox);
+    AABB searchBox = vasyan.getBoundingBox().inflate(32.0); // 32-block search radius
+    List<Entity> entities = vasyan.level().getEntities(vasyan, searchBox);
 
     LivingEntity nearest = null;
     double nearestDistance = Double.MAX_VALUE;
 
     for (Entity entity : entities) {
         if (entity instanceof LivingEntity living && isValidTarget(living)) {
-            double distance = steve.distanceTo(living);
+            double distance = vasyan.distanceTo(living);
             if (distance < nearestDistance) {
                 nearest = living;
                 nearestDistance = distance;
@@ -1200,8 +1200,8 @@ private boolean isValidTarget(LivingEntity entity) {
         return false;
     }
 
-    // Don't attack other Steves or players
-    if (entity instanceof SteveEntity || entity instanceof Player) {
+    // Don't attack other Vasyans or players
+    if (entity instanceof VasyanEntity || entity instanceof Player) {
         return false;
     }
 
@@ -1231,11 +1231,11 @@ protected void onTick() {
         return;
     }
 
-    double distance = steve.distanceTo(target);
+    double distance = vasyan.distanceTo(target);
 
     // Sprint towards target
-    steve.setSprinting(true);
-    steve.getNavigation().moveTo(target, 2.5); // High speed multiplier
+    vasyan.setSprinting(true);
+    vasyan.getNavigation().moveTo(target, 2.5); // High speed multiplier
 
     // Unstuck logic: teleport if stuck for 2 seconds
     if (Math.abs(currentX - lastX) < 0.1 && Math.abs(currentZ - lastZ) < 0.1) {
@@ -1243,15 +1243,15 @@ protected void onTick() {
 
         if (ticksStuck > 40 && distance > ATTACK_RANGE) {
             // Teleport 4 blocks closer to target
-            double dx = target.getX() - steve.getX();
-            double dz = target.getZ() - steve.getZ();
+            double dx = target.getX() - vasyan.getX();
+            double dz = target.getZ() - vasyan.getZ();
             double dist = Math.sqrt(dx*dx + dz*dz);
             double moveAmount = Math.min(4.0, dist - ATTACK_RANGE);
 
-            steve.teleportTo(
-                steve.getX() + (dx/dist) * moveAmount,
-                steve.getY(),
-                steve.getZ() + (dz/dist) * moveAmount
+            vasyan.teleportTo(
+                vasyan.getX() + (dx/dist) * moveAmount,
+                vasyan.getY(),
+                vasyan.getZ() + (dz/dist) * moveAmount
             );
             ticksStuck = 0;
         }
@@ -1259,12 +1259,12 @@ protected void onTick() {
 
     // Attack when in range
     if (distance <= ATTACK_RANGE) { // ATTACK_RANGE = 3.5 blocks
-        steve.doHurtTarget(target);
-        steve.swing(InteractionHand.MAIN_HAND, true);
+        vasyan.doHurtTarget(target);
+        vasyan.swing(InteractionHand.MAIN_HAND, true);
 
         // Attack 3 times per second (every 6-7 ticks)
         if (ticksRunning % 7 == 0) {
-            steve.doHurtTarget(target);
+            vasyan.doHurtTarget(target);
         }
     }
 }
@@ -1364,7 +1364,7 @@ private static LoadedTemplate parseNBTStructure(CompoundTag nbt, String name) {
 **Usage in BuildStructureAction**:
 ```java
 private List<BlockPlacement> tryLoadFromTemplate(String structureName, BlockPos startPos) {
-    if (!(steve.level() instanceof ServerLevel serverLevel)) {
+    if (!(vasyan.level() instanceof ServerLevel serverLevel)) {
         return null;
     }
 
@@ -1384,7 +1384,7 @@ private List<BlockPlacement> tryLoadFromTemplate(String structureName, BlockPos 
 }
 ```
 
-### 7. GUI System (`SteveGUI.java`)
+### 7. GUI System (`VasyanGUI.java`)
 
 **Cursor-Inspired Sliding Panel**:
 ```java
@@ -1418,16 +1418,16 @@ public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
 
     // Render header
     graphics.fillGradient(panelX, panelY, screenWidth, 35, HEADER_COLOR, HEADER_COLOR);
-    graphics.drawString(mc.font, "§lSteve AI", panelX + 6, panelY + 8, TEXT_COLOR);
+    graphics.drawString(mc.font, "§lVasyan AI", panelX + 6, panelY + 8, TEXT_COLOR);
 }
 ```
 
 **Scrollable Message History**:
 ```java
 private static class ChatMessage {
-    String sender; // "You", "Steve", "Alex"
+    String sender; // "You", "Vasyan", "Alex"
     String text;
-    int bubbleColor; // Color-coded: green (user), blue (Steve), orange (system)
+    int bubbleColor; // Color-coded: green (user), blue (Vasyan), orange (system)
     boolean isUser;
 }
 
@@ -1457,11 +1457,11 @@ for (ChatMessage msg : messages) {
 
 ### 8. Memory System
 
-#### 8.1 SteveMemory (`SteveMemory.java`)
+#### 8.1 VasyanMemory (`VasyanMemory.java`)
 
 **Short-Term Action History**:
 ```java
-public class SteveMemory {
+public class VasyanMemory {
     private String currentGoal;
     private final LinkedList<String> recentActions;
     private static final int MAX_RECENT_ACTIONS = 20;
@@ -1524,7 +1524,7 @@ public static List<StructureRecord> getStructuresOfType(String type) {
 }
 ```
 
-### 9. Configuration System (`SteveConfig.java`)
+### 9. Configuration System (`VasyanConfig.java`)
 
 **Forge Config Spec**:
 ```java
@@ -1535,7 +1535,7 @@ public static final ForgeConfigSpec.IntValue MAX_TOKENS;
 public static final ForgeConfigSpec.DoubleValue TEMPERATURE;
 public static final ForgeConfigSpec.IntValue ACTION_TICK_DELAY;
 public static final ForgeConfigSpec.BooleanValue ENABLE_CHAT_RESPONSES;
-public static final ForgeConfigSpec.IntValue MAX_ACTIVE_STEVES;
+public static final ForgeConfigSpec.IntValue MAX_ACTIVE_VASYANS;
 
 static {
     ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -1564,15 +1564,15 @@ static {
         .comment("Ticks between action checks (20 ticks = 1 second)")
         .defineInRange("actionTickDelay", 20, 1, 100);
 
-    MAX_ACTIVE_STEVES = builder
-        .comment("Max Steves active simultaneously")
-        .defineInRange("maxActiveSteves", 10, 1, 50);
+    MAX_ACTIVE_VASYANS = builder
+        .comment("Max Vasyans active simultaneously")
+        .defineInRange("maxActiveVasyans", 10, 1, 50);
 
     SPEC = builder.build();
 }
 ```
 
-**Config File** (`config/steve-common.toml`):
+**Config File** (`config/vasyan-common.toml`):
 ```toml
 [ai]
     provider = "groq"
@@ -1586,49 +1586,49 @@ static {
 [behavior]
     actionTickDelay = 20
     enableChatResponses = true
-    maxActiveSteves = 10
+    maxActiveVasyans = 10
 ```
 
-### 10. Command System (`SteveCommands.java`)
+### 10. Command System (`VasyanCommands.java`)
 
 **Brigadier Command Registration**:
 ```java
 public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-    dispatcher.register(Commands.literal("steve")
+    dispatcher.register(Commands.literal("vasyan")
         .then(Commands.literal("spawn")
-            .then(Commands.argument("name", SteveNameArgumentType.steveName())
-                .executes(SteveCommands::spawnSteve)))
+            .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                .executes(VasyanCommands::spawnVasyan)))
         .then(Commands.literal("remove")
-            .then(Commands.argument("name", SteveNameArgumentType.steveName())
-                .executes(SteveCommands::removeSteve)))
+            .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                .executes(VasyanCommands::removeVasyan)))
         .then(Commands.literal("list")
-            .executes(SteveCommands::listSteves))
+            .executes(VasyanCommands::listVasyans))
         .then(Commands.literal("stop")
-            .then(Commands.argument("name", SteveNameArgumentType.steveName())
-                .executes(SteveCommands::stopSteve)))
+            .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
+                .executes(VasyanCommands::stopVasyan)))
         .then(Commands.literal("tell")
-            .then(Commands.argument("name", SteveNameArgumentType.steveName())
+            .then(Commands.argument("name", VasyanNameArgumentType.vasyanName())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
-                    .executes(SteveCommands::tellSteve))))
+                    .executes(VasyanCommands::tellVasyan))))
     );
 }
 ```
 
-**Name constraints**: since this change, all `/steve` commands accept only a strict
-`SteveName` instead of an arbitrary `StringArgumentType.string()` value. A name must
+**Name constraints**: since this change, all `/vasyan` commands accept only a strict
+`VasyanName` instead of an arbitrary `StringArgumentType.string()` value. A name must
 contain only letters (any script, including Cyrillic), digits and `_ - . +`; spaces,
 quotes and any other character are rejected (quoted input is still parsed, but the
-name itself must match `[\p{L}\p{N}_.+-]+`). Steves created earlier with names outside
+name itself must match `[\p{L}\p{N}_.+-]+`). Vasyans created earlier with names outside
 this set can no longer be addressed by command.
 
 **Spawning Logic**:
 ```java
-private static int spawnSteve(CommandContext<CommandSourceStack> context) {
+private static int spawnVasyan(CommandContext<CommandSourceStack> context) {
     String name = StringArgumentType.getString(context, "name");
     CommandSourceStack source = context.getSource();
 
     ServerLevel serverLevel = source.getLevel();
-    SteveManager manager = SteveMod.getSteveManager();
+    VasyanManager manager = VasyanMod.getVasyanManager();
 
     // Spawn 3 blocks in front of player's look direction
     Vec3 sourcePos = source.getPosition();
@@ -1637,12 +1637,12 @@ private static int spawnSteve(CommandContext<CommandSourceStack> context) {
         sourcePos = sourcePos.add(lookVec.x * 3, 0, lookVec.z * 3);
     }
 
-    SteveEntity steve = manager.spawnSteve(serverLevel, sourcePos, name);
-    if (steve != null) {
-        source.sendSuccess(() -> Component.literal("Spawned Steve: " + name), true);
+    VasyanEntity vasyan = manager.spawnVasyan(serverLevel, sourcePos, name);
+    if (vasyan != null) {
+        source.sendSuccess(() -> Component.literal("Spawned Vasyan: " + name), true);
         return 1;
     } else {
-        source.sendFailure(Component.literal("Failed to spawn Steve"));
+        source.sendFailure(Component.literal("Failed to spawn Vasyan"));
         return 0;
     }
 }
@@ -1650,22 +1650,22 @@ private static int spawnSteve(CommandContext<CommandSourceStack> context) {
 
 **Asynchronous Command Execution**:
 ```java
-private static int tellSteve(CommandContext<CommandSourceStack> context) {
+private static int tellVasyan(CommandContext<CommandSourceStack> context) {
     String name = StringArgumentType.getString(context, "name");
     String command = StringArgumentType.getString(context, "command");
 
-    SteveManager manager = SteveMod.getSteveManager();
-    SteveEntity steve = manager.getSteve(name);
+    VasyanManager manager = VasyanMod.getVasyanManager();
+    VasyanEntity vasyan = manager.getVasyan(name);
 
-    if (steve != null) {
+    if (vasyan != null) {
         // Execute in separate thread to avoid blocking game thread
         new Thread(() -> {
-            steve.getActionExecutor().processNaturalLanguageCommand(command);
+            vasyan.getActionExecutor().processNaturalLanguageCommand(command);
         }).start();
 
         return 1;
     } else {
-        source.sendFailure(Component.literal("Steve not found: " + name));
+        source.sendFailure(Component.literal("Vasyan not found: " + name));
         return 0;
     }
 }
@@ -2193,7 +2193,7 @@ public boolean isInvulnerableTo(DamageSource source) {
 
 ## Conclusion
 
-Steve AI represents a novel approach to embodied AI in gaming environments. By combining LLM-driven natural language understanding with real-time game engine integration, multi-agent coordination, and procedural generation, the project demonstrates that AI can be more than passive assistants—they can be active teammates in complex, dynamic environments.
+Vasyan AI represents a novel approach to embodied AI in gaming environments. By combining LLM-driven natural language understanding with real-time game engine integration, multi-agent coordination, and procedural generation, the project demonstrates that AI can be more than passive assistants—they can be active teammates in complex, dynamic environments.
 
 The technical achievements include:
 1. Lock-free multi-agent collaboration

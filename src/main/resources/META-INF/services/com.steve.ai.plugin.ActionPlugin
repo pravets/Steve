@@ -1,5 +1,0 @@
-# Steve AI Action Plugins
-# Each line is a fully qualified class name of an ActionPlugin implementation
-
-# Core plugin with built-in actions (mining, building, combat, etc.)
-com.steve.ai.plugin.CoreActionsPlugin
