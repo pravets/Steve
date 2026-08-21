@@ -5,7 +5,7 @@ Vasyan — мод для Forge 1.20.1, добавляющий в Minecraft ав�
 ## Установка
 
 1. Скачайте `vasyan-ai-mod-<version>-all.jar` из GitHub Releases.
-2. Поместите JAR в папку `mods` рядом с Forge 1.20.1.
+2. Поместите JAR в папку `mods` вашего экземпляра Minecraft (Forge 1.20.1 должен быть уже установлен).
 3. Запустите Minecraft.
 4. Скопируйте `config/vasyan-common.toml.example` в `config/vasyan-common.toml`.
 5. Добавьте ключ API и выберите провайдера.

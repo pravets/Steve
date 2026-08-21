@@ -28,7 +28,7 @@ The agents aren't following predefined scripts. They're operating off natural la
 
 **Installation:**
 1. Download the JAR from releases
-2. Put it in your `mods` folder
+2. Put the JAR into your Minecraft instance's `mods` folder
 3. Launch Minecraft
 4. Copy `config/vasyan-common.toml.example` to `config/vasyan-common.toml`
 5. Add your API key to the config
