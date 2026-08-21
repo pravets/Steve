@@ -1,0 +1,46 @@
+# Exact rename map: Steve -> Vasyan (Phase 0 rebrand)
+# Generated from the approved Phase 0 plan.
+# Apply these replacements in the listed order (longest match first).
+#
+# Format: OLD -> NEW
+
+https://github.com/yourusername/steve-ai-mod -> https://github.com/pravets/Vasyan
+ServerboundRequestSteveListPacket -> ServerboundRequestVasyanListPacket
+rootProject.name = 'steve' -> rootProject.name = 'vasyan'
+steve_default_bots_spawned -> vasyan_default_bots_spawned
+ClientboundSteveListPacket -> ClientboundVasyanListPacket
+group = 'com.steve.ai' -> group = 'ru.pravets.vasyan'
+SteveCommandDispatcher -> VasyanCommandDispatcher
+SteveNameArgumentType -> VasyanNameArgumentType
+SteveNameArgumentInfo -> VasyanNameArgumentInfo
+steve-voice-capture -> vasyan-voice-capture
+dependencies.steve -> dependencies.vasyan
+steve-health-check -> vasyan-health-check
+SteveOverlayScreen -> VasyanOverlayScreen
+steve-common.toml -> vasyan-common.toml
+SteveTeleportUtil -> VasyanTeleportUtil
+SteveMenuScreen -> VasyanMenuScreen
+SteveNetworking -> VasyanNetworking
+SteveWorldData -> VasyanWorldData
+SteveInventory -> VasyanInventory
+modId="steve" -> modId="vasyan"
+steve-command -> vasyan-command
+SteveCommands -> VasyanCommands
+YuvDwi/Steve -> YuvDwi/Steve
+com.steve.ai -> ru.pravets.vasyan
+steve-ai-mod -> vasyan-ai-mod
+Steve AI Mod -> Vasyan AI Mod
+assets/steve -> assets/vasyan
+SteveManager -> VasyanManager
+STEVE_ENTITY -> VASYAN_ENTITY
+SteveConfig -> VasyanConfig
+SteveEntity -> VasyanEntity
+SteveMemory -> VasyanMemory
+steve_menu -> vasyan_menu
+steve_name -> vasyan_name
+SteveMenus -> VasyanMenus
+SteveMenu -> VasyanMenu
+Steve AI -> Vasyan AI
+SteveGUI -> VasyanGUI
+SteveMod -> VasyanMod
+"steve" -> "vasyan"
