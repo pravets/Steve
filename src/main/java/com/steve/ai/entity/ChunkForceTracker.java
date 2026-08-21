@@ -4,7 +4,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -13,7 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Multiple Steves in one chunk must not fight over the force flag: the
  * first force() actually loads the chunk, the last unforce() releases it.
- * Counts are keyed by (dimension, chunk) - the same chunk coordinates in
+ * Holders are tracked by UUID so that a Steve reloaded from NBT after a chunk
+ * unload does not double-count the force that was intentionally kept across
+ * unload (issue #14).</p>
+ *
+ * <p>Counts are keyed by (dimension, chunk) - the same chunk coordinates in
  * different dimensions are different chunks (nether [18,0] is not overworld
  * [18,0]). Pure logic - unit-testable without a world.</p>
  */
@@ -23,35 +30,55 @@ public class ChunkForceTracker {
     public record ChunkKey(ResourceKey<Level> dimension, ChunkPos pos) {
     }
 
-    private final Map<ChunkKey, Integer> counts = new ConcurrentHashMap<>();
+    private final Map<ChunkKey, Set<UUID>> holders = new ConcurrentHashMap<>();
 
     /**
+     * Records that the given Steve owns a force-load on this chunk.
+     *
      * @return true when the chunk should actually be force-loaded
-     *         (count went 0 -> 1), false when it was already forced
+     *         (first holder), false when it was already forced
      */
-    public boolean force(ResourceKey<Level> dimension, ChunkPos pos) {
-        return counts.merge(new ChunkKey(dimension, pos), 1, Integer::sum) == 1;
+    public boolean force(ResourceKey<Level> dimension, ChunkPos pos, UUID uuid) {
+        Set<UUID> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        Set<UUID> previous = holders.putIfAbsent(new ChunkKey(dimension, pos), set);
+        if (previous != null) {
+            set = previous;
+        }
+        return set.add(uuid) && set.size() == 1;
     }
 
     /**
+     * Removes the given Steve from the force holders.
+     *
      * @return true when the chunk should actually be un-forced
-     *         (count went 1 -> 0), false otherwise (other holders remain)
+     *         (last holder left), false otherwise
      */
-    public boolean unforce(ResourceKey<Level> dimension, ChunkPos pos) {
+    public boolean unforce(ResourceKey<Level> dimension, ChunkPos pos, UUID uuid) {
         ChunkKey key = new ChunkKey(dimension, pos);
-        Integer count = counts.get(key);
-        if (count == null || count <= 0) {
-            return false; // not forced by us - no-op
+        Set<UUID> set = holders.get(key);
+        if (set == null) {
+            return false;
         }
-        if (count == 1) {
-            counts.remove(key);
+        if (!set.remove(uuid)) {
+            return false;
+        }
+        if (set.isEmpty()) {
+            holders.remove(key);
             return true;
         }
-        counts.put(key, count - 1);
         return false;
     }
 
+    /**
+     * @return true when the given UUID already holds this chunk
+     */
+    public boolean hasHolder(ResourceKey<Level> dimension, ChunkPos pos, UUID uuid) {
+        Set<UUID> set = holders.get(new ChunkKey(dimension, pos));
+        return set != null && set.contains(uuid);
+    }
+
     public int holders(ResourceKey<Level> dimension, ChunkPos pos) {
-        return counts.getOrDefault(new ChunkKey(dimension, pos), 0);
+        Set<UUID> set = holders.get(new ChunkKey(dimension, pos));
+        return set == null ? 0 : set.size();
     }
 }

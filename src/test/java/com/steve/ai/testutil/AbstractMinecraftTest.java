@@ -50,10 +50,14 @@ public abstract class AbstractMinecraftTest {
         }
         try {
             Bootstrap.bootStrap();
+        } catch (IllegalStateException e) {
+            // Already bootstrapped by another test class in the same JVM.
+        }
+        try {
             CommentedConfig config = CommentedConfig.inMemory();
             SteveConfig.SPEC.acceptConfig(config);
         } catch (IllegalStateException e) {
-            // Already bootstrapped by another test class in the same JVM.
+            // Configuration already accepted by another test class in the same JVM.
         }
     }
 }

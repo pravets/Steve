@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
@@ -155,6 +156,53 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
         // 160,0 is chunk [10,0]
         verify(level).setChunkForced(10, 0, true);
+        verify(steve).setForcedChunk(argThat(key ->
+                key.dimension().equals(Level.OVERWORLD) && key.pos().equals(new ChunkPos(10, 0))));
+    }
+
+    @Test
+    void adoptAfterChunkUnloadReusesExistingForce() {
+        // Regression for issue #14: when a Steve unloads with its chunk
+        // (UNLOADED_TO_CHUNK), the chunk stays force-loaded. Re-adopting the
+        // same UUID must not increment the refcount, and removing the Steve
+        // must release the chunk exactly once.
+        SteveManager manager = new SteveManager();
+        ServerLevel level = mock(ServerLevel.class);
+        MinecraftServer server = mock(MinecraftServer.class);
+        when(level.dimension()).thenReturn(Level.OVERWORLD);
+        when(level.getServer()).thenReturn(server);
+        when(server.getLevel(Level.OVERWORLD)).thenReturn(level);
+
+        UUID uuid = UUID.randomUUID();
+        BlockPos pos = new BlockPos(160, 64, 0);
+        SteveEntity steve = mockSteve("Steve", uuid);
+        when(steve.level()).thenReturn(level);
+        when(steve.blockPosition()).thenReturn(pos);
+
+        // First adopt: forces the chunk.
+        manager.adopt(steve);
+        verify(level).setChunkForced(10, 0, true);
+
+        // Simulate chunk unload: entity leaves but force is intentionally kept.
+        manager.onSteveUnload(steve);
+        assertNull(manager.getSteve("Steve"));
+        verify(level, never()).setChunkForced(10, 0, false);
+
+        // Re-adopt after chunk reloads (same UUID, fresh mock instance).
+        SteveEntity reloaded = mockSteve("Steve", uuid);
+        when(reloaded.level()).thenReturn(level);
+        when(reloaded.blockPosition()).thenReturn(pos);
+        ChunkForceTracker.ChunkKey reloadedChunk = new ChunkForceTracker.ChunkKey(Level.OVERWORLD, new ChunkPos(10, 0));
+        when(reloaded.getForcedChunk()).thenReturn(reloadedChunk);
+
+        manager.adopt(reloaded);
+        // No additional setChunkForced(true) call -> refcount did not leak.
+        verify(level, times(1)).setChunkForced(10, 0, true);
+
+        // Now remove the Steve for good: chunk should be unforced exactly once.
+        when(reloaded.isRemoved()).thenReturn(true);
+        manager.tick(level);
+        verify(level).setChunkForced(10, 0, false);
     }
 
     // ==================== onSteveUnload ====================
