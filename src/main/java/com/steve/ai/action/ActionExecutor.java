@@ -45,6 +45,7 @@ public class ActionExecutor {
     private volatile boolean staying = false;
 
     // NEW: Async planning support (non-blocking LLM calls)
+    private final Object planningLock = new Object();
     private CompletableFuture<ResponseParser.ParsedResponse> planningFuture;
     private boolean isPlanning = false;
     private String pendingCommand;  // Store command while planning
@@ -117,11 +118,13 @@ public class ActionExecutor {
     public void processNaturalLanguageCommand(String command) {
         SteveMod.LOGGER.info("Steve '{}' processing command (async): {}", steve.getSteveName(), command);
 
-        // If already planning, ignore new commands
-        if (isPlanning) {
-            SteveMod.LOGGER.warn("Steve '{}' is already planning, ignoring command: {}", steve.getSteveName(), command);
-            sendToGUI(steve.getSteveName(), "Hold on, I'm still thinking about the previous command...");
-            return;
+        synchronized (planningLock) {
+            // If already planning, ignore new commands
+            if (isPlanning) {
+                SteveMod.LOGGER.warn("Steve '{}' is already planning, ignoring command: {}", steve.getSteveName(), command);
+                sendToGUI(steve.getSteveName(), "Hold on, I'm still thinking about the previous command...");
+                return;
+            }
         }
 
         // A new command wakes the Steve up from "stay in place".
@@ -146,29 +149,42 @@ public class ActionExecutor {
         }
 
         try {
-            // Store command and start async planning
-            this.pendingCommand = command;
-            this.isPlanning = true;
-            this.planningStartTick = this.ticksSinceLastAction;
+            synchronized (planningLock) {
+                // Store command and start async planning
+                this.pendingCommand = command;
+                this.isPlanning = true;
+                this.planningStartTick = this.ticksSinceLastAction;
+            }
 
             // Send immediate feedback to user
             sendToGUI(steve.getSteveName(), "Thinking...");
 
             // Start async LLM call - returns immediately!
-            planningFuture = getTaskPlanner().planTasksAsync(steve, command);
+            CompletableFuture<ResponseParser.ParsedResponse> future = getTaskPlanner().planTasksAsync(steve, command);
+            synchronized (planningLock) {
+                planningFuture = future;
+            }
 
             SteveMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
 
         } catch (NoClassDefFoundError e) {
             SteveMod.LOGGER.error("Failed to initialize AI components", e);
             sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
-            isPlanning = false;
-            planningFuture = null;
+            synchronized (planningLock) {
+                isPlanning = false;
+                planningFuture = null;
+                pendingCommand = null;
+                planningStartTick = -1;
+            }
         } catch (Exception e) {
             SteveMod.LOGGER.error("Error starting async planning", e);
             sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
-            isPlanning = false;
-            planningFuture = null;
+            synchronized (planningLock) {
+                isPlanning = false;
+                planningFuture = null;
+                pendingCommand = null;
+                planningStartTick = -1;
+            }
         }
     }
 
@@ -234,9 +250,16 @@ public class ActionExecutor {
         ticksSinceLastAction++;
 
         // Check if async planning is complete (non-blocking check!)
-        if (isPlanning && planningFuture != null && planningFuture.isDone()) {
+        CompletableFuture<ResponseParser.ParsedResponse> completedFuture = null;
+        synchronized (planningLock) {
+            if (isPlanning && planningFuture != null && planningFuture.isDone()) {
+                completedFuture = planningFuture;
+            }
+        }
+
+        if (completedFuture != null) {
             try {
-                ResponseParser.ParsedResponse response = planningFuture.get();
+                ResponseParser.ParsedResponse response = completedFuture.get();
 
                 if (response != null) {
                     currentGoal = response.getPlan();
@@ -267,31 +290,35 @@ public class ActionExecutor {
                 SteveMod.LOGGER.error("Steve '{}' failed to get planning result", steve.getSteveName(), e);
                 sendToGUI(steve.getSteveName(), "Oops, something went wrong while planning!");
             } finally {
-                isPlanning = false;
-                planningFuture = null;
-                pendingCommand = null;
-                planningStartTick = -1;
+                synchronized (planningLock) {
+                    isPlanning = false;
+                    planningFuture = null;
+                    pendingCommand = null;
+                    planningStartTick = -1;
+                }
             }
         }
 
-        if (isPlanning && planningStartTick >= 0 &&
-            (ticksSinceLastAction - planningStartTick) % PLANNING_CHECK_INTERVAL == 0 &&
-            (ticksSinceLastAction - planningStartTick) / PLANNING_CHECK_INTERVAL >= 1) {
+        synchronized (planningLock) {
+            if (isPlanning && planningStartTick >= 0 &&
+                (ticksSinceLastAction - planningStartTick) % PLANNING_CHECK_INTERVAL == 0 &&
+                (ticksSinceLastAction - planningStartTick) / PLANNING_CHECK_INTERVAL >= 1) {
 
-            int elapsedSeconds = (ticksSinceLastAction - planningStartTick) / 20;
-            if (elapsedSeconds >= SteveConfig.PLANNING_TIMEOUT_SECONDS.get()) {
-                SteveMod.LOGGER.warn("Steve '{}' planning timed out after {}s", steve.getSteveName(), elapsedSeconds);
-                AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning timed out after " + elapsedSeconds + "s");
+                int elapsedSeconds = (ticksSinceLastAction - planningStartTick) / 20;
+                if (elapsedSeconds >= SteveConfig.PLANNING_TIMEOUT_SECONDS.get()) {
+                    SteveMod.LOGGER.warn("Steve '{}' planning timed out after {}s", steve.getSteveName(), elapsedSeconds);
+                    AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning timed out after " + elapsedSeconds + "s");
 
-                if (planningFuture != null) {
-                    planningFuture.cancel(true);
+                    if (planningFuture != null) {
+                        planningFuture.cancel(true);
+                    }
+
+                    sendToGUI(steve.getSteveName(), "LLM planning timed out — please try again.");
+                    isPlanning = false;
+                    planningFuture = null;
+                    pendingCommand = null;
+                    planningStartTick = -1;
                 }
-
-                sendToGUI(steve.getSteveName(), "LLM planning timed out — please try again.");
-                isPlanning = false;
-                planningFuture = null;
-                pendingCommand = null;
-                planningStartTick = -1;
             }
         }
 
@@ -474,19 +501,21 @@ public class ActionExecutor {
      * stop/stay commands abort planning as well as execution.
      */
     private void cancelPlanning() {
-        if (isPlanning || planningFuture != null) {
-            if (planningFuture != null) {
-                planningFuture.cancel(true);
+        synchronized (planningLock) {
+            if (isPlanning || planningFuture != null) {
+                if (planningFuture != null) {
+                    planningFuture.cancel(true);
+                }
+                SteveMod.LOGGER.info("Steve '{}' planning cancelled by stop", steve.getSteveName());
+                AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning cancelled by stop command");
+                if (steve.level().isClientSide()) {
+                    sendToGUI(steve.getSteveName(), "Planning cancelled.");
+                }
+                isPlanning = false;
+                planningFuture = null;
+                pendingCommand = null;
+                planningStartTick = -1;
             }
-            SteveMod.LOGGER.info("Steve '{}' planning cancelled by stop", steve.getSteveName());
-            AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning cancelled by stop command");
-            if (steve.level().isClientSide()) {
-                sendToGUI(steve.getSteveName(), "Planning cancelled.");
-            }
-            isPlanning = false;
-            planningFuture = null;
-            pendingCommand = null;
-            planningStartTick = -1;
         }
     }
 
@@ -556,7 +585,9 @@ public class ActionExecutor {
      * @return true if planning
      */
     public boolean isPlanning() {
-        return isPlanning;
+        synchronized (planningLock) {
+            return isPlanning;
+        }
     }
 
     /**
@@ -564,10 +595,12 @@ public class ActionExecutor {
      * Package-private so unit tests in the same package can set up a stuck-planning scenario.
      */
     void setPlanningFutureForTest(CompletableFuture<ResponseParser.ParsedResponse> future, String command) {
-        this.pendingCommand = command;
-        this.isPlanning = true;
-        this.planningFuture = future;
-        this.planningStartTick = this.ticksSinceLastAction;
+        synchronized (planningLock) {
+            this.pendingCommand = command;
+            this.isPlanning = true;
+            this.planningFuture = future;
+            this.planningStartTick = this.ticksSinceLastAction;
+        }
     }
 
     /**
@@ -588,8 +621,16 @@ public class ActionExecutor {
      * One-line summary of the agent state, used by /steve debug.
      */
     public String getStateSummary() {
-        if (isPlanning) {
-            return "planning (" + (pendingCommand != null ? truncate(pendingCommand, 50) : "?") + ")";
+        String summary;
+        synchronized (planningLock) {
+            if (isPlanning) {
+                summary = "planning (" + (pendingCommand != null ? truncate(pendingCommand, 50) : "?") + ")";
+            } else {
+                summary = null;
+            }
+        }
+        if (summary != null) {
+            return summary;
         }
         if (currentAction != null) {
             return "executing: " + truncate(currentAction.getDescription(), 60)

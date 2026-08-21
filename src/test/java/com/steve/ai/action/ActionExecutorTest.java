@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -86,5 +87,48 @@ class ActionExecutorTest extends AbstractMinecraftTest {
         // Then planning is cancelled and state is reset
         assertFalse(executor.isPlanning(), "Planning flag should be reset after stop");
         assertTrue(never.isCancelled(), "Planning future should be cancelled by stop");
+    }
+
+    @Test
+    void concurrentStopDuringPlanningDoesNotCorruptState() throws InterruptedException {
+        // Given a Steve whose level reports not client-side
+        SteveEntity steve = mock(SteveEntity.class);
+        Level level = mock(Level.class);
+        PathNavigation navigation = mock(PathNavigation.class);
+
+        when(level.isClientSide()).thenReturn(false);
+        when(level.players()).thenReturn(Collections.emptyList());
+        when(steve.level()).thenReturn(level);
+        when(steve.getSteveName()).thenReturn("TestSteve");
+        when(steve.getNavigation()).thenReturn(navigation);
+
+        ActionExecutor executor = new ActionExecutor(steve);
+
+        // Start a planning future that blocks until we release the latch
+        CountDownLatch latch = new CountDownLatch(1);
+        CompletableFuture<ResponseParser.ParsedResponse> blockingFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        });
+
+        executor.setPlanningFutureForTest(blockingFuture, "chop 5 wood");
+        assertTrue(executor.isPlanning(), "Steve should be planning before stop");
+
+        // When stopCurrentAction is called from a worker thread while planning is active
+        Thread worker = new Thread(executor::stopCurrentAction);
+        worker.start();
+
+        // Let the threads race, then release the planning future and wait for the worker
+        Thread.sleep(50);
+        latch.countDown();
+        worker.join();
+
+        // Then planning state is cleanly reset and the future is cancelled
+        assertFalse(executor.isPlanning(), "Planning flag should be reset after concurrent stop");
+        assertTrue(blockingFuture.isCancelled(), "Planning future should be cancelled by concurrent stop");
     }
 }
