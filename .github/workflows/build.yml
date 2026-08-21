@@ -28,14 +28,14 @@ jobs:
 
       - name: Stage mod jar (JarJar variant as the single deliverable)
         run: |
-          VERSION=$(grep -oP "version = '\K[^']+" build.gradle)
+          VERSION=$(grep -oP "version = '\\K[^']+" build.gradle)
           mkdir -p dist
-          cp build/libs/vasyan-ai-mod-${VERSION}-all.jar dist/vasyan-${VERSION}.jar
+          cp build/libs/vasyan-ai-mod-${VERSION}-all.jar dist/vasyan-ai-mod-${VERSION}.jar
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: vasyan
+          name: vasyan-ai-mod
           path: dist/*.jar
           if-no-files-found: error
 
@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v5
         with:
-          name: vasyan
+          name: vasyan-ai-mod
 
       - name: Create GitHub Release
         run: gh release create "$GITHUB_REF_NAME" *.jar --generate-notes
