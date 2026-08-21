@@ -1,17 +1,17 @@
-package com.steve.ai.network;
+package ru.pravets.vasyan.network;
 
 import net.minecraft.network.FriendlyByteBuf;
 
 /**
  * Client -> Server: request the list of active Steve names for the GUI panel.
  */
-public record ServerboundRequestSteveListPacket() {
+public record ServerboundRequestVasyanListPacket() {
 
     public void encode(FriendlyByteBuf buf) {
         // no payload
     }
 
-    public static ServerboundRequestSteveListPacket decode(FriendlyByteBuf buf) {
-        return new ServerboundRequestSteveListPacket();
+    public static ServerboundRequestVasyanListPacket decode(FriendlyByteBuf buf) {
+        return new ServerboundRequestVasyanListPacket();
     }
 }

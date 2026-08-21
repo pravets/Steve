@@ -1,7 +1,7 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -21,12 +21,12 @@ import static org.mockito.Mockito.*;
 
 class SteveEntityChunkForceTest extends AbstractMinecraftTest {
 
-    private static SteveManager manager;
+    private static VasyanManager manager;
 
     @BeforeAll
     static void installManager() throws Exception {
-        manager = new SteveManager();
-        Field field = SteveMod.class.getDeclaredField("steveManager");
+        manager = new VasyanManager();
+        Field field = VasyanMod.class.getDeclaredField("steveManager");
         field.setAccessible(true);
         field.set(null, manager);
     }
@@ -34,8 +34,8 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
     @BeforeEach
     void resetManager() throws Exception {
         // Provide each test with a fresh tracker to avoid cross-test refcount state.
-        manager = new SteveManager();
-        Field field = SteveMod.class.getDeclaredField("steveManager");
+        manager = new VasyanManager();
+        Field field = VasyanMod.class.getDeclaredField("steveManager");
         field.setAccessible(true);
         field.set(null, manager);
     }
@@ -50,8 +50,8 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         return level;
     }
 
-    private static SteveEntity testSteve(String name, UUID uuid, ServerLevel level, ChunkPos chunkPos) {
-        SteveEntity steve = mock(SteveEntity.class, withSettings().defaultAnswer(CALLS_REAL_METHODS));
+    private static VasyanEntity testSteve(String name, UUID uuid, ServerLevel level, ChunkPos chunkPos) {
+        VasyanEntity steve = mock(VasyanEntity.class, withSettings().defaultAnswer(CALLS_REAL_METHODS));
         when(steve.getSteveName()).thenReturn(name);
         when(steve.getUUID()).thenReturn(uuid);
         when(steve.level()).thenReturn(level);
@@ -64,7 +64,7 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 9);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        SteveEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
         steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
@@ -81,7 +81,7 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 10);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        SteveEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
         steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
@@ -98,7 +98,7 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 11);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        SteveEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
         steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
@@ -115,7 +115,7 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         UUID uuid = UUID.randomUUID();
         ChunkPos pos = new ChunkPos(7, 12);
         ServerLevel level = mockLevel(Level.OVERWORLD);
-        SteveEntity steve = testSteve("Steve", uuid, level, pos);
+        VasyanEntity steve = testSteve("Steve", uuid, level, pos);
 
         manager.forceChunk(level, pos, uuid);
         steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
@@ -138,7 +138,7 @@ class SteveEntityChunkForceTest extends AbstractMinecraftTest {
         manager.forceChunk(level, pos, b);
         assertEquals(2, manager.getChunkForceTracker().holders(Level.OVERWORLD, pos));
 
-        SteveEntity steve = testSteve("Steve", a, level, pos);
+        VasyanEntity steve = testSteve("Steve", a, level, pos);
         steve.setForcedChunk(new ChunkForceTracker.ChunkKey(level.dimension(), pos));
         steve.releaseForcedChunk(Entity.RemovalReason.KILLED);
 

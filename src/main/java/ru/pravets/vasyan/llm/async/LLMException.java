@@ -1,4 +1,4 @@
-package com.steve.ai.llm.async;
+package ru.pravets.vasyan.llm.async;
 
 /**
  * Exception thrown when LLM (Large Language Model) operations fail.

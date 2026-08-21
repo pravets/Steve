@@ -1,6 +1,6 @@
-package com.steve.ai.event;
+package ru.pravets.vasyan.event;
 
-import com.steve.ai.execution.AgentState;
+import ru.pravets.vasyan.execution.AgentState;
 
 import java.time.Instant;
 

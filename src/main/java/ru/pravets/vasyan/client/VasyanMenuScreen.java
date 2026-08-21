@@ -1,6 +1,6 @@
-package com.steve.ai.client;
+package ru.pravets.vasyan.client;
 
-import com.steve.ai.menu.SteveMenu;
+import ru.pravets.vasyan.menu.VasyanMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -16,12 +16,12 @@ import net.minecraft.world.entity.player.Inventory;
  * packs / container styling mods that replace the standard texture keep
  * working.</p>
  */
-public class SteveMenuScreen extends AbstractContainerScreen<SteveMenu> {
+public class VasyanMenuScreen extends AbstractContainerScreen<VasyanMenu> {
 
     private static final ResourceLocation CHEST_TEXTURE =
         new ResourceLocation("textures/gui/container/generic_54.png");
 
-    public SteveMenuScreen(SteveMenu menu, Inventory playerInventory, Component title) {
+    public VasyanMenuScreen(VasyanMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         this.imageWidth = 176;
         this.imageHeight = 168;

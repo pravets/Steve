@@ -1,9 +1,9 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.HashMap;
@@ -22,7 +22,7 @@ public class IdleFollowAction extends BaseAction {
     private static final double MIN_DISTANCE = 2.5; // Stop moving if closer than this
     private static final double TELEPORT_DISTANCE = 50.0; // Teleport if further than 50 blocks
 
-    public IdleFollowAction(SteveEntity steve) {
+    public IdleFollowAction(VasyanEntity steve) {
         super(steve, new Task("idle_follow", new HashMap<>()));
     }
 
@@ -32,7 +32,7 @@ public class IdleFollowAction extends BaseAction {
         findNearestPlayer();
         
         if (targetPlayer == null) {
-            SteveMod.LOGGER.debug("Steve '{}' has no player to follow (idle)", steve.getSteveName());
+            VasyanMod.LOGGER.debug("Steve '{}' has no player to follow (idle)", steve.getSteveName());
         }
     }
 
@@ -80,7 +80,7 @@ public class IdleFollowAction extends BaseAction {
             steve.teleportTo(targetX, targetY, targetZ);
             steve.getNavigation().stop(); // Clear navigation after teleport
             
-            SteveMod.LOGGER.info("Steve '{}' teleported to player (was {} blocks away)", 
+            VasyanMod.LOGGER.info("Steve '{}' teleported to player (was {} blocks away)", 
                 steve.getSteveName(), (int)distance);
             
         } else if (distance > FOLLOW_DISTANCE) {
@@ -135,7 +135,7 @@ public class IdleFollowAction extends BaseAction {
         }
         
         if (nearest != targetPlayer && nearest != null) {
-            SteveMod.LOGGER.debug("Steve '{}' now following {} (idle)", 
+            VasyanMod.LOGGER.debug("Steve '{}' now following {} (idle)", 
                 steve.getSteveName(), nearest.getName().getString());
         }
         

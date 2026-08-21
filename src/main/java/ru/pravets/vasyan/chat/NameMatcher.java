@@ -1,4 +1,4 @@
-package com.steve.ai.chat;
+package ru.pravets.vasyan.chat;
 
 import java.util.List;
 import java.util.Locale;

@@ -1,6 +1,6 @@
-package com.steve.ai.memory;
+package ru.pravets.vasyan.memory;
 
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -10,14 +10,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-public class SteveMemory {
-    private final SteveEntity steve;
+public class VasyanMemory {
+    private final VasyanEntity steve;
     private String currentGoal;
     private final Queue<String> taskQueue;
     private final LinkedList<String> recentActions;
     private static final int MAX_RECENT_ACTIONS = 20;
 
-    public SteveMemory(SteveEntity steve) {
+    public VasyanMemory(VasyanEntity steve) {
         this.steve = steve;
         this.currentGoal = "";
         this.taskQueue = new LinkedList<>();

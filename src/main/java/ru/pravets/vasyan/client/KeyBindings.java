@@ -1,7 +1,7 @@
-package com.steve.ai.client;
+package ru.pravets.vasyan.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.steve.ai.SteveMod;
+import ru.pravets.vasyan.VasyanMod;
 import net.minecraft.client.KeyMapping;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -9,7 +9,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-@Mod.EventBusSubscriber(modid = SteveMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = VasyanMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class KeyBindings {
     
     public static final String KEY_CATEGORY = "key.categories.steve";

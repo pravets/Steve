@@ -1,14 +1,14 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.CollaborativeBuildManager;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.memory.StructureRegistry;
-import com.steve.ai.structure.BlockPlacement;
-import com.steve.ai.structure.StructureGenerators;
-import com.steve.ai.structure.StructureTemplateLoader;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.CollaborativeBuildManager;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.memory.StructureRegistry;
+import ru.pravets.vasyan.structure.BlockPlacement;
+import ru.pravets.vasyan.structure.StructureGenerators;
+import ru.pravets.vasyan.structure.StructureTemplateLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -37,7 +37,7 @@ public class BuildStructureAction extends BaseAction {
     private static final int BLOCKS_PER_TICK = 1;
     private static final double BUILD_SPEED_MULTIPLIER = 1.5;
 
-    public BuildStructureAction(SteveEntity steve, Task task) {
+    public BuildStructureAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 
@@ -52,7 +52,7 @@ public class BuildStructureAction extends BaseAction {
             
             steve.setFlying(true);
             
-            SteveMod.LOGGER.info("Steve '{}' JOINING collaborative build of '{}' ({}% complete) - FLYING & INVULNERABLE ENABLED", 
+            VasyanMod.LOGGER.info("Steve '{}' JOINING collaborative build of '{}' ({}% complete) - FLYING & INVULNERABLE ENABLED", 
                 steve.getSteveName(), structureType, collaborativeBuild.getProgressPercentage());
             
             buildMaterials = new ArrayList<>();
@@ -126,7 +126,7 @@ public class BuildStructureAction extends BaseAction {
                 ));
             }
             
-            SteveMod.LOGGER.info("Building in player's field of view at {} (looking from {} towards {})", 
+            VasyanMod.LOGGER.info("Building in player's field of view at {} (looking from {} towards {})", 
                 groundPos, eyePos, targetPos);
         } else {
             BlockPos buildPos = steve.blockPosition().offset(2, 0, 2);
@@ -138,7 +138,7 @@ public class BuildStructureAction extends BaseAction {
             return;
         }
         
-        SteveMod.LOGGER.info("Found ground at Y={} (Build starting at {})", groundPos.getY(), groundPos);
+        VasyanMod.LOGGER.info("Found ground at Y={} (Build starting at {})", groundPos.getY(), groundPos);
         
         BlockPos clearPos = groundPos;
         
@@ -147,7 +147,7 @@ public class BuildStructureAction extends BaseAction {
         if (buildPlan == null) {
             // Fall back to procedural generation            buildPlan = generateBuildPlan(structureType, clearPos, width, height, depth);
         } else {
-            SteveMod.LOGGER.info("Loaded '{}' from NBT template with {} blocks", structureType, buildPlan.size());
+            VasyanMod.LOGGER.info("Loaded '{}' from NBT template with {} blocks", structureType, buildPlan.size());
         }
         
         if (buildPlan == null || buildPlan.isEmpty()) {
@@ -161,7 +161,7 @@ public class BuildStructureAction extends BaseAction {
         
         if (collaborativeBuild != null) {
             isCollaborative = true;
-            SteveMod.LOGGER.info("Steve '{}' JOINING existing {} collaborative build at {}", 
+            VasyanMod.LOGGER.info("Steve '{}' JOINING existing {} collaborative build at {}", 
                 steve.getSteveName(), structureType, collaborativeBuild.startPos);
         } else {
             List<BlockPlacement> collaborativeBlocks = new ArrayList<>();
@@ -171,13 +171,13 @@ public class BuildStructureAction extends BaseAction {
             
             collaborativeBuild = CollaborativeBuildManager.registerBuild(structureType, collaborativeBlocks, clearPos);
             isCollaborative = true;
-            SteveMod.LOGGER.info("Steve '{}' CREATED new {} collaborative build at {}", 
+            VasyanMod.LOGGER.info("Steve '{}' CREATED new {} collaborative build at {}", 
                 steve.getSteveName(), structureType, clearPos);
         }
         
         steve.setFlying(true);
         
-        SteveMod.LOGGER.info("Steve '{}' starting COLLABORATIVE build of {} at {} with {} blocks using materials: {} [FLYING ENABLED]", 
+        VasyanMod.LOGGER.info("Steve '{}' starting COLLABORATIVE build of {} at {} with {} blocks using materials: {} [FLYING ENABLED]", 
             steve.getSteveName(), structureType, clearPos, buildPlan.size(), buildMaterials);
     }
 
@@ -205,7 +205,7 @@ public class BuildStructureAction extends BaseAction {
                 
                 if (placement == null) {
                     if (ticksRunning % 20 == 0) {
-                        SteveMod.LOGGER.info("Steve '{}' has no more blocks! Build {}% complete", 
+                        VasyanMod.LOGGER.info("Steve '{}' has no more blocks! Build {}% complete", 
                             steve.getSteveName(), collaborativeBuild.getProgressPercentage());
                     }
                     break;
@@ -215,7 +215,7 @@ public class BuildStructureAction extends BaseAction {
                 double distance = Math.sqrt(steve.blockPosition().distSqr(pos));
                 if (distance > 5) {
                     steve.teleportTo(pos.getX() + 2, pos.getY(), pos.getZ() + 2);
-                    SteveMod.LOGGER.info("Steve '{}' teleported to block at {}", steve.getSteveName(), pos);
+                    VasyanMod.LOGGER.info("Steve '{}' teleported to block at {}", steve.getSteveName(), pos);
                 }
                 
                 steve.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
@@ -227,7 +227,7 @@ public class BuildStructureAction extends BaseAction {
                 BlockState blockState = placement.block.defaultBlockState();
                 steve.level().setBlock(pos, blockState, 3);
                 
-                SteveMod.LOGGER.info("Steve '{}' PLACED BLOCK at {} - Total: {}/{}", 
+                VasyanMod.LOGGER.info("Steve '{}' PLACED BLOCK at {} - Total: {}/{}", 
                     steve.getSteveName(), pos, collaborativeBuild.getBlocksPlaced(), 
                     collaborativeBuild.getTotalBlocks());
                 
@@ -247,7 +247,7 @@ public class BuildStructureAction extends BaseAction {
             
             if (ticksRunning % 100 == 0 && collaborativeBuild.getBlocksPlaced() > 0) {
                 int percentComplete = collaborativeBuild.getProgressPercentage();
-                SteveMod.LOGGER.info("{} build progress: {}/{} ({}%) - {} Steves working", 
+                VasyanMod.LOGGER.info("{} build progress: {}/{} ({}%) - {} Steves working", 
                     structureType, 
                     collaborativeBuild.getBlocksPlaced(), 
                     collaborativeBuild.getTotalBlocks(), 
@@ -372,13 +372,13 @@ public class BuildStructureAction extends BaseAction {
                 
                 BlockPos groundPos = findGroundLevel(testPos);
                 if (groundPos != null && isAreaSuitable(groundPos, width, height, depth)) {
-                    SteveMod.LOGGER.info("Found suitable flat ground at {} ({}m away)", groundPos, radius);
+                    VasyanMod.LOGGER.info("Found suitable flat ground at {} ({}m away)", groundPos, radius);
                     return groundPos;
                 }
             }
         }
         
-        SteveMod.LOGGER.warn("Could not find suitable flat ground within {}m", maxSearchRadius);
+        VasyanMod.LOGGER.warn("Could not find suitable flat ground within {}m", maxSearchRadius);
         return null;
     }
     
@@ -441,7 +441,7 @@ public class BuildStructureAction extends BaseAction {
         
         int heightVariation = maxY - minY;
         if (heightVariation > 2) {
-            SteveMod.LOGGER.debug("Area at {} too uneven ({}m height difference)", startPos, heightVariation);
+            VasyanMod.LOGGER.debug("Area at {} too uneven ({}m height difference)", startPos, heightVariation);
             return false;
         }
         
@@ -449,7 +449,7 @@ public class BuildStructureAction extends BaseAction {
         boolean suitable = unsuitable < (maxSamples * 0.3);
         
         if (!suitable) {
-            SteveMod.LOGGER.debug("Area at {} has too many obstructions ({}/{})", startPos, unsuitable, samples);
+            VasyanMod.LOGGER.debug("Area at {} has too many obstructions ({}/{})", startPos, unsuitable, samples);
         }
         
         return suitable;

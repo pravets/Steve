@@ -1,4 +1,4 @@
-package com.steve.ai.llm.async;
+package ru.pravets.vasyan.llm.async;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

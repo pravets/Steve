@@ -1,4 +1,4 @@
-package com.steve.ai.voice;
+package ru.pravets.vasyan.voice;
 
 import org.junit.jupiter.api.Test;
 

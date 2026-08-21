@@ -1,4 +1,4 @@
-package com.steve.ai.structure;
+package ru.pravets.vasyan.structure;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

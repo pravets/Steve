@@ -1,4 +1,4 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
 import net.minecraft.core.BlockPos;
 

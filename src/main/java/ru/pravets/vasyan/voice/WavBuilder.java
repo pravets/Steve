@@ -1,4 +1,4 @@
-package com.steve.ai.voice;
+package ru.pravets.vasyan.voice;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;

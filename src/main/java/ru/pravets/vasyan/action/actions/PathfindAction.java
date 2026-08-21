@@ -1,8 +1,8 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.core.BlockPos;
 
 public class PathfindAction extends BaseAction {
@@ -10,7 +10,7 @@ public class PathfindAction extends BaseAction {
     private int ticksRunning;
     private static final int MAX_TICKS = 600; // 30 seconds timeout
 
-    public PathfindAction(SteveEntity steve, Task task) {
+    public PathfindAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 

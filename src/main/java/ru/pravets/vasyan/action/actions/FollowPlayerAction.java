@@ -1,8 +1,8 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.List;
@@ -13,7 +13,7 @@ public class FollowPlayerAction extends BaseAction {
     private int ticksRunning;
     private static final int MAX_TICKS = 6000; // 5 minutes
 
-    public FollowPlayerAction(SteveEntity steve, Task task) {
+    public FollowPlayerAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 
@@ -91,7 +91,7 @@ public class FollowPlayerAction extends BaseAction {
             if (nearest != null) {
                 targetPlayer = nearest;
                 playerName = nearest.getName().getString(); // Update to actual name
-                com.steve.ai.SteveMod.LOGGER.info("Steve '{}' following nearest player: {}", 
+                ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' following nearest player: {}", 
                     steve.getSteveName(), playerName);
             }
         }

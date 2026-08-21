@@ -1,6 +1,6 @@
-package com.steve.ai.llm.resilience;
+package ru.pravets.vasyan.llm.resilience;
 
-import com.steve.ai.llm.async.LLMResponse;
+import ru.pravets.vasyan.llm.async.LLMResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  *
  * <p>Provides graceful degradation when all LLM providers are unavailable.
  * Responses are emitted in the exact format expected by
- * {@link com.steve.ai.llm.ResponseParser} and pass
+ * {@link ru.pravets.vasyan.llm.ResponseParser} and pass
  * {@code TaskPlanner.validateTask} so that the agent keeps doing something
  * sensible instead of silently doing nothing.</p>
  *

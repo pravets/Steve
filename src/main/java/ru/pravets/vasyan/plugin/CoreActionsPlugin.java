@@ -1,12 +1,12 @@
-package com.steve.ai.plugin;
+package ru.pravets.vasyan.plugin;
 
-import com.steve.ai.action.actions.*;
-import com.steve.ai.di.ServiceContainer;
+import ru.pravets.vasyan.action.actions.*;
+import ru.pravets.vasyan.di.ServiceContainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Core plugin that registers all built-in Steve AI actions.
+ * Core plugin that registers all built-in Vasyan AI actions.
  *
  * <p>This plugin is loaded first (priority 1000) and provides the fundamental
  * actions that Steve can perform: mining, building, combat, pathfinding, etc.</p>
@@ -116,6 +116,6 @@ public class CoreActionsPlugin implements ActionPlugin {
 
     @Override
     public String getDescription() {
-        return "Core Steve AI actions: mining, building, combat, pathfinding, and more";
+        return "Core Vasyan AI actions: mining, building, combat, pathfinding, and more";
     }
 }

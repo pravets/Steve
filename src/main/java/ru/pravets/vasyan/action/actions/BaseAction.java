@@ -1,17 +1,17 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 
 public abstract class BaseAction {
-    protected final SteveEntity steve;
+    protected final VasyanEntity steve;
     protected final Task task;
     protected ActionResult result;
     protected boolean started = false;
     protected boolean cancelled = false;
 
-    public BaseAction(SteveEntity steve, Task task) {
+    public BaseAction(VasyanEntity steve, Task task) {
         this.steve = steve;
         this.task = task;
     }

@@ -1,9 +1,9 @@
-package com.steve.ai.llm.async;
+package ru.pravets.vasyan.llm.async;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.steve.ai.llm.LLMProviders;
+import ru.pravets.vasyan.llm.LLMProviders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

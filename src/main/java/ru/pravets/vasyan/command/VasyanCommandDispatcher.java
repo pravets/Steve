@@ -1,11 +1,11 @@
-package com.steve.ai.command;
+package ru.pravets.vasyan.command;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.action.ActionExecutor;
-import com.steve.ai.chat.ChatCommandParser;
-import com.steve.ai.chat.NameMatcher;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.entity.SteveManager;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.action.ActionExecutor;
+import ru.pravets.vasyan.chat.ChatCommandParser;
+import ru.pravets.vasyan.chat.NameMatcher;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.entity.VasyanManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,20 +27,20 @@ import java.util.concurrent.Executors;
  *   <li>otherwise - the Steve nearest to the speaker (same dimension only).</li>
  * </ol>
  */
-public final class SteveCommandDispatcher {
+public final class VasyanCommandDispatcher {
 
     /** Shared executor for LLM command processing (bounded, daemon). */
     private static final ExecutorService COMMAND_EXECUTOR = Executors.newFixedThreadPool(4, r -> {
-        Thread t = new Thread(r, "steve-command");
+        Thread t = new Thread(r, "vasyan-command");
         t.setDaemon(true);
         return t;
     });
 
-    private SteveCommandDispatcher() {}
+    private VasyanCommandDispatcher() {}
 
     /** Returns how many Steves received the command. */
     public static int dispatch(CommandSourceStack source, String command) {
-        SteveManager manager = SteveMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getSteveManager();
         List<String> names = manager.getSteveNames();
         if (names.isEmpty()) {
             source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
@@ -57,7 +57,7 @@ public final class SteveCommandDispatcher {
         String firstWord = trimmed.split("\\s+", 2)[0];
         String matched = NameMatcher.matchName(firstWord, names);
         if (matched != null) {
-            SteveEntity steve = manager.getSteve(matched);
+            VasyanEntity steve = manager.getSteve(matched);
             if (steve != null) {
                 String rest = trimmed.substring(firstWord.length()).trim();
                 deliver(steve, rest.isEmpty() ? trimmed : rest, source);
@@ -69,7 +69,7 @@ public final class SteveCommandDispatcher {
         if (ChatCommandParser.isAllCommand(lower)) {
             int count = 0;
             for (String name : names) {
-                SteveEntity steve = manager.getSteve(name);
+                VasyanEntity steve = manager.getSteve(name);
                 if (steve != null) {
                     deliver(steve, trimmed, source);
                     count++;
@@ -81,7 +81,7 @@ public final class SteveCommandDispatcher {
         }
 
         // 3. nearest Steve to the speaker (same dimension)
-        SteveEntity nearest = nearestSteve(source, manager);
+        VasyanEntity nearest = nearestSteve(source, manager);
         if (nearest != null) {
             deliver(nearest, trimmed, source);
             return 1;
@@ -94,7 +94,7 @@ public final class SteveCommandDispatcher {
      * deterministically (no LLM round-trip): the current action is cancelled,
      * navigation stops, and the Steve stays in place until the next command.
      */
-    private static void deliver(SteveEntity steve, String command, CommandSourceStack source) {
+    private static void deliver(VasyanEntity steve, String command, CommandSourceStack source) {
         String lower = ChatCommandParser.normalize(command);
         if (ChatCommandParser.isStayCommand(lower)) {
             ActionExecutor executor = steve.getActionExecutor();
@@ -110,18 +110,18 @@ public final class SteveCommandDispatcher {
             try {
                 steve.getActionExecutor().processNaturalLanguageCommand(command);
             } catch (Exception e) {
-                SteveMod.LOGGER.warn("Command processing failed for {}: {}", steve.getSteveName(), e.toString());
+                VasyanMod.LOGGER.warn("Command processing failed for {}: {}", steve.getSteveName(), e.toString());
             }
         });
     }
 
-    private static SteveEntity nearestSteve(CommandSourceStack source, SteveManager manager) {
+    private static VasyanEntity nearestSteve(CommandSourceStack source, VasyanManager manager) {
         if (!(source.getEntity() instanceof ServerPlayer speaker)) {
             return null; // console: no nearest Steve
         }
-        SteveEntity nearest = null;
+        VasyanEntity nearest = null;
         double best = Double.MAX_VALUE;
-        for (SteveEntity steve : manager.getAllSteves()) {
+        for (VasyanEntity steve : manager.getAllSteves()) {
             if (!steve.level().dimension().equals(speaker.level().dimension())) {
                 continue; // cross-dimension bots are never "nearest"
             }

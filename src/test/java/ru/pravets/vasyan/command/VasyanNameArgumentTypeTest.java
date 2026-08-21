@@ -1,4 +1,4 @@
-package com.steve.ai.command;
+package ru.pravets.vasyan.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
@@ -15,7 +15,7 @@ import static org.mockito.Mockito.mock;
 /**
  * Verifies that all /steve commands accept Cyrillic Steve names. The default
  * Brigadier string argument is ASCII-only for unquoted tokens; the custom
- * SteveNameArgumentType must accept letters of any script.
+ * VasyanNameArgumentType must accept letters of any script.
  */
 class SteveNameArgumentTypeTest {
 
@@ -26,7 +26,7 @@ class SteveNameArgumentTypeTest {
     @BeforeAll
     static void setUp() {
         dispatcher = new CommandDispatcher<>();
-        SteveCommands.register(dispatcher);
+        VasyanCommands.register(dispatcher);
     }
 
     private static void assertParses(String command) {

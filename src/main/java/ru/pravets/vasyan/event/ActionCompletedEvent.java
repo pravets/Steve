@@ -1,4 +1,4 @@
-package com.steve.ai.event;
+package ru.pravets.vasyan.event;
 
 import java.time.Instant;
 

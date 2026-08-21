@@ -1,9 +1,9 @@
-package com.steve.ai.plugin;
+package ru.pravets.vasyan.plugin;
 
-import com.steve.ai.action.actions.BaseAction;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.execution.ActionContext;
+import ru.pravets.vasyan.action.actions.BaseAction;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.execution.ActionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -166,7 +166,7 @@ public class ActionRegistry {
      * @param context    Action context with dependencies
      * @return Created action, or null if action not found
      */
-    public BaseAction createAction(String actionName, SteveEntity steve, Task task, ActionContext context) {
+    public BaseAction createAction(String actionName, VasyanEntity steve, Task task, ActionContext context) {
         if (actionName == null) {
             LOGGER.warn("Cannot create action: actionName is null");
             return null;

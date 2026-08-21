@@ -1,10 +1,10 @@
-package com.steve.ai.client;
+package ru.pravets.vasyan.client;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.network.ServerboundVoiceChunkPacket;
-import com.steve.ai.network.SteveNetworking;
-import com.steve.ai.voice.WavBuilder;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.network.ServerboundVoiceChunkPacket;
+import ru.pravets.vasyan.network.VasyanNetworking;
+import ru.pravets.vasyan.voice.WavBuilder;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -49,7 +49,7 @@ public final class VoiceRecorder {
         try {
             DataLine.Info info = new DataLine.Info(TargetDataLine.class, FORMAT);
             if (!AudioSystem.isLineSupported(info)) {
-                SteveMod.LOGGER.warn("No microphone line for {}", FORMAT);
+                VasyanMod.LOGGER.warn("No microphone line for {}", FORMAT);
                 return false;
             }
             line = (TargetDataLine) AudioSystem.getLine(info);
@@ -68,13 +68,13 @@ public final class VoiceRecorder {
                         }
                     }
                 }
-            }, "steve-voice-capture");
+            }, "vasyan-voice-capture");
             captureThread.setDaemon(true);
             captureThread.start();
             line.start();
             return true;
         } catch (Exception e) {
-            SteveMod.LOGGER.warn("Failed to open microphone: {}", e.toString());
+            VasyanMod.LOGGER.warn("Failed to open microphone: {}", e.toString());
             recording = false;
             return false;
         }
@@ -122,20 +122,20 @@ public final class VoiceRecorder {
     /** Auto-stop when the configured max recording time is exceeded. */
     public static void checkAutoStop() {
         if (recording && System.currentTimeMillis() - startedAtMillis
-                > SteveConfig.VOICE_MAX_RECORDING_SECONDS.get() * 1000L) {
+                > VasyanConfig.VOICE_MAX_RECORDING_SECONDS.get() * 1000L) {
             stop();
         }
     }
 
     private static void sendChunks(byte[] wav) {
-        int chunkSize = SteveConfig.VOICE_CHUNK_SIZE.get();
+        int chunkSize = VasyanConfig.VOICE_CHUNK_SIZE.get();
         int chunks = (wav.length + chunkSize - 1) / chunkSize;
         for (int i = 0; i < chunks; i++) {
             int off = i * chunkSize;
             int len = Math.min(chunkSize, wav.length - off);
             byte[] part = Arrays.copyOfRange(wav, off, off + len);
-            SteveNetworking.CHANNEL.sendToServer(new ServerboundVoiceChunkPacket(part, i, i == chunks - 1));
+            VasyanNetworking.CHANNEL.sendToServer(new ServerboundVoiceChunkPacket(part, i, i == chunks - 1));
         }
-        SteveMod.LOGGER.info("Voice: sent {} bytes in {} chunk(s)", wav.length, chunks);
+        VasyanMod.LOGGER.info("Voice: sent {} bytes in {} chunk(s)", wav.length, chunks);
     }
 }

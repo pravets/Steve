@@ -1,6 +1,6 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.entity.SteveInventory;
+import ru.pravets.vasyan.entity.VasyanInventory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -40,7 +40,7 @@ public final class FellSupport {
      * Returns EMPTY if there is nothing usable.
      */
     public static ItemStack findSolidPillarBlock(Level level, BlockPos standPos,
-                                                 SteveInventory inventory, Block targetBlock) {
+                                                 VasyanInventory inventory, Block targetBlock) {
         ItemStack logFallback = ItemStack.EMPTY;
         for (ItemStack stack : inventory.getStacks()) {
             if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem blockItem)) {

@@ -1,11 +1,11 @@
-package com.steve.ai.client;
+package ru.pravets.vasyan.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.steve.ai.SteveMod;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.network.ServerboundRequestInventoryPacket;
-import com.steve.ai.network.ServerboundRequestSteveListPacket;
-import com.steve.ai.network.SteveNetworking;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.network.ServerboundRequestInventoryPacket;
+import ru.pravets.vasyan.network.ServerboundRequestVasyanListPacket;
+import ru.pravets.vasyan.network.VasyanNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -22,7 +22,7 @@ import java.util.List;
  * Inspired by Cursor's composer - slides in/out from the right side.
  * Now with scrollable message history!
  */
-public class SteveGUI {
+public class VasyanGUI {
     private static final int PANEL_WIDTH = 200;
     private static final int PANEL_PADDING = 6;
     private static final int ANIMATION_SPEED = 20;
@@ -78,7 +78,7 @@ public class SteveGUI {
         
         if (isOpen) {
             initializeInputBox();
-            mc.setScreen(new SteveOverlayScreen());
+            mc.setScreen(new VasyanOverlayScreen());
             if (inputBox != null) {
                 inputBox.setFocused(true);
             }
@@ -87,7 +87,7 @@ public class SteveGUI {
             if (inputBox != null) {
                 inputBox = null;
             }
-            if (mc.screen instanceof SteveOverlayScreen) {
+            if (mc.screen instanceof VasyanOverlayScreen) {
                 mc.setScreen(null);
             }
         }
@@ -180,14 +180,14 @@ public class SteveGUI {
     private static void requestSteveList() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            SteveNetworking.CHANNEL.sendToServer(new ServerboundRequestSteveListPacket());
+            VasyanNetworking.CHANNEL.sendToServer(new ServerboundRequestVasyanListPacket());
         }
     }
 
     private static void requestInventory(String steveName) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            SteveNetworking.CHANNEL.sendToServer(new ServerboundRequestInventoryPacket(steveName));
+            VasyanNetworking.CHANNEL.sendToServer(new ServerboundRequestInventoryPacket(steveName));
         }
     }
 
@@ -569,15 +569,15 @@ public class SteveGUI {
             return;
         }
 
-        String commandLower = com.steve.ai.chat.ChatCommandParser.normalize(command);
+        String commandLower = ru.pravets.vasyan.chat.ChatCommandParser.normalize(command);
 
         // Commands addressed to ALL Steves go through the server ("tell all"),
         // so the full, up-to-date Steve list is used - not the client-side cache.
         // The addressing prefix is stripped: "all stay" -> "stay", otherwise the
         // stay/stop trigger in deliverCommand would see "all" as the first word.
-        if (com.steve.ai.chat.ChatCommandParser.isAllCommand(commandLower)) {
+        if (ru.pravets.vasyan.chat.ChatCommandParser.isAllCommand(commandLower)) {
             if (mc.player != null) {
-                String payload = com.steve.ai.chat.ChatCommandParser.stripAllPrefix(command);
+                String payload = ru.pravets.vasyan.chat.ChatCommandParser.stripAllPrefix(command);
                 mc.player.connection.sendCommand("steve tell all " + payload);
                 addSystemMessage("→ all Steves: " + payload);
             }
@@ -617,7 +617,7 @@ public class SteveGUI {
         
         // All-commands normally leave via "tell all" above; this branch is a
         // defensive fallback (e.g. direct /steve tell with an all-prefix).
-        if (com.steve.ai.chat.ChatCommandParser.isAllCommand(commandLower)) {
+        if (ru.pravets.vasyan.chat.ChatCommandParser.isAllCommand(commandLower)) {
             return new ArrayList<>(steveNames);
         }
         
@@ -630,7 +630,7 @@ public class SteveGUI {
             // Name matching tolerates Russian transcriptions ("алекс" -> Alex,
             // "стиви" -> Steve) and case differences
             String firstWord = trimmed.split("\\s+", 2)[0];
-            String matched = com.steve.ai.chat.NameMatcher.matchName(firstWord, steveNames);
+            String matched = ru.pravets.vasyan.chat.NameMatcher.matchName(firstWord, steveNames);
             if (matched != null) {
                 targets.add(matched);
             }

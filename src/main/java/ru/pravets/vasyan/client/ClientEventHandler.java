@@ -1,6 +1,6 @@
-package com.steve.ai.client;
+package ru.pravets.vasyan.client;
 
-import com.steve.ai.SteveMod;
+import ru.pravets.vasyan.VasyanMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.NarratorStatus;
 import net.minecraftforge.api.distmarker.Dist;
@@ -30,12 +30,12 @@ public class ClientEventHandler {
             narratorDisabled = true;
         }
         
-        if (KeyBindings.TOGGLE_GUI != null && KeyBindings.TOGGLE_GUI.consumeClick()) {            SteveGUI.toggle();
+        if (KeyBindings.TOGGLE_GUI != null && KeyBindings.TOGGLE_GUI.consumeClick()) {            VasyanGUI.toggle();
         }
 
         // Voice push-to-talk (V): toggle recording, then auto-stop on timeout
         if (KeyBindings.VOICE_PTT != null && KeyBindings.VOICE_PTT.consumeClick()) {
-            if (!com.steve.ai.config.SteveConfig.VOICE_ENABLED.get()) {
+            if (!ru.pravets.vasyan.config.VasyanConfig.VOICE_ENABLED.get()) {
                 mc.player.displayClientMessage(
                     net.minecraft.network.chat.Component.literal(
                         "§cVoice commands disabled - enable [voice] enabled=true and set sttApiKey in config"), false);

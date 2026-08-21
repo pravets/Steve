@@ -1,7 +1,7 @@
-package com.steve.ai.llm;
+package ru.pravets.vasyan.llm;
 
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.memory.WorldKnowledge;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.memory.WorldKnowledge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 
@@ -70,7 +70,7 @@ public class PromptBuilder {
             """;
     }
 
-    public static String buildUserPrompt(SteveEntity steve, String command, WorldKnowledge worldKnowledge) {
+    public static String buildUserPrompt(VasyanEntity steve, String command, WorldKnowledge worldKnowledge) {
         StringBuilder prompt = new StringBuilder();
         
         // Give agents FULL situational awareness
@@ -94,7 +94,7 @@ public class PromptBuilder {
         return String.format("[%d, %d, %d]", pos.getX(), pos.getY(), pos.getZ());
     }
 
-    private static String formatInventory(SteveEntity steve) {
+    private static String formatInventory(VasyanEntity steve) {
         return "[empty]";
     }
 }

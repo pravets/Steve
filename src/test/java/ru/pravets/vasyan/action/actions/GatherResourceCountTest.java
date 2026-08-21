@@ -1,7 +1,7 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.entity.SteveInventory;
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.entity.VasyanInventory;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -29,7 +29,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void anyLogCountsEveryLogType() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.OAK_LOG, 10));
         inv.addItem(new ItemStack(Items.BIRCH_LOG, 5));
         inv.addItem(new ItemStack(Items.STRIPPED_SPRUCE_LOG, 3));
@@ -39,7 +39,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void anyLogIgnoresPillarMaterial() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.DIRT, 32));
         inv.addItem(new ItemStack(Items.COBBLESTONE, 16));
         inv.addItem(new ItemStack(Items.OAK_LOG, 4));
@@ -50,7 +50,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void specificResourceCountsOnlyThatItem() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.OAK_LOG, 10));
         inv.addItem(new ItemStack(Items.BIRCH_LOG, 10));
         inv.addItem(new ItemStack(Items.DIRT, 10));
@@ -60,7 +60,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void deltaSemanticsCountOnlyWhatWasAdded() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.OAK_LOG, 30));
         int baseline = GatherResourceAction.countResource(inv, item -> item == Items.OAK_LOG);
 
@@ -72,7 +72,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void spentLogsDropTheCountUntilReturned() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.OAK_LOG, 50));
 
         // 5 logs spent on a pillar mid-felling (they return via vacuum after
@@ -91,7 +91,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void nonMatchingItemsNeverCount() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.IRON_ORE, 8));
         inv.addItem(new ItemStack(Items.STICK, 12));
 
@@ -101,7 +101,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void coalRequestCountsCoalItemsNotOreBlockItems() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.COAL, 5));
         inv.addItem(new ItemStack(Items.COAL_ORE, 3)); // should not count
 
@@ -110,7 +110,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void stoneRequestCountsCobblestoneDrops() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.COBBLESTONE, 12));
         inv.addItem(new ItemStack(Items.STONE, 4)); // block item, not a drop
 
@@ -119,7 +119,7 @@ class GatherResourceCountTest extends AbstractMinecraftTest {
 
     @Test
     void deltaCountingUsesYieldMatcher() {
-        SteveInventory inv = new SteveInventory(9);
+        VasyanInventory inv = new VasyanInventory(9);
         inv.addItem(new ItemStack(Items.COAL, 2));
         int baseline = GatherResourceAction.countResource(inv, item -> item == Items.COAL);
 

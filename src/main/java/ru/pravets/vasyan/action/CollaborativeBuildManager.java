@@ -1,7 +1,7 @@
-package com.steve.ai.action;
+package ru.pravets.vasyan.action;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.structure.BlockPlacement;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.structure.BlockPlacement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 
@@ -32,7 +32,7 @@ public class CollaborativeBuildManager {
             this.nextSectionIndex = new AtomicInteger(0);
             this.sections = divideBuildIntoSections(buildPlan);
             
-            SteveMod.LOGGER.info("Divided '{}' into {} sections for collaborative building", 
+            VasyanMod.LOGGER.info("Divided '{}' into {} sections for collaborative building", 
                 structureId, sections.size());
         }
         
@@ -89,7 +89,7 @@ public class CollaborativeBuildManager {
             if (!southWest.isEmpty()) sectionList.add(new BuildSection(2, southWest, "SOUTH-WEST"));
             if (!southEast.isEmpty()) sectionList.add(new BuildSection(3, southEast, "SOUTH-EAST"));
             
-            SteveMod.LOGGER.info("Divided structure into {} quadrants (BOTTOM-TO-TOP): NW={}, NE={}, SW={}, SE={} blocks", 
+            VasyanMod.LOGGER.info("Divided structure into {} quadrants (BOTTOM-TO-TOP): NW={}, NE={}, SW={}, SE={} blocks", 
                 sectionList.size(), northWest.size(), northEast.size(), southWest.size(), southEast.size());
             
             return sectionList;
@@ -168,7 +168,7 @@ public class CollaborativeBuildManager {
         CollaborativeBuild build = new CollaborativeBuild(structureId, buildPlan, startPos);
         activeBuilds.put(structureId, build);
         
-        SteveMod.LOGGER.info("Registered collaborative build '{}' at {} with {} blocks", 
+        VasyanMod.LOGGER.info("Registered collaborative build '{}' at {} with {} blocks", 
             structureType, startPos, buildPlan.size());
         
         return build;
@@ -223,7 +223,7 @@ public class CollaborativeBuildManager {
                 
                 if (!alreadyAssigned) {
                     build.steveToSectionMap.put(steveName, i);
-                    SteveMod.LOGGER.info("Assigned Steve '{}' to {} quadrant - will build {} blocks BOTTOM-TO-TOP", 
+                    VasyanMod.LOGGER.info("Assigned Steve '{}' to {} quadrant - will build {} blocks BOTTOM-TO-TOP", 
                         steveName, section.sectionName, section.getTotalBlocks());
                     return i;
                 }
@@ -235,7 +235,7 @@ public class CollaborativeBuildManager {
             BuildSection section = build.sections.get(i);
             if (!section.isComplete()) {
                 build.steveToSectionMap.put(steveName, i);
-                SteveMod.LOGGER.info("Steve '{}' helping with {} quadrant ({} blocks remaining)", 
+                VasyanMod.LOGGER.info("Steve '{}' helping with {} quadrant ({} blocks remaining)", 
                     steveName, section.sectionName, section.getTotalBlocks() - section.getBlocksPlaced());
                 return i;
             }
@@ -258,7 +258,7 @@ public class CollaborativeBuildManager {
     public static void completeBuild(String structureId) {
         CollaborativeBuild build = activeBuilds.remove(structureId);
         if (build != null) {
-            SteveMod.LOGGER.info("Collaborative build '{}' completed by {} Steves", 
+            VasyanMod.LOGGER.info("Collaborative build '{}' completed by {} Steves", 
                 structureId, build.participatingSteves.size());
         }
     }

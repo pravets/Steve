@@ -1,8 +1,8 @@
-package com.steve.ai.voice;
+package ru.pravets.vasyan.voice;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.command.SteveCommandDispatcher;
-import com.steve.ai.config.SteveConfig;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.command.VasyanCommandDispatcher;
+import ru.pravets.vasyan.config.VasyanConfig;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.TickEvent;
@@ -45,7 +45,7 @@ public final class VoiceCommandHandler {
     }
 
     public static void onChunk(ServerPlayer player, byte[] chunk, int seq, boolean last) {
-        if (!SteveConfig.VOICE_ENABLED.get()) {
+        if (!VasyanConfig.VOICE_ENABLED.get()) {
             return;
         }
         if (!player.server.isSameThread()) {
@@ -65,7 +65,7 @@ public final class VoiceCommandHandler {
 
         // Server-side size guard: the client auto-stops, but a hostile/buggy
         // client could stream forever - cap the total recording size.
-        int maxBytes = SteveConfig.VOICE_MAX_RECORDING_SECONDS.get() * 32000 * 2;
+        int maxBytes = VasyanConfig.VOICE_MAX_RECORDING_SECONDS.get() * 32000 * 2;
         if (pending.buffer.size() + chunk.length > maxBytes) {
             PENDING.remove(player.getUUID());
             player.sendSystemMessage(Component.literal("§cVoice: recording too long, discarded"));
@@ -94,7 +94,7 @@ public final class VoiceCommandHandler {
 
     /** Call once per server tick: drop abandoned recordings. */
     public static void tick() {
-        long maxAge = SteveConfig.VOICE_MAX_RECORDING_SECONDS.get() * 1000L + 5000L;
+        long maxAge = VasyanConfig.VOICE_MAX_RECORDING_SECONDS.get() * 1000L + 5000L;
         long now = System.currentTimeMillis();
         PENDING.entrySet().removeIf(e -> now - e.getValue().startedAtMillis > maxAge);
     }
@@ -103,7 +103,7 @@ public final class VoiceCommandHandler {
         MultipartSttClient.transcribe(wav)
             .whenComplete((text, error) -> player.server.execute(() -> {
                 if (error != null) {
-                    SteveMod.LOGGER.warn("Voice transcription failed for {}: {}", player.getName().getString(),
+                    VasyanMod.LOGGER.warn("Voice transcription failed for {}: {}", player.getName().getString(),
                         String.valueOf(error.getMessage()));
                     player.sendSystemMessage(Component.literal("§cVoice recognition failed: "
                         + String.valueOf(error.getMessage())));
@@ -116,7 +116,7 @@ public final class VoiceCommandHandler {
                 }
                 player.sendSystemMessage(Component.literal("§7Voice: §f" + command));
                 // Single dispatch path shared with /steve tell (panel K)
-                SteveCommandDispatcher.dispatch(player.createCommandSourceStack(), command);
+                VasyanCommandDispatcher.dispatch(player.createCommandSourceStack(), command);
             }));
     }
 }

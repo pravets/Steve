@@ -1,10 +1,10 @@
-package com.steve.ai.action;
+package ru.pravets.vasyan.action;
 
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.llm.ResponseParser;
-import com.steve.ai.memory.SteveMemory;
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.llm.ResponseParser;
+import ru.pravets.vasyan.memory.VasyanMemory;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import com.electronwill.nightconfig.core.CommentedConfig;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.level.Level;
@@ -32,17 +32,17 @@ class ActionExecutorTest extends AbstractMinecraftTest {
     @BeforeAll
     static void loadSteveConfig() {
         CommentedConfig config = CommentedConfig.inMemory();
-        SteveConfig.SPEC.correct(config);
-        SteveConfig.SPEC.acceptConfig(config);
+        VasyanConfig.SPEC.correct(config);
+        VasyanConfig.SPEC.acceptConfig(config);
     }
 
     @Test
     void planningWatchdogResetsStuckPlanning() {
         // Given a Steve whose level reports not client-side (so GUI messages are skipped)
-        SteveEntity steve = mock(SteveEntity.class);
+        VasyanEntity steve = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
-        SteveMemory memory = mock(SteveMemory.class);
+        VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
@@ -72,10 +72,10 @@ class ActionExecutorTest extends AbstractMinecraftTest {
     @Test
     void stopCurrentActionCancelsPlanning() {
         // Given a Steve whose level reports not client-side
-        SteveEntity steve = mock(SteveEntity.class);
+        VasyanEntity steve = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
-        SteveMemory memory = mock(SteveMemory.class);
+        VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
@@ -103,10 +103,10 @@ class ActionExecutorTest extends AbstractMinecraftTest {
     @Test
     void concurrentStopDuringPlanningDoesNotCorruptState() throws InterruptedException {
         // Given a Steve whose level reports not client-side
-        SteveEntity steve = mock(SteveEntity.class);
+        VasyanEntity steve = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
-        SteveMemory memory = mock(SteveMemory.class);
+        VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());
@@ -200,10 +200,10 @@ class ActionExecutorTest extends AbstractMinecraftTest {
     @Test
     void stalePlanningResultIsDiscardedAfterStopThenStart() throws InterruptedException {
         // Given a Steve whose level reports not client-side
-        SteveEntity steve = mock(SteveEntity.class);
+        VasyanEntity steve = mock(VasyanEntity.class);
         Level level = mock(Level.class);
         PathNavigation navigation = mock(PathNavigation.class);
-        SteveMemory memory = mock(SteveMemory.class);
+        VasyanMemory memory = mock(VasyanMemory.class);
 
         when(level.isClientSide()).thenReturn(false);
         when(level.players()).thenReturn(Collections.emptyList());

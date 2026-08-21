@@ -1,11 +1,11 @@
-package com.steve.ai.llm;
+package ru.pravets.vasyan.llm;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.steve.ai.SteveMod;
-import com.steve.ai.action.Task;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.action.Task;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +47,7 @@ public class ResponseParser {
             return new ParsedResponse(reasoning, plan, tasks);
             
         } catch (Exception e) {
-            SteveMod.LOGGER.error("Failed to parse AI response: {}", response, e);
+            VasyanMod.LOGGER.error("Failed to parse AI response: {}", response, e);
             return null;
         }
     }

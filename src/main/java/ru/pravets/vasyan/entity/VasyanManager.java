@@ -1,8 +1,8 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.debug.AgentDebugBuffer;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.debug.AgentDebugBuffer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -14,11 +14,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Objects.requireNonNull;
 
-public class SteveManager {
-    private final Map<String, SteveEntity> activeSteves;
-    private final Map<UUID, SteveEntity> stevesByUUID;
+public class VasyanManager {
+    private final Map<String, VasyanEntity> activeSteves;
+    private final Map<UUID, VasyanEntity> stevesByUUID;
 
-    public SteveManager() {
+    public VasyanManager() {
         this.activeSteves = new ConcurrentHashMap<>();
         this.stevesByUUID = new ConcurrentHashMap<>();
     }
@@ -30,11 +30,11 @@ public class SteveManager {
      * @param name the name to look up, may be null
      * @return the matching {@code Map.Entry} (canonical name + entity), or null
      */
-    private Map.Entry<String, SteveEntity> findEntryByNameIgnoreCase(String name) {
+    private Map.Entry<String, VasyanEntity> findEntryByNameIgnoreCase(String name) {
         if (name == null) {
             return null;
         }
-        for (Map.Entry<String, SteveEntity> entry : activeSteves.entrySet()) {
+        for (Map.Entry<String, VasyanEntity> entry : activeSteves.entrySet()) {
             if (name.equalsIgnoreCase(entry.getKey())) {
                 return entry;
             }
@@ -50,13 +50,13 @@ public class SteveManager {
      * @return the matching entity, or null if no Steve is tracked under a
      *         case-insensitive match
      */
-    private SteveEntity findByNameIgnoreCase(String name) {
-        Map.Entry<String, SteveEntity> entry = findEntryByNameIgnoreCase(name);
+    private VasyanEntity findByNameIgnoreCase(String name) {
+        Map.Entry<String, VasyanEntity> entry = findEntryByNameIgnoreCase(name);
         return entry != null ? entry.getValue() : null;
     }
 
     /**
-     * Registers a SteveEntity that entered the world (fresh spawn or loaded
+     * Registers a VasyanEntity that entered the world (fresh spawn or loaded
      * from a chunk / NBT). If the name is already taken by another live
      * instance, the newcomer is a duplicate and gets discarded (dedup).
      *
@@ -78,13 +78,13 @@ public class SteveManager {
      *
      * @return the adopted instance, or null if it was rejected as a duplicate
      */
-    public SteveEntity adopt(SteveEntity steve) {
+    public VasyanEntity adopt(VasyanEntity steve) {
         if (steve == null) {
             return null;
         }
         String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
-        Map.Entry<String, SteveEntity> existingEntry = findEntryByNameIgnoreCase(name);
-        SteveEntity existing = existingEntry != null ? existingEntry.getValue() : null;
+        Map.Entry<String, VasyanEntity> existingEntry = findEntryByNameIgnoreCase(name);
+        VasyanEntity existing = existingEntry != null ? existingEntry.getValue() : null;
         if (existing != null) {
             if (existing == steve) {
                 return steve;
@@ -98,11 +98,11 @@ public class SteveManager {
                 // The newcomer is the real bot loaded from NBT; the survivor is
                 // a freshly spawned empty copy. Keep the NBT state, discard the
                 // empty copy without dropping its (empty) inventory.
-                SteveMod.LOGGER.warn("Dedup discard: replacing fresh '{}' ({} alive={}, removed={}) with NBT-loaded original ({})",
+                VasyanMod.LOGGER.warn("Dedup discard: replacing fresh '{}' ({} alive={}, removed={}) with NBT-loaded original ({})",
                         name, existing.getUUID(), existing.isAlive(), existing.isRemoved(), steve.getUUID());
                 existing.setSuppressInventoryDrop(true);
                 existing.discard();
-                SteveMod.LOGGER.info("Dedup: replaced fresh duplicate '{}' ({}) with NBT-loaded original ({})",
+                VasyanMod.LOGGER.info("Dedup: replaced fresh duplicate '{}' ({}) with NBT-loaded original ({})",
                         name, existing.getUUID(), steve.getUUID());
                 activeSteves.remove(existingKey);
                 stevesByUUID.remove(existing.getUUID());
@@ -111,14 +111,14 @@ public class SteveManager {
                 // not entered the world yet during an EntityJoinLevelEvent, so
                 // the join is canceled (see ServerEventHandler) instead of a
                 // discard that would drop the (identical, duplicated) contents.
-                SteveMod.LOGGER.info("Dedup: rejected duplicate Steve '{}' ({}) - another live instance exists",
+                VasyanMod.LOGGER.info("Dedup: rejected duplicate Steve '{}' ({}) - another live instance exists",
                         name, steve.getUUID());
                 return null;
             }
         }
         activeSteves.put(name, steve);
         stevesByUUID.put(steve.getUUID(), steve);
-        if (SteveConfig.FORCE_LOAD_CHUNKS.get()
+        if (VasyanConfig.FORCE_LOAD_CHUNKS.get()
                 && steve.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(steve.blockPosition());
             ChunkForceTracker.ChunkKey key = new ChunkForceTracker.ChunkKey(serverLevel.dimension(), current);
@@ -146,38 +146,38 @@ public class SteveManager {
      * @param name     the desired Steve name
      * @return the spawned entity, or null if a duplicate exists or limits are reached
      */
-    public SteveEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
+    public VasyanEntity spawnSteve(ServerLevel level, Vec3 position, String name) {
         name = requireNonNull(name, "Steve name must not be null");
-        SteveMod.LOGGER.info("Current active Steves: {}", activeSteves.size());
+        VasyanMod.LOGGER.info("Current active Steves: {}", activeSteves.size());
 
         if (findByNameIgnoreCase(name) != null) {
-            SteveMod.LOGGER.warn("Steve name '{}' already exists", name);
+            VasyanMod.LOGGER.warn("Steve name '{}' already exists", name);
             return null;
         }
         // Uniqueness check against the world itself: a bot with this name may
         // be loaded from a chunk but not tracked yet - adopt it instead of
         // spawning a duplicate.
-        SteveEntity existing = findSteveInLevel(level, name);
+        VasyanEntity existing = findSteveInLevel(level, name);
         if (existing != null) {
             adopt(existing);
-            SteveMod.LOGGER.warn("Steve name '{}' already exists in world, adopting existing instance", name);
+            VasyanMod.LOGGER.warn("Steve name '{}' already exists in world, adopting existing instance", name);
             return null;
         }
 
-        int maxSteves = SteveConfig.MAX_ACTIVE_STEVES.get();
+        int maxSteves = VasyanConfig.MAX_ACTIVE_STEVES.get();
         if (activeSteves.size() >= maxSteves) {
-            SteveMod.LOGGER.warn("Max Steve limit reached: {}", maxSteves);
+            VasyanMod.LOGGER.warn("Max Steve limit reached: {}", maxSteves);
             return null;
         }
 
-        SteveEntity steve;
+        VasyanEntity steve;
         try {
-            SteveMod.LOGGER.info("EntityType: {}", SteveMod.STEVE_ENTITY.get());
-            steve = new SteveEntity(SteveMod.STEVE_ENTITY.get(), level);
+            VasyanMod.LOGGER.info("EntityType: {}", VasyanMod.VASYAN_ENTITY.get());
+            steve = new VasyanEntity(VasyanMod.VASYAN_ENTITY.get(), level);
         } catch (Throwable e) {
-            SteveMod.LOGGER.error("Failed to create Steve entity", e);
-            SteveMod.LOGGER.error("Exception class: {}", e.getClass().getName());
-            SteveMod.LOGGER.error("Exception message: {}", e.getMessage());
+            VasyanMod.LOGGER.error("Failed to create Steve entity", e);
+            VasyanMod.LOGGER.error("Exception class: {}", e.getClass().getName());
+            VasyanMod.LOGGER.error("Exception message: {}", e.getMessage());
             e.printStackTrace();
             return null;
         }
@@ -193,10 +193,10 @@ public class SteveManager {
                 // concurrently and won the dedup, in which case steve was
                 // already discarded.
                 if (findByNameIgnoreCase(name) == steve && steve.isAlive()) {
-                    SteveMod.LOGGER.info("Successfully spawned Steve: {} with UUID {} at {}", name, steve.getUUID(), position);
+                    VasyanMod.LOGGER.info("Successfully spawned Steve: {} with UUID {} at {}", name, steve.getUUID(), position);
                     return steve;
                 } else {
-                    SteveMod.LOGGER.warn("Spawn-adopt mismatch discard for '{}' ({} alive={}, removed={})",
+                    VasyanMod.LOGGER.warn("Spawn-adopt mismatch discard for '{}' ({} alive={}, removed={})",
                             name, steve.getUUID(), steve.isAlive(), steve.isRemoved());
                     if (!steve.isRemoved()) {
                         steve.setSuppressInventoryDrop(true);
@@ -204,12 +204,12 @@ public class SteveManager {
                     }
                 }
             } else {
-                SteveMod.LOGGER.error("Failed to add Steve entity to world (addFreshEntity returned false)");
-                SteveMod.LOGGER.error("=== SPAWN ATTEMPT FAILED ===");
+                VasyanMod.LOGGER.error("Failed to add Steve entity to world (addFreshEntity returned false)");
+                VasyanMod.LOGGER.error("=== SPAWN ATTEMPT FAILED ===");
             }
         } catch (Throwable e) {
-            SteveMod.LOGGER.error("Exception during spawn setup", e);
-            SteveMod.LOGGER.error("=== SPAWN ATTEMPT FAILED WITH EXCEPTION ===");
+            VasyanMod.LOGGER.error("Exception during spawn setup", e);
+            VasyanMod.LOGGER.error("=== SPAWN ATTEMPT FAILED WITH EXCEPTION ===");
             e.printStackTrace();
         }
 
@@ -217,16 +217,16 @@ public class SteveManager {
     }
 
     /**
-     * Scans the given level for a live SteveEntity that carries this name but
+     * Scans the given level for a live VasyanEntity that carries this name but
      * is not necessarily tracked yet (e.g. loaded from a chunk). Used to stop
      * /steve spawn from creating a duplicate over an existing world instance.
      */
-    private SteveEntity findSteveInLevel(ServerLevel level, String name) {
+    private VasyanEntity findSteveInLevel(ServerLevel level, String name) {
         if (level == null || name == null) {
             return null;
         }
         for (Entity entity : level.getAllEntities()) {
-            if (entity instanceof SteveEntity steve
+            if (entity instanceof VasyanEntity steve
                     && name.equalsIgnoreCase(steve.getSteveName())
                     && steve.isAlive() && !steve.isRemoved()) {
                 return steve;
@@ -241,7 +241,7 @@ public class SteveManager {
      * @param name the Steve name to look up
      * @return the tracked entity, or null if no match is found
      */
-    public SteveEntity getSteve(String name) {
+    public VasyanEntity getSteve(String name) {
         return name == null ? null : findByNameIgnoreCase(name);
     }
 
@@ -251,12 +251,12 @@ public class SteveManager {
      * @param uuid the UUID to look up
      * @return the tracked entity, or null if no match is found
      */
-    public SteveEntity getSteve(UUID uuid) {
+    public VasyanEntity getSteve(UUID uuid) {
         return uuid == null ? null : stevesByUUID.get(uuid);
     }
 
     /**
-     * Removes every live SteveEntity with the given name from all server
+     * Removes every live VasyanEntity with the given name from all server
      * levels and cleans up the registries. The world sweep is required
      * because a bot loaded from NBT may exist in a chunk without being
      * tracked in the maps (e.g. after the dedup auto-spawn regression).
@@ -264,7 +264,7 @@ public class SteveManager {
      * <p>Note: {@link ServerLevel#getAllEntities()} only enumerates entities
      * in <em>loaded</em> chunks. A bot whose chunk is unloaded is not visited
      * by the sweep and will be re-adopted (and thus re-appear in the
-     * registry) via {@link #adopt(SteveEntity)} when its chunk loads again;
+     * registry) via {@link #adopt(VasyanEntity)} when its chunk loads again;
      * run this command again after the chunk is loaded to remove it.
      *
      * <p>When several same-named instances exist in the world (a bug), only
@@ -280,16 +280,16 @@ public class SteveManager {
         if (server != null) {
             // Collect first, discard after: iterating getAllEntities() while
             // removing entities from it would throw a concurrent-modification.
-            List<SteveEntity> matches = new ArrayList<>();
+            List<VasyanEntity> matches = new ArrayList<>();
             for (ServerLevel level : server.getAllLevels()) {
                 for (Entity entity : level.getAllEntities()) {
-                    if (entity instanceof SteveEntity steve && name.equalsIgnoreCase(steve.getSteveName())) {
+                    if (entity instanceof VasyanEntity steve && name.equalsIgnoreCase(steve.getSteveName())) {
                         matches.add(steve);
                     }
                 }
             }
-            SteveEntity trackedInWorldSweep = findByNameIgnoreCase(name);
-            for (SteveEntity steve : matches) {
+            VasyanEntity trackedInWorldSweep = findByNameIgnoreCase(name);
+            for (VasyanEntity steve : matches) {
                 if (!steve.isAlive() || steve.isRemoved()) {
                     continue;
                 }
@@ -299,12 +299,12 @@ public class SteveManager {
                     // copies. The tracked instance keeps the normal drop.
                     steve.setSuppressInventoryDrop(true);
                 }
-                SteveMod.LOGGER.warn("removeSteve discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
+                VasyanMod.LOGGER.warn("removeSteve discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
                 steve.discard();
                 removed = true;
             }
         }
-        Map.Entry<String, SteveEntity> trackedEntry = findEntryByNameIgnoreCase(name);
+        Map.Entry<String, VasyanEntity> trackedEntry = findEntryByNameIgnoreCase(name);
         if (trackedEntry != null) {
             activeSteves.remove(trackedEntry.getKey());
             stevesByUUID.remove(trackedEntry.getValue().getUUID());
@@ -316,19 +316,19 @@ public class SteveManager {
     /**
      * Cleans up the registries when a tracked Steve leaves the world for a
      * reason other than a dimension change: chunk unload, kill or discard.
-     * The bot is re-adopted via {@link #adopt(SteveEntity)} when its chunk
+     * The bot is re-adopted via {@link #adopt(VasyanEntity)} when its chunk
      * loads again. A dimension change keeps the registration: the same live
      * instance continues to exist and is re-adopted (idempotently) on join.
      */
-    public void onSteveUnload(SteveEntity steve) {
+    public void onSteveUnload(VasyanEntity steve) {
         if (steve == null) {
             return;
         }
         String name = requireNonNull(steve.getSteveName(), "Steve name must not be null");
-        Map.Entry<String, SteveEntity> trackedEntry = findEntryByNameIgnoreCase(name);
+        Map.Entry<String, VasyanEntity> trackedEntry = findEntryByNameIgnoreCase(name);
         if (trackedEntry != null && trackedEntry.getValue() == steve) {
             activeSteves.remove(trackedEntry.getKey());
-            SteveMod.LOGGER.info("Steve '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
+            VasyanMod.LOGGER.info("Steve '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
         }
         stevesByUUID.remove(steve.getUUID());
     }
@@ -336,32 +336,32 @@ public class SteveManager {
     /**
      * Periodic registry cleanup: drops entries whose entity is dead or
      * removed. Safety net for removal reasons that do not go through
-     * {@link #onSteveUnload(SteveEntity)}.
+     * {@link #onSteveUnload(VasyanEntity)}.
      */
     public void tick() {
-        Iterator<Map.Entry<String, SteveEntity>> iterator = activeSteves.entrySet().iterator();
+        Iterator<Map.Entry<String, VasyanEntity>> iterator = activeSteves.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<String, SteveEntity> entry = iterator.next();
-            SteveEntity steve = entry.getValue();
+            Map.Entry<String, VasyanEntity> entry = iterator.next();
+            VasyanEntity steve = entry.getValue();
             if (!steve.isAlive() || steve.isRemoved()) {
                 iterator.remove();
                 stevesByUUID.remove(steve.getUUID());
-                SteveMod.LOGGER.info("Cleaned up Steve: {}", entry.getKey());
+                VasyanMod.LOGGER.info("Cleaned up Steve: {}", entry.getKey());
             }
         }
     }
 
     public void clearAllSteves() {
-        SteveMod.LOGGER.info("Clearing {} Steve entities", activeSteves.size());
-        for (SteveEntity steve : activeSteves.values()) {
-            SteveMod.LOGGER.warn("clearAllSteves discard for '{}' ({})", steve.getSteveName(), steve.getUUID());
+        VasyanMod.LOGGER.info("Clearing {} Steve entities", activeSteves.size());
+        for (VasyanEntity steve : activeSteves.values()) {
+            VasyanMod.LOGGER.warn("clearAllSteves discard for '{}' ({})", steve.getSteveName(), steve.getUUID());
             steve.discard();
         }
         activeSteves.clear();
         stevesByUUID.clear();
     }
 
-    public Collection<SteveEntity> getAllSteves() {
+    public Collection<VasyanEntity> getAllSteves() {
         return Collections.unmodifiableCollection(activeSteves.values());
     }
 
@@ -407,7 +407,7 @@ public class SteveManager {
      * Steves in the same chunk unaffected. Un-forces in the dimension the
      * chunk actually belongs to (the Steve may have changed dimensions).
      */
-    public void releaseChunk(SteveEntity steve, ServerLevel level) {
+    public void releaseChunk(VasyanEntity steve, ServerLevel level) {
         ChunkForceTracker.ChunkKey chunkKey = steve.getForcedChunk();
         if (chunkKey != null) {
             AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "release [" + chunkKey.pos().x + "," + chunkKey.pos().z + "] in " + chunkKey.dimension().location());
@@ -428,10 +428,10 @@ public class SteveManager {
      * manager is the outside actor that breaks the deadlock.
      */
     private void updateForcedChunks(ServerLevel level) {
-        if (!SteveConfig.FORCE_LOAD_CHUNKS.get()) {
+        if (!VasyanConfig.FORCE_LOAD_CHUNKS.get()) {
             // Feature disabled at runtime: release everything we ever forced
             // so no chunk stays force-loaded forever.
-            for (SteveEntity steve : activeSteves.values()) {
+            for (VasyanEntity steve : activeSteves.values()) {
                 ChunkForceTracker.ChunkKey old = steve.getForcedChunk();
                 if (old != null) {
                     ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
@@ -443,7 +443,7 @@ public class SteveManager {
             }
             return;
         }
-        for (SteveEntity steve : activeSteves.values()) {
+        for (VasyanEntity steve : activeSteves.values()) {
             if (steve.level() != level) {
                 continue;
             }
@@ -470,15 +470,15 @@ public class SteveManager {
         updateForcedChunks(level);
 
         // Clean up dead or removed Steves
-        Iterator<Map.Entry<String, SteveEntity>> iterator = activeSteves.entrySet().iterator();
+        Iterator<Map.Entry<String, VasyanEntity>> iterator = activeSteves.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<String, SteveEntity> entry = iterator.next();
-            SteveEntity steve = entry.getValue();
+            Map.Entry<String, VasyanEntity> entry = iterator.next();
+            VasyanEntity steve = entry.getValue();
             if (!steve.isAlive() || steve.isRemoved()) {
                 releaseChunk(steve, level);
                 iterator.remove();
                 stevesByUUID.remove(steve.getUUID());
-                SteveMod.LOGGER.info("Removed dead Steve: {}", entry.getKey());
+                VasyanMod.LOGGER.info("Removed dead Steve: {}", entry.getKey());
             }
         }
     }

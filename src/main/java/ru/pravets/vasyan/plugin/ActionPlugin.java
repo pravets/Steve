@@ -1,15 +1,15 @@
-package com.steve.ai.plugin;
+package ru.pravets.vasyan.plugin;
 
-import com.steve.ai.di.ServiceContainer;
+import ru.pravets.vasyan.di.ServiceContainer;
 
 /**
  * Service Provider Interface (SPI) for action plugins.
  *
- * <p>Implement this interface to add custom actions to Steve AI.
+ * <p>Implement this interface to add custom actions to Vasyan AI.
  * The plugin system uses Java's ServiceLoader mechanism for discovery.</p>
  *
  * <p><b>Registration:</b> Create a file at:
- * {@code src/main/resources/META-INF/services/com.steve.ai.plugin.ActionPlugin}
+ * {@code src/main/resources/META-INF/services/ru.pravets.vasyan.plugin.ActionPlugin}
  * containing the fully qualified class name of your plugin implementation.</p>
  *
  * <p><b>Example Implementation:</b></p>

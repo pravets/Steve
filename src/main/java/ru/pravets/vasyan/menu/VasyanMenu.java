@@ -1,6 +1,6 @@
-package com.steve.ai.menu;
+package ru.pravets.vasyan.menu;
 
-import com.steve.ai.entity.SteveInventory;
+import ru.pravets.vasyan.entity.VasyanInventory;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
@@ -17,16 +17,16 @@ import net.minecraft.world.item.ItemStack;
  * <p>Steve's slots are read-only (players can only TAKE items, never place
  * them).</p>
  */
-public class SteveMenu extends AbstractContainerMenu {
+public class VasyanMenu extends AbstractContainerMenu {
 
     private static final int STEVE_SLOTS = 27; // 3 rows x 9, single-chest layout
     private static final int PLAYER_SLOTS_START = STEVE_SLOTS;
     private static final int SLOT_COUNT = STEVE_SLOTS + 36;
 
-    private final SteveInventory container;
+    private final VasyanInventory container;
 
-    public SteveMenu(int containerId, Inventory playerInventory, SteveInventory container) {
-        super(com.steve.ai.menu.SteveMenus.STEVE_MENU.get(), containerId);
+    public VasyanMenu(int containerId, Inventory playerInventory, VasyanInventory container) {
+        super(ru.pravets.vasyan.menu.VasyanMenus.STEVE_MENU.get(), containerId);
         this.container = container;
         container.startOpen(playerInventory.player);
 
@@ -55,8 +55,8 @@ public class SteveMenu extends AbstractContainerMenu {
      * synchronizes the real slot contents right after the menu opens
      * (vanilla slot sync), so no Steve lookup is needed here.
      */
-    public static SteveMenu fromNetwork(int containerId, Inventory playerInventory, FriendlyByteBuf extra) {
-        return new SteveMenu(containerId, playerInventory, new SteveInventory());
+    public static VasyanMenu fromNetwork(int containerId, Inventory playerInventory, FriendlyByteBuf extra) {
+        return new VasyanMenu(containerId, playerInventory, new VasyanInventory());
     }
 
     @Override

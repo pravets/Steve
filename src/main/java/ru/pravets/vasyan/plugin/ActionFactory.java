@@ -1,9 +1,9 @@
-package com.steve.ai.plugin;
+package ru.pravets.vasyan.plugin;
 
-import com.steve.ai.action.actions.BaseAction;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.execution.ActionContext;
+import ru.pravets.vasyan.action.actions.BaseAction;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.execution.ActionContext;
 
 /**
  * Functional interface for creating action instances.
@@ -75,5 +75,5 @@ public interface ActionFactory {
      * @return New action instance ready for execution
      * @throws IllegalArgumentException if task parameters are invalid
      */
-    BaseAction create(SteveEntity steve, Task task, ActionContext context);
+    BaseAction create(VasyanEntity steve, Task task, ActionContext context);
 }

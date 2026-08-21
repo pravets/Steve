@@ -1,9 +1,9 @@
-package com.steve.ai.llm.resilience;
+package ru.pravets.vasyan.llm.resilience;
 
-import com.steve.ai.llm.async.AsyncLLMClient;
-import com.steve.ai.llm.async.LLMCache;
-import com.steve.ai.llm.async.LLMException;
-import com.steve.ai.llm.async.LLMResponse;
+import ru.pravets.vasyan.llm.async.AsyncLLMClient;
+import ru.pravets.vasyan.llm.async.LLMCache;
+import ru.pravets.vasyan.llm.async.LLMException;
+import ru.pravets.vasyan.llm.async.LLMResponse;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;

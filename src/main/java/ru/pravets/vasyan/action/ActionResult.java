@@ -1,4 +1,4 @@
-package com.steve.ai.action;
+package ru.pravets.vasyan.action;
 
 public class ActionResult {
     private final boolean success;

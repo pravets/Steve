@@ -1,6 +1,6 @@
-package com.steve.ai.memory;
+package ru.pravets.vasyan.memory;
 
-import com.steve.ai.SteveMod;
+import ru.pravets.vasyan.VasyanMod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 
@@ -65,7 +65,7 @@ public class StructureRegistry {
     public static void register(BlockPos pos, int width, int height, int depth, String type) {
         BuiltStructure structure = new BuiltStructure(pos, width, height, depth, type);
         structures.add(structure);
-        SteveMod.LOGGER.info("Registered structure '{}' at {} ({}x{}x{})", type, pos, width, height, depth);
+        VasyanMod.LOGGER.info("Registered structure '{}' at {} ({}x{}x{})", type, pos, width, height, depth);
     }
     
     /**
@@ -104,7 +104,7 @@ public class StructureRegistry {
                 );
                 
                 if (!hasConflict(testPos, width, height, depth)) {
-                    SteveMod.LOGGER.info("Found clear position at {} ({}m away)", testPos, radius);
+                    VasyanMod.LOGGER.info("Found clear position at {} ({}m away)", testPos, radius);
                     return testPos;
                 }
             }
@@ -115,7 +115,7 @@ public class StructureRegistry {
             originalPos.getY(),
             originalPos.getZ()
         );
-        SteveMod.LOGGER.warn("No clear position found, using fallback at {}", fallbackPos);
+        VasyanMod.LOGGER.warn("No clear position found, using fallback at {}", fallbackPos);
         return fallbackPos;
     }
     

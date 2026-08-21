@@ -1,7 +1,7 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.entity.SteveInventory;
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.entity.VasyanInventory;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -19,7 +19,7 @@ class FellSupportTest extends AbstractMinecraftTest {
 
     @Test
     void findsDirtForPillar() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.DIRT, 32));
 
         ItemStack pillar = FellSupport.findSolidPillarBlock(null, null, inventory, Blocks.OAK_LOG);
@@ -33,7 +33,7 @@ class FellSupportTest extends AbstractMinecraftTest {
         // Only felled logs in the inventory: the pillar must be built from
         // them (a log pillar is dismantled and re-collected on the way down,
         // so it is not a loss). Without this the bot stalls under the tree.
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 4));
 
         ItemStack pillar = FellSupport.findSolidPillarBlock(null, null, inventory, Blocks.OAK_LOG);
@@ -44,7 +44,7 @@ class FellSupportTest extends AbstractMinecraftTest {
 
     @Test
     void prefersBuildBlocksOverHarvestedLogs() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 4));
         inventory.addItem(new ItemStack(Items.DIRT, 8));
 
@@ -55,7 +55,7 @@ class FellSupportTest extends AbstractMinecraftTest {
 
     @Test
     void emptyInventoryHasNoPillarBlock() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         assertTrue(FellSupport.findSolidPillarBlock(null, null, inventory, Blocks.OAK_LOG).isEmpty());
     }
 

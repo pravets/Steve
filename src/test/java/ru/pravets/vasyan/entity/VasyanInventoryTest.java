@@ -1,6 +1,6 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for SteveInventory (add/merge/capacity/NBT logic).
+ * Unit tests for VasyanInventory (add/merge/capacity/NBT logic).
  *
  * Vanilla Items require Minecraft's registries, which are initialized via
  * SharedConstants.setVersion + Bootstrap.bootStrap() in AbstractMinecraftTest.
@@ -20,7 +20,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemMergesIntoExistingStack() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
         inventory.addItem(new ItemStack(Items.OAK_LOG, 20));
 
@@ -31,7 +31,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemCreatesNewStacksForDifferentItems() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
         inventory.addItem(new ItemStack(Items.IRON_INGOT, 5));
 
@@ -42,7 +42,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemReturnsRemainderWhenInventoryIsFull() {
-        SteveInventory inventory = new SteveInventory(2);
+        VasyanInventory inventory = new VasyanInventory(2);
         assertTrue(inventory.addItem(new ItemStack(Items.OAK_LOG, 64)).isEmpty());
         assertTrue(inventory.addItem(new ItemStack(Items.OAK_LOG, 64)).isEmpty());
 
@@ -53,7 +53,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemSplitsOversizedStackAcrossSlots() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         // 150 oak logs in a 64-max stack: 64 + 64 + 22
         ItemStack remainder = inventory.addItem(new ItemStack(Items.OAK_LOG, 150));
 
@@ -64,7 +64,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void addItemReturnsPartialRemainderWhenCapacityRunsOut() {
-        SteveInventory inventory = new SteveInventory(1);
+        VasyanInventory inventory = new VasyanInventory(1);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 60));
 
         // Only 4 fit into the existing stack's remaining space, 56 must come back
@@ -75,7 +75,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void hasFreeSpaceReflectsCapacity() {
-        SteveInventory inventory = new SteveInventory(1);
+        VasyanInventory inventory = new VasyanInventory(1);
         assertTrue(inventory.hasFreeSpace());
         inventory.addItem(new ItemStack(Items.OAK_LOG, 64));
         assertFalse(inventory.hasFreeSpace(), "Single full stack - no free space");
@@ -84,7 +84,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
     @Test
     void hasSpaceForRequiresSlotForThatItem() {
         // 1 slot, fully filled with oak logs: no space for logs...
-        SteveInventory inventory = new SteveInventory(1);
+        VasyanInventory inventory = new VasyanInventory(1);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 64));
         assertFalse(inventory.hasSpaceFor(Items.OAK_LOG));
         // ...but a different item would still fit in a fresh slot? No: the
@@ -94,7 +94,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void hasSpaceForPartialStackOfSameItem() {
-        SteveInventory inventory = new SteveInventory(1);
+        VasyanInventory inventory = new VasyanInventory(1);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 40));
         assertTrue(inventory.hasSpaceFor(Items.OAK_LOG), "Partial stack - more logs fit");
         assertFalse(inventory.hasSpaceFor(Items.DIAMOND), "No empty slot for other items");
@@ -102,7 +102,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void hasSpaceForEmptySlot() {
-        SteveInventory inventory = new SteveInventory(2);
+        VasyanInventory inventory = new VasyanInventory(2);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 64));
         assertTrue(inventory.hasSpaceFor(Items.OAK_LOG), "Empty slot exists");
         assertTrue(inventory.hasSpaceFor(Items.DIAMOND));
@@ -110,14 +110,14 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void countItemIsZeroForUnknownItem() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 3));
         assertEquals(0, inventory.countItem(Items.DIAMOND));
     }
 
     @Test
     void takeAllClearsInventory() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
         inventory.addItem(new ItemStack(Items.IRON_INGOT, 5));
 
@@ -129,7 +129,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void getStacksIsUnmodifiable() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 1));
 
         assertThrows(UnsupportedOperationException.class,
@@ -138,14 +138,14 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void nbtRoundTripPreservesContents() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
         inventory.addItem(new ItemStack(Items.IRON_INGOT, 5));
 
         CompoundTag tag = new CompoundTag();
         inventory.saveToNBT(tag);
 
-        SteveInventory loaded = new SteveInventory(9);
+        VasyanInventory loaded = new VasyanInventory(9);
         loaded.loadFromNBT(tag);
 
         assertEquals(2, loaded.getStacksCount());
@@ -163,7 +163,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
         }
         tag.put("Inventory", list);
 
-        SteveInventory loaded = new SteveInventory(9);
+        VasyanInventory loaded = new VasyanInventory(9);
         loaded.loadFromNBT(tag);
         assertEquals(9, loaded.getStacksCount(),
             "Load must clamp to maxSize even with oversized NBT");
@@ -173,7 +173,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void containerGetItemReturnsEmptyForEmptySlot() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
 
         assertFalse(inventory.getItem(0).isEmpty());
@@ -184,7 +184,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void containerRemoveItemTakesPartialStack() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
 
         ItemStack taken = inventory.removeItem(0, 3);
@@ -195,7 +195,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void containerRemoveItemClearsSlotWithoutShifting() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
         inventory.addItem(new ItemStack(Items.DIAMOND, 2)); // slot 1
 
@@ -209,7 +209,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void containerSetItemPlacesAndReplaces() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
 
         // Replace slot 0
@@ -234,7 +234,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
     void setItemIntoEmptySlotBeyondStacksIsNotLost() {
         // Regression: with a compact list, placing into slot 5 while only
         // slot 0 is occupied silently dropped the item (cursor was consumed).
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         inventory.addItem(new ItemStack(Items.OAK_LOG, 10));
 
         inventory.setItem(5, new ItemStack(Items.DIAMOND, 3));
@@ -247,7 +247,7 @@ class SteveInventoryTest extends AbstractMinecraftTest {
 
     @Test
     void stillValidWithoutOwnerReturnsTrue() {
-        SteveInventory inventory = new SteveInventory(9);
+        VasyanInventory inventory = new VasyanInventory(9);
         assertTrue(inventory.stillValid(null),
             "Detached inventory (unit tests) must be considered valid");
     }

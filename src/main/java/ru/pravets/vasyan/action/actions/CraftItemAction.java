@@ -1,15 +1,15 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 
 public class CraftItemAction extends BaseAction {
     private String itemName;
     private int quantity;
     private int ticksRunning;
 
-    public CraftItemAction(SteveEntity steve, Task task) {
+    public CraftItemAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 

@@ -1,8 +1,8 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
@@ -19,7 +19,7 @@ public class CombatAction extends BaseAction {
     private static final int MAX_TICKS = 600;
     private static final double ATTACK_RANGE = 3.5;
 
-    public CombatAction(SteveEntity steve, Task task) {
+    public CombatAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 
@@ -37,7 +37,7 @@ public class CombatAction extends BaseAction {
         findTarget();
         
         if (target == null) {
-            com.steve.ai.SteveMod.LOGGER.warn("Steve '{}' no targets nearby", steve.getSteveName());
+            ru.pravets.vasyan.VasyanMod.LOGGER.warn("Steve '{}' no targets nearby", steve.getSteveName());
         }
     }
 
@@ -50,7 +50,7 @@ public class CombatAction extends BaseAction {
             steve.setInvulnerableBuilding(false);
             steve.setSprinting(false);
             steve.getNavigation().stop();
-            com.steve.ai.SteveMod.LOGGER.info("Steve '{}' combat complete, invulnerability disabled", 
+            ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' combat complete, invulnerability disabled", 
                 steve.getSteveName());
             result = ActionResult.success("Combat complete");
             return;
@@ -89,7 +89,7 @@ public class CombatAction extends BaseAction {
                     steve.getZ() + (dz/dist) * moveAmount
                 );
                 ticksStuck = 0;
-                com.steve.ai.SteveMod.LOGGER.info("Steve '{}' was stuck, teleported closer to target", 
+                ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' was stuck, teleported closer to target", 
                     steve.getSteveName());
             }
         } else {
@@ -116,7 +116,7 @@ public class CombatAction extends BaseAction {
         steve.setSprinting(false);
         steve.setFlying(false);
         target = null;
-        com.steve.ai.SteveMod.LOGGER.info("Steve '{}' combat cancelled, invulnerability disabled", 
+        ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' combat cancelled, invulnerability disabled", 
             steve.getSteveName());
     }
 
@@ -144,7 +144,7 @@ public class CombatAction extends BaseAction {
         
         target = nearest;
         if (target != null) {
-            com.steve.ai.SteveMod.LOGGER.info("Steve '{}' locked onto: {} at {}m", 
+            ru.pravets.vasyan.VasyanMod.LOGGER.info("Steve '{}' locked onto: {} at {}m", 
                 steve.getSteveName(), target.getType().toString(), (int)nearestDistance);
         }
     }
@@ -155,7 +155,7 @@ public class CombatAction extends BaseAction {
         }
         
         // Don't attack other Steves or players
-        if (entity instanceof SteveEntity || entity instanceof net.minecraft.world.entity.player.Player) {
+        if (entity instanceof VasyanEntity || entity instanceof net.minecraft.world.entity.player.Player) {
             return false;
         }
         

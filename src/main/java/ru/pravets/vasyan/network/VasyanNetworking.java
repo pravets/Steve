@@ -1,6 +1,6 @@
-package com.steve.ai.network;
+package ru.pravets.vasyan.network;
 
-import com.steve.ai.SteveMod;
+import ru.pravets.vasyan.VasyanMod;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
@@ -18,18 +18,18 @@ import java.util.function.Supplier;
  * Simple network channel for client <-> server communication
  * (e.g. the GUI panel requesting a Steve's inventory).
  */
-public final class SteveNetworking {
+public final class VasyanNetworking {
 
     private static final String PROTOCOL_VERSION = "1";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-        new ResourceLocation(SteveMod.MODID, "main"),
+        new ResourceLocation(VasyanMod.MODID, "main"),
         () -> PROTOCOL_VERSION,
         PROTOCOL_VERSION::equals,
         PROTOCOL_VERSION::equals
     );
 
-    private SteveNetworking() {}
+    private VasyanNetworking() {}
 
     public static void register() {
         int id = 0;
@@ -37,35 +37,35 @@ public final class SteveNetworking {
             ServerboundRequestInventoryPacket.class,
             ServerboundRequestInventoryPacket::encode,
             ServerboundRequestInventoryPacket::decode,
-            SteveNetworking::handleRequestInventory,
+            VasyanNetworking::handleRequestInventory,
             Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(id++,
             ClientboundInventoryPacket.class,
             ClientboundInventoryPacket::encode,
             ClientboundInventoryPacket::decode,
-            SteveNetworking::handleInventory,
+            VasyanNetworking::handleInventory,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
         CHANNEL.registerMessage(id++,
-            ServerboundRequestSteveListPacket.class,
-            ServerboundRequestSteveListPacket::encode,
-            ServerboundRequestSteveListPacket::decode,
-            SteveNetworking::handleRequestSteveList,
+            ServerboundRequestVasyanListPacket.class,
+            ServerboundRequestVasyanListPacket::encode,
+            ServerboundRequestVasyanListPacket::decode,
+            VasyanNetworking::handleRequestSteveList,
             Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
         CHANNEL.registerMessage(id++,
-            ClientboundSteveListPacket.class,
-            ClientboundSteveListPacket::encode,
-            ClientboundSteveListPacket::decode,
-            SteveNetworking::handleSteveList,
+            ClientboundVasyanListPacket.class,
+            ClientboundVasyanListPacket::encode,
+            ClientboundVasyanListPacket::decode,
+            VasyanNetworking::handleSteveList,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
         CHANNEL.registerMessage(id++,
             ServerboundVoiceChunkPacket.class,
             ServerboundVoiceChunkPacket::encode,
             ServerboundVoiceChunkPacket::decode,
-            SteveNetworking::handleVoiceChunk,
+            VasyanNetworking::handleVoiceChunk,
             Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
@@ -75,13 +75,13 @@ public final class SteveNetworking {
         ctx.enqueueWork(() -> {
             ServerPlayer sender = ctx.getSender();
             if (sender != null) {
-                com.steve.ai.voice.VoiceCommandHandler.onChunk(sender, packet.chunk, packet.seq, packet.last);
+                ru.pravets.vasyan.voice.VoiceCommandHandler.onChunk(sender, packet.chunk, packet.seq, packet.last);
             }
         });
         ctx.setPacketHandled(true);
     }
 
-    private static void handleRequestSteveList(ServerboundRequestSteveListPacket packet,
+    private static void handleRequestSteveList(ServerboundRequestVasyanListPacket packet,
                                                Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> {
@@ -89,18 +89,18 @@ public final class SteveNetworking {
             if (sender == null) {
                 return;
             }
-            ClientboundSteveListPacket response = new ClientboundSteveListPacket(
-                SteveMod.getSteveManager().getSteveNames());
+            ClientboundVasyanListPacket response = new ClientboundVasyanListPacket(
+                VasyanMod.getSteveManager().getSteveNames());
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), response);
         });
         ctx.setPacketHandled(true);
     }
 
-    private static void handleSteveList(ClientboundSteveListPacket packet,
+    private static void handleSteveList(ClientboundVasyanListPacket packet,
                                         Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-            () -> () -> com.steve.ai.client.SteveGUI.setSteveList(packet.steveNames())));
+            () -> () -> ru.pravets.vasyan.client.VasyanGUI.setSteveList(packet.steveNames())));
         ctx.setPacketHandled(true);
     }
 
@@ -112,7 +112,7 @@ public final class SteveNetworking {
             if (sender == null) {
                 return;
             }
-            var steve = SteveMod.getSteveManager().getSteve(packet.steveName());
+            var steve = VasyanMod.getSteveManager().getSteve(packet.steveName());
             if (steve == null) {
                 return;
             }
@@ -127,7 +127,7 @@ public final class SteveNetworking {
                                         Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-            () -> () -> com.steve.ai.client.SteveGUI.setInventoryView(packet.steveName(), packet.stacks())));
+            () -> () -> ru.pravets.vasyan.client.VasyanGUI.setInventoryView(packet.steveName(), packet.stacks())));
         ctx.setPacketHandled(true);
     }
 }

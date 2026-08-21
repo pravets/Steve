@@ -1,4 +1,4 @@
-package com.steve.ai.llm;
+package ru.pravets.vasyan.llm;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

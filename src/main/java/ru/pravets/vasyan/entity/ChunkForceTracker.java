@@ -1,4 +1,4 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.ChunkPos;

@@ -1,6 +1,6 @@
-package com.steve.ai.testutil;
+package ru.pravets.vasyan.testutil;
 
-import com.steve.ai.config.SteveConfig;
+import ru.pravets.vasyan.config.VasyanConfig;
 import com.electronwill.nightconfig.core.CommentedConfig;
 import net.minecraft.SharedConstants;
 import net.minecraft.WorldVersion;
@@ -55,7 +55,7 @@ public abstract class AbstractMinecraftTest {
         }
         try {
             CommentedConfig config = CommentedConfig.inMemory();
-            SteveConfig.SPEC.acceptConfig(config);
+            VasyanConfig.SPEC.acceptConfig(config);
         } catch (IllegalStateException e) {
             // Configuration already accepted by another test class in the same JVM.
         }

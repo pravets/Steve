@@ -1,6 +1,6 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
@@ -11,32 +11,32 @@ class SteveWorldDataTest extends AbstractMinecraftTest {
 
     @Test
     void newDataHasBotsNotSpawned() {
-        SteveWorldData data = new SteveWorldData();
+        VasyanWorldData data = new VasyanWorldData();
         assertFalse(data.hasDefaultBotsSpawned());
     }
 
     @Test
     void markFlagsAsSpawned() {
-        SteveWorldData data = new SteveWorldData();
+        VasyanWorldData data = new VasyanWorldData();
         data.markDefaultBotsSpawned();
         assertTrue(data.hasDefaultBotsSpawned());
     }
 
     @Test
     void saveLoadRoundTripPreservesFlag() {
-        SteveWorldData data = new SteveWorldData();
+        VasyanWorldData data = new VasyanWorldData();
         data.markDefaultBotsSpawned();
 
         CompoundTag tag = new CompoundTag();
         data.save(tag);
 
-        SteveWorldData loaded = SteveWorldData.load(tag);
+        VasyanWorldData loaded = VasyanWorldData.load(tag);
         assertTrue(loaded.hasDefaultBotsSpawned());
     }
 
     @Test
     void loadDefaultsToFalse() {
-        SteveWorldData loaded = SteveWorldData.load(new CompoundTag());
+        VasyanWorldData loaded = VasyanWorldData.load(new CompoundTag());
         assertFalse(loaded.hasDefaultBotsSpawned());
     }
 }

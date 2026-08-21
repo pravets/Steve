@@ -1,6 +1,6 @@
-package com.steve.ai.structure;
+package ru.pravets.vasyan.structure;
 
-import com.steve.ai.SteveMod;
+import ru.pravets.vasyan.VasyanMod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
@@ -65,13 +65,13 @@ public class StructureTemplateLoader {
             InputStream resourceStream = StructureTemplateLoader.class.getClassLoader().getResourceAsStream(resourcePath);
 
             if (resourceStream != null) {
-                SteveMod.LOGGER.info("Found structure in resources: {}", resourcePath);
+                VasyanMod.LOGGER.info("Found structure in resources: {}", resourcePath);
                 try {
                     CompoundTag nbt = NbtIo.readCompressed(resourceStream);
                     resourceStream.close();
                     return parseNBTStructure(nbt, structureName);
                 } catch (IOException e) {
-                    SteveMod.LOGGER.error("Failed to load structure from resources: {}", resourcePath, e);
+                    VasyanMod.LOGGER.error("Failed to load structure from resources: {}", resourcePath, e);
                 }
             }
         }
@@ -85,7 +85,7 @@ public class StructureTemplateLoader {
             }
         } catch (Exception e) {        }
         
-        SteveMod.LOGGER.warn("Structure '{}' not found. Available structures: {}", 
+        VasyanMod.LOGGER.warn("Structure '{}' not found. Available structures: {}", 
             structureName, getAvailableStructures());
         return null;
     }
@@ -98,7 +98,7 @@ public class StructureTemplateLoader {
             CompoundTag nbt = NbtIo.readCompressed(inputStream);
             return parseNBTStructure(nbt, name);
         } catch (IOException e) {
-            SteveMod.LOGGER.error("Failed to load structure from file: {}", file, e);
+            VasyanMod.LOGGER.error("Failed to load structure from file: {}", file, e);
             return null;
         }
     }
@@ -117,7 +117,7 @@ public class StructureTemplateLoader {
         
         // This method is here for future compatibility with Minecraft's template system
         
-        SteveMod.LOGGER.warn("Direct template loading not fully implemented, please use NBT files directly");
+        VasyanMod.LOGGER.warn("Direct template loading not fully implemented, please use NBT files directly");
         return null;
     }
     
@@ -144,7 +144,7 @@ public class StructureTemplateLoader {
                 Block block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(blockLocation);
                 palette.add(block.defaultBlockState());
             } catch (Exception e) {
-                SteveMod.LOGGER.warn("Unknown block in structure: {}", blockName);
+                VasyanMod.LOGGER.warn("Unknown block in structure: {}", blockName);
                 palette.add(Blocks.AIR.defaultBlockState());
             }
         }
@@ -168,7 +168,7 @@ public class StructureTemplateLoader {
             }
         }
         
-        SteveMod.LOGGER.info("Loaded {} blocks from NBT '{}' ({}x{}x{})", blocks.size(), name, width, height, depth);
+        VasyanMod.LOGGER.info("Loaded {} blocks from NBT '{}' ({}x{}x{})", blocks.size(), name, width, height, depth);
         return new LoadedTemplate(name, blocks, width, height, depth);
     }
     

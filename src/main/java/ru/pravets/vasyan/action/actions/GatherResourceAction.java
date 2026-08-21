@@ -1,10 +1,10 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.memory.VisionScanner;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.memory.VisionScanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
@@ -121,7 +121,7 @@ public class GatherResourceAction extends BaseAction {
 
     private Phase phase = Phase.SEARCH;
 
-    public GatherResourceAction(SteveEntity steve, Task task) {
+    public GatherResourceAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 
@@ -203,7 +203,7 @@ public class GatherResourceAction extends BaseAction {
             lastProgressTick = now;
             lastProgressPos = steve.blockPosition();
         }
-        if (now - lastProgressTick >= SteveConfig.GATHER_SEARCH_TIMEOUT.get()) {
+        if (now - lastProgressTick >= VasyanConfig.GATHER_SEARCH_TIMEOUT.get()) {
             finish(false, "Search timed out - found " + gatheredCount + " " + resourceLabel());
             return;
         }
@@ -338,8 +338,8 @@ public class GatherResourceAction extends BaseAction {
         unreachableTargets.retainAll(all); // keep the set small
 
         // No target anywhere: advance the route
-        if (!ResourceSearchPlanner.hasNext(searchState, SteveConfig.GATHER_SEARCH_RADIUS.get(),
-                SteveConfig.GATHER_RING_SPACING.get())) {
+        if (!ResourceSearchPlanner.hasNext(searchState, VasyanConfig.GATHER_SEARCH_RADIUS.get(),
+                VasyanConfig.GATHER_RING_SPACING.get())) {
             // Origin rings exhausted: keep searching outward - walk away from
             // spawn in a compass sweep, widening each full turn, instead of
             // giving up ("Nothing found") or standing still forever.
@@ -352,8 +352,8 @@ public class GatherResourceAction extends BaseAction {
         }
 
         BlockPos station = ResourceSearchPlanner.stationFor(searchState,
-            SteveConfig.GATHER_RING_SPACING.get(), SteveConfig.GATHER_STATIONS_PER_RING.get());
-        searchState = ResourceSearchPlanner.next(searchState, SteveConfig.GATHER_STATIONS_PER_RING.get());
+            VasyanConfig.GATHER_RING_SPACING.get(), VasyanConfig.GATHER_STATIONS_PER_RING.get());
+        searchState = ResourceSearchPlanner.next(searchState, VasyanConfig.GATHER_STATIONS_PER_RING.get());
         debugLog("SEARCH", "no target visible, next station " + station);
 
         routeTarget = station;
@@ -871,7 +871,7 @@ public class GatherResourceAction extends BaseAction {
     private BlockPos expandStation() {
         double angle = (expandDir % 8) * Math.PI / 4;
         int ring = expandDir / 8;
-        int radius = SteveConfig.GATHER_SEARCH_RADIUS.get() + 16 * (ring + 1);
+        int radius = VasyanConfig.GATHER_SEARCH_RADIUS.get() + 16 * (ring + 1);
         int x = origin.getX() + (int) Math.round(radius * Math.cos(angle));
         int z = origin.getZ() + (int) Math.round(radius * Math.sin(angle));
         int y = steve.level().getHeightmapPos(
@@ -1219,7 +1219,7 @@ public class GatherResourceAction extends BaseAction {
     }
 
     private void debugLog(String type, String message) {
-        com.steve.ai.debug.AgentDebugBuffer.log(steve.getSteveName(), type, message);
+        ru.pravets.vasyan.debug.AgentDebugBuffer.log(steve.getSteveName(), type, message);
     }
 
     /** Squared horizontal (XZ) distance to a block - for ground navigation checks. */

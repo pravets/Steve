@@ -1,4 +1,4 @@
-package com.steve.ai.llm.async;
+package ru.pravets.vasyan.llm.async;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

@@ -1,10 +1,10 @@
-package com.steve.ai.execution;
+package ru.pravets.vasyan.execution;
 
-import com.steve.ai.action.actions.BaseAction;
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.event.ActionCompletedEvent;
-import com.steve.ai.event.ActionStartedEvent;
-import com.steve.ai.event.EventBus;
+import ru.pravets.vasyan.action.actions.BaseAction;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.event.ActionCompletedEvent;
+import ru.pravets.vasyan.event.ActionStartedEvent;
+import ru.pravets.vasyan.event.EventBus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,4 +1,4 @@
-package com.steve.ai.llm;
+package ru.pravets.vasyan.llm;
 
 import java.util.Map;
 

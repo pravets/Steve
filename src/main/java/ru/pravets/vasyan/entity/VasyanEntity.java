@@ -1,8 +1,8 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.action.ActionExecutor;
-import com.steve.ai.memory.SteveMemory;
-import com.steve.ai.menu.SteveMenu;
+import ru.pravets.vasyan.action.ActionExecutor;
+import ru.pravets.vasyan.memory.VasyanMemory;
+import ru.pravets.vasyan.menu.VasyanMenu;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -31,14 +31,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class SteveEntity extends PathfinderMob {
+public class VasyanEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> STEVE_NAME = 
-        SynchedEntityData.defineId(SteveEntity.class, EntityDataSerializers.STRING);
+        SynchedEntityData.defineId(VasyanEntity.class, EntityDataSerializers.STRING);
 
     private String steveName;
-    private SteveMemory memory;
+    private VasyanMemory memory;
     private ActionExecutor actionExecutor;
-    private SteveInventory inventory;
+    private VasyanInventory inventory;
     private int tickCounter = 0;
     private int pickupCooldown = 0;
     private boolean isFlying = false;
@@ -64,12 +64,12 @@ public class SteveEntity extends PathfinderMob {
     /** Pickup scan every N ticks (20 ticks = 1 second). */
     private static final int PICKUP_INTERVAL = 10;
 
-    public SteveEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
+    public VasyanEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.steveName = "Steve";
-        this.memory = new SteveMemory(this);
+        this.memory = new VasyanMemory(this);
         this.actionExecutor = new ActionExecutor(this);
-        this.inventory = new SteveInventory(this, SteveInventory.DEFAULT_SIZE);
+        this.inventory = new VasyanInventory(this, VasyanInventory.DEFAULT_SIZE);
         this.setCustomNameVisible(true);
         this.setPersistenceRequired();
 
@@ -133,17 +133,17 @@ public class SteveEntity extends PathfinderMob {
      */
     void releaseForcedChunk(RemovalReason reason) {
         if (!this.level().isClientSide && forcedChunk != null
-                && com.steve.ai.SteveMod.getSteveManager() != null
+                && ru.pravets.vasyan.VasyanMod.getSteveManager() != null
                 && (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED)) {
             // Permanent removal: release our chunk force-load. Transient removals
             // (chunk unload, dimension change) must keep the force so the bot's
             // chunk reloads without a player nearby.
-            com.steve.ai.SteveMod.getSteveManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
+            ru.pravets.vasyan.VasyanMod.getSteveManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
             forcedChunk = null;
         }
     }
 
-    /** Chunk currently force-loaded for this Steve (tracked by SteveManager). */
+    /** Chunk currently force-loaded for this Steve (tracked by VasyanManager). */
     private ChunkForceTracker.ChunkKey forcedChunk;
 
     public ChunkForceTracker.ChunkKey getForcedChunk() {
@@ -226,11 +226,11 @@ public class SteveEntity extends PathfinderMob {
         return this.steveName;
     }
 
-    public SteveMemory getMemory() {
+    public VasyanMemory getMemory() {
         return this.memory;
     }
 
-    public SteveInventory getInventory() {
+    public VasyanInventory getInventory() {
         return this.inventory;
     }
 
@@ -256,7 +256,7 @@ public class SteveEntity extends PathfinderMob {
         if (pos == null) {
             return false;
         }
-        BlockPos target = SteveTeleportUtil.findSafePos(pos, this::isSafeTeleportSpot);
+        BlockPos target = VasyanTeleportUtil.findSafePos(pos, this::isSafeTeleportSpot);
         if (target == null) {
             return false;
         }
@@ -343,7 +343,7 @@ public class SteveEntity extends PathfinderMob {
         if (!this.level().isClientSide && player instanceof ServerPlayer serverPlayer) {
             serverPlayer.openMenu(new SimpleMenuProvider(
                 (containerId, playerInventory, p) ->
-                    new SteveMenu(containerId, playerInventory, this.inventory),
+                    new VasyanMenu(containerId, playerInventory, this.inventory),
                 Component.literal(this.steveName + "'s Inventory")));
         }
         return InteractionResult.sidedSuccess(this.level().isClientSide);

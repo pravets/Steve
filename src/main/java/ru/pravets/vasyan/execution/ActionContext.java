@@ -1,7 +1,7 @@
-package com.steve.ai.execution;
+package ru.pravets.vasyan.execution;
 
-import com.steve.ai.di.ServiceContainer;
-import com.steve.ai.event.EventBus;
+import ru.pravets.vasyan.di.ServiceContainer;
+import ru.pravets.vasyan.event.EventBus;
 
 import java.util.Optional;
 

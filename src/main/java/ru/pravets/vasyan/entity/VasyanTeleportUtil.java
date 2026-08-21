@@ -1,4 +1,4 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
@@ -8,7 +8,7 @@ import org.jetbrains.annotations.Nullable;
  * No world access - the caller supplies a predicate that checks whether
  * a given block position is acceptable (solid ground, air, not liquid).
  */
-public final class SteveTeleportUtil {
+public final class VasyanTeleportUtil {
 
     /** Maximum horizontal distance (in blocks) searched around the target. */
     private static final int SEARCH_RADIUS = 3;
@@ -24,7 +24,7 @@ public final class SteveTeleportUtil {
         boolean test(int x, int y, int z);
     }
 
-    private SteveTeleportUtil() {}
+    private VasyanTeleportUtil() {}
 
     /**
      * Finds the nearest acceptable position around {@code center}, scanning

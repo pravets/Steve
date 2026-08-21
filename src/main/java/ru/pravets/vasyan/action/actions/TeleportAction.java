@@ -1,8 +1,8 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
@@ -13,7 +13,7 @@ import java.util.List;
  *
  * <p>Triggered by natural language like "come to me", "teleport to me",
  * "return to me" from the K-panel chat. Reuses the same primitive as the
- * /steve tp command ({@link SteveEntity#teleportToPlayer}) so the auto-return
+ * /steve tp command ({@link VasyanEntity#teleportToPlayer}) so the auto-return
  * logic of Stage 3 shares one code path.</p>
  */
 public class TeleportAction extends BaseAction {
@@ -21,7 +21,7 @@ public class TeleportAction extends BaseAction {
     private String playerName;
     private Player targetPlayer;
 
-    public TeleportAction(SteveEntity steve, Task task) {
+    public TeleportAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 

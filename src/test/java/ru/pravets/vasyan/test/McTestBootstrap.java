@@ -1,4 +1,4 @@
-package com.steve.ai.test;
+package ru.pravets.vasyan.test;
 
 import net.minecraft.SharedConstants;
 import net.minecraft.WorldVersion;

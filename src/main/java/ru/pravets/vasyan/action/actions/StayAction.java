@@ -1,14 +1,14 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.ActionExecutor;
-import com.steve.ai.action.ActionResult;
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.ActionExecutor;
+import ru.pravets.vasyan.action.ActionResult;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 
 /**
  * Makes the Steve stay in place until the next command: stops navigation,
  * clears pending tasks and disables idle-follow. The "staying" flag lives in
- * {@link com.steve.ai.action.ActionExecutor} - a new command wakes the Steve
+ * {@link ru.pravets.vasyan.action.ActionExecutor} - a new command wakes the Steve
  * up automatically.
  *
  * <p>Note: {@code stopCurrentAction()} must NOT be called from onStart -
@@ -16,7 +16,7 @@ import com.steve.ai.entity.SteveEntity;
  */
 public class StayAction extends BaseAction {
 
-    public StayAction(SteveEntity steve, Task task) {
+    public StayAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 

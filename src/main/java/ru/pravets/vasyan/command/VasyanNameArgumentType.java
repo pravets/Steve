@@ -1,4 +1,4 @@
-package com.steve.ai.command;
+package ru.pravets.vasyan.command;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
@@ -7,8 +7,8 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import com.steve.ai.SteveMod;
-import com.steve.ai.entity.SteveManager;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.entity.VasyanManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
@@ -26,18 +26,18 @@ import java.util.regex.Pattern;
  * names entered in quotes still parse, while multi-word or other invalid
  * names are rejected.
  */
-public final class SteveNameArgumentType implements ArgumentType<String> {
+public final class VasyanNameArgumentType implements ArgumentType<String> {
 
     private static final Pattern VALID_NAME = Pattern.compile("[\\p{L}\\p{N}_\\-.+]+");
 
     private static final DynamicCommandExceptionType INVALID_NAME = new DynamicCommandExceptionType(
-        value -> Component.translatable("argument.steve.steve_name.invalid", value));
+        value -> Component.translatable("argument.steve.vasyan_name.invalid", value));
 
-    SteveNameArgumentType() {
+    VasyanNameArgumentType() {
     }
 
-    public static SteveNameArgumentType steveName() {
-        return new SteveNameArgumentType();
+    public static VasyanNameArgumentType steveName() {
+        return new VasyanNameArgumentType();
     }
 
     public static String getName(CommandContext<CommandSourceStack> context, String name) {
@@ -76,7 +76,7 @@ public final class SteveNameArgumentType implements ArgumentType<String> {
 
     @Override
     public <S> CompletableFuture<Suggestions> listSuggestions(CommandContext<S> context, SuggestionsBuilder builder) {
-        SteveManager manager = SteveMod.getSteveManager();
+        VasyanManager manager = VasyanMod.getSteveManager();
         if (manager == null) {
             return builder.buildFuture();
         }

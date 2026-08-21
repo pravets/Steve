@@ -1,4 +1,4 @@
-package com.steve.ai.debug;
+package ru.pravets.vasyan.debug;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;

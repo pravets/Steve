@@ -1,6 +1,6 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.ChunkPos;

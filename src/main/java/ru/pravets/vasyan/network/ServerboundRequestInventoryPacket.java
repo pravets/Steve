@@ -1,4 +1,4 @@
-package com.steve.ai.network;
+package ru.pravets.vasyan.network;
 
 import net.minecraft.network.FriendlyByteBuf;
 

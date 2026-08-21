@@ -1,7 +1,7 @@
-package com.steve.ai.execution;
+package ru.pravets.vasyan.execution;
 
-import com.steve.ai.event.EventBus;
-import com.steve.ai.event.StateTransitionEvent;
+import ru.pravets.vasyan.event.EventBus;
+import ru.pravets.vasyan.event.StateTransitionEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

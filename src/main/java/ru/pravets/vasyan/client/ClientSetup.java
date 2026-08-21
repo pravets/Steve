@@ -1,8 +1,8 @@
-package com.steve.ai.client;
+package ru.pravets.vasyan.client;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.menu.SteveMenus;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.menu.VasyanMenus;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
@@ -18,7 +18,7 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 /**
  * Client-side setup for entity renderers and other client-only initialization
  */
-@Mod.EventBusSubscriber(modid = SteveMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = VasyanMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ClientSetup {
 
     private static final ResourceLocation STEVE_TEXTURE = new ResourceLocation("minecraft", "textures/entity/player/wide/steve.png");
@@ -26,19 +26,19 @@ public class ClientSetup {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            MenuScreens.register(SteveMenus.STEVE_MENU.get(), SteveMenuScreen::new);
+            MenuScreens.register(VasyanMenus.STEVE_MENU.get(), VasyanMenuScreen::new);
         });
     }
 
     @SubscribeEvent
-    public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {        event.registerEntityRenderer(SteveMod.STEVE_ENTITY.get(), context -> 
-            new HumanoidMobRenderer<SteveEntity, PlayerModel<SteveEntity>>(
+    public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {        event.registerEntityRenderer(VasyanMod.VASYAN_ENTITY.get(), context -> 
+            new HumanoidMobRenderer<VasyanEntity, PlayerModel<VasyanEntity>>(
                 context,
                 new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER), false),
                 0.5F
             ) {
                 @Override
-                public ResourceLocation getTextureLocation(SteveEntity entity) {
+                public ResourceLocation getTextureLocation(VasyanEntity entity) {
                     return STEVE_TEXTURE;
                 }
             }

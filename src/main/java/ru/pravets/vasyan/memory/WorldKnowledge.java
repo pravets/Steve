@@ -1,6 +1,6 @@
-package com.steve.ai.memory;
+package ru.pravets.vasyan.memory;
 
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.Entity;
@@ -12,12 +12,12 @@ import net.minecraft.world.phys.AABB;
 import java.util.*;
 
 public class WorldKnowledge {
-    private final SteveEntity steve;
+    private final VasyanEntity steve;
     private final int scanRadius = 16;
     private List<Entity> nearbyEntities;
     private String biomeName;
 
-    public WorldKnowledge(SteveEntity steve) {
+    public WorldKnowledge(VasyanEntity steve) {
         this.steve = steve;
         scan();
     }

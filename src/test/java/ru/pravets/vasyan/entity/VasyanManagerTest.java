@@ -1,6 +1,6 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for the SteveManager lifecycle: dedup on adopt, NBT-loaded
+ * Unit tests for the VasyanManager lifecycle: dedup on adopt, NBT-loaded
  * preference, registry cleanup (leave/tick) and removeSteve world sweep.
  *
  * Minecraft's registries are bootstrapped in AbstractMinecraftTest; entity
@@ -24,8 +24,8 @@ import static org.mockito.Mockito.*;
  */
 class SteveManagerTest extends AbstractMinecraftTest {
 
-    private static SteveEntity mockSteve(String name, UUID uuid) {
-        SteveEntity steve = mock(SteveEntity.class);
+    private static VasyanEntity mockSteve(String name, UUID uuid) {
+        VasyanEntity steve = mock(VasyanEntity.class);
         when(steve.getSteveName()).thenReturn(name);
         when(steve.getUUID()).thenReturn(uuid);
         when(steve.isAlive()).thenReturn(true);
@@ -39,11 +39,11 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptRegistersNewSteve() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         UUID uuid = UUID.randomUUID();
-        SteveEntity steve = mockSteve("Steve", uuid);
+        VasyanEntity steve = mockSteve("Steve", uuid);
 
-        SteveEntity adopted = manager.adopt(steve);
+        VasyanEntity adopted = manager.adopt(steve);
 
         assertSame(steve, adopted);
         assertSame(steve, manager.getSteve("Steve"));
@@ -53,8 +53,8 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptIsIdempotentForSameInstance() {
-        SteveManager manager = new SteveManager();
-        SteveEntity steve = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity steve = mockSteve("Steve", UUID.randomUUID());
 
         assertSame(steve, manager.adopt(steve));
         assertSame(steve, manager.adopt(steve));
@@ -65,9 +65,9 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptRejectsDuplicateNewcomer() {
-        SteveManager manager = new SteveManager();
-        SteveEntity original = mockSteve("Steve", UUID.randomUUID());
-        SteveEntity duplicate = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity original = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity duplicate = mockSteve("Steve", UUID.randomUUID());
 
         assertSame(original, manager.adopt(original));
         assertNull(manager.adopt(duplicate));
@@ -83,10 +83,10 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptPrefersNbtLoadedOverFreshSpawn() {
-        SteveManager manager = new SteveManager();
-        SteveEntity fresh = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity fresh = mockSteve("Steve", UUID.randomUUID());
         UUID originalUuid = UUID.randomUUID();
-        SteveEntity original = mockSteve("Steve", originalUuid);
+        VasyanEntity original = mockSteve("Steve", originalUuid);
         when(original.isLoadedFromNbt()).thenReturn(true);
 
         // The fresh spawn registers first (the original lives in an unloaded chunk).
@@ -104,11 +104,11 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptKeepsFirstNbtLoadedInstanceOnDoubleNbtDedup() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         UUID uuidA = UUID.randomUUID();
-        SteveEntity a = mockSteve("Steve", uuidA);
+        VasyanEntity a = mockSteve("Steve", uuidA);
         when(a.isLoadedFromNbt()).thenReturn(true);
-        SteveEntity b = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity b = mockSteve("Steve", UUID.randomUUID());
         when(b.isLoadedFromNbt()).thenReturn(true);
 
         assertSame(a, manager.adopt(a));
@@ -122,10 +122,10 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptReplacesStaleDeadEntry() {
-        SteveManager manager = new SteveManager();
-        SteveEntity stale = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity stale = mockSteve("Steve", UUID.randomUUID());
         when(stale.isAlive()).thenReturn(false);
-        SteveEntity fresh = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity fresh = mockSteve("Steve", UUID.randomUUID());
 
         assertSame(stale, manager.adopt(stale));
         assertSame(fresh, manager.adopt(fresh));
@@ -137,18 +137,18 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptRejectsNull() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         assertNull(manager.adopt(null));
         assertEquals(0, manager.getActiveCount());
     }
 
     @Test
     void adoptForcesCurrentChunkImmediately() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         ServerLevel level = mock(ServerLevel.class);
         when(level.dimension()).thenReturn(Level.OVERWORLD);
         UUID uuid = UUID.randomUUID();
-        SteveEntity steve = mockSteve("Steve", uuid);
+        VasyanEntity steve = mockSteve("Steve", uuid);
         when(steve.level()).thenReturn(level);
         when(steve.blockPosition()).thenReturn(new BlockPos(160, 64, 0));
 
@@ -166,7 +166,7 @@ class SteveManagerTest extends AbstractMinecraftTest {
         // (UNLOADED_TO_CHUNK), the chunk stays force-loaded. Re-adopting the
         // same UUID must not increment the refcount, and removing the Steve
         // must release the chunk exactly once.
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         ServerLevel level = mock(ServerLevel.class);
         MinecraftServer server = mock(MinecraftServer.class);
         when(level.dimension()).thenReturn(Level.OVERWORLD);
@@ -175,7 +175,7 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
         UUID uuid = UUID.randomUUID();
         BlockPos pos = new BlockPos(160, 64, 0);
-        SteveEntity steve = mockSteve("Steve", uuid);
+        VasyanEntity steve = mockSteve("Steve", uuid);
         when(steve.level()).thenReturn(level);
         when(steve.blockPosition()).thenReturn(pos);
 
@@ -189,7 +189,7 @@ class SteveManagerTest extends AbstractMinecraftTest {
         verify(level, never()).setChunkForced(10, 0, false);
 
         // Re-adopt after chunk reloads (same UUID, fresh mock instance).
-        SteveEntity reloaded = mockSteve("Steve", uuid);
+        VasyanEntity reloaded = mockSteve("Steve", uuid);
         when(reloaded.level()).thenReturn(level);
         when(reloaded.blockPosition()).thenReturn(pos);
         ChunkForceTracker.ChunkKey reloadedChunk = new ChunkForceTracker.ChunkKey(Level.OVERWORLD, new ChunkPos(10, 0));
@@ -209,9 +209,9 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void onSteveUnloadRemovesTrackedEntry() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         UUID uuid = UUID.randomUUID();
-        SteveEntity steve = mockSteve("Steve", uuid);
+        VasyanEntity steve = mockSteve("Steve", uuid);
         manager.adopt(steve);
 
         manager.onSteveUnload(steve);
@@ -223,12 +223,12 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void onSteveUnloadIgnoresUntrackedEntity() {
-        SteveManager manager = new SteveManager();
-        SteveEntity tracked = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity tracked = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(tracked);
 
         // A different same-named instance leaves - the registry must stay.
-        SteveEntity other = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity other = mockSteve("Steve", UUID.randomUUID());
         manager.onSteveUnload(other);
 
         assertSame(tracked, manager.getSteve("Steve"));
@@ -237,7 +237,7 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void onSteveUnloadToleratesNull() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         assertDoesNotThrow(() -> manager.onSteveUnload(null));
     }
 
@@ -245,9 +245,9 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void tickCleansDeadSteves() {
-        SteveManager manager = new SteveManager();
-        SteveEntity alive = mockSteve("Steve", UUID.randomUUID());
-        SteveEntity dead = mockSteve("Alex", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity alive = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity dead = mockSteve("Alex", UUID.randomUUID());
         when(dead.isAlive()).thenReturn(false);
         manager.adopt(alive);
         manager.adopt(dead);
@@ -261,8 +261,8 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void tickCleansRemovedSteves() {
-        SteveManager manager = new SteveManager();
-        SteveEntity steve = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity steve = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(steve);
         when(steve.isRemoved()).thenReturn(true);
 
@@ -273,8 +273,8 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void tickKeepsLiveSteves() {
-        SteveManager manager = new SteveManager();
-        SteveEntity steve = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity steve = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(steve);
 
         manager.tick();
@@ -287,12 +287,12 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void removeSteveSweepsAllWorldMatchesAndRegistry() {
-        SteveManager manager = new SteveManager();
-        SteveEntity tracked = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity tracked = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(tracked);
 
         UUID uuid2 = UUID.randomUUID();
-        SteveEntity worldBot = mockSteve("Steve", uuid2);
+        VasyanEntity worldBot = mockSteve("Steve", uuid2);
         ServerLevel level = mock(ServerLevel.class);
         when(level.getAllEntities()).thenReturn(List.of(tracked, worldBot));
         MinecraftServer server = mock(MinecraftServer.class);
@@ -309,11 +309,11 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void removeSteveSuppressesInventoryDropForDuplicatesOnly() {
-        SteveManager manager = new SteveManager();
-        SteveEntity tracked = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity tracked = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(tracked);
 
-        SteveEntity duplicate = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity duplicate = mockSteve("Steve", UUID.randomUUID());
         ServerLevel level = mock(ServerLevel.class);
         when(level.getAllEntities()).thenReturn(List.of(tracked, duplicate));
         MinecraftServer server = mock(MinecraftServer.class);
@@ -329,13 +329,13 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void removeSteveSkipsDeadOrRemovedEntities() {
-        SteveManager manager = new SteveManager();
-        SteveEntity tracked = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity tracked = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(tracked);
 
-        SteveEntity dead = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity dead = mockSteve("Steve", UUID.randomUUID());
         when(dead.isAlive()).thenReturn(false);
-        SteveEntity removed = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity removed = mockSteve("Steve", UUID.randomUUID());
         when(removed.isRemoved()).thenReturn(true);
 
         ServerLevel level = mock(ServerLevel.class);
@@ -352,15 +352,15 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void removeSteveReturnsFalseForUnknownName() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         assertFalse(manager.removeSteve("Nobody", null));
         assertFalse(manager.removeSteve(null, null));
     }
 
     @Test
     void removeSteveHandlesNullServer() {
-        SteveManager manager = new SteveManager();
-        SteveEntity steve = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity steve = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(steve);
 
         assertTrue(manager.removeSteve("Steve", null));
@@ -371,8 +371,8 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void getSteveMatchesIgnoringCase() {
-        SteveManager manager = new SteveManager();
-        SteveEntity steve = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity steve = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(steve);
 
         assertSame(steve, manager.getSteve("steve"));
@@ -382,9 +382,9 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void adoptRejectsDuplicateDifferingOnlyInCase() {
-        SteveManager manager = new SteveManager();
-        SteveEntity original = mockSteve("Steve", UUID.randomUUID());
-        SteveEntity duplicate = mockSteve("steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity original = mockSteve("Steve", UUID.randomUUID());
+        VasyanEntity duplicate = mockSteve("steve", UUID.randomUUID());
 
         assertSame(original, manager.adopt(original));
         assertNull(manager.adopt(duplicate));
@@ -395,12 +395,12 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void removeSteveMatchesTrackedAndWorldEntitiesIgnoringCase() {
-        SteveManager manager = new SteveManager();
-        SteveEntity tracked = mockSteve("Steve", UUID.randomUUID());
+        VasyanManager manager = new VasyanManager();
+        VasyanEntity tracked = mockSteve("Steve", UUID.randomUUID());
         manager.adopt(tracked);
 
         UUID worldUuid = UUID.randomUUID();
-        SteveEntity worldBot = mockSteve("STEVE", worldUuid);
+        VasyanEntity worldBot = mockSteve("STEVE", worldUuid);
         ServerLevel level = mock(ServerLevel.class);
         when(level.getAllEntities()).thenReturn(List.of(tracked, worldBot));
         MinecraftServer server = mock(MinecraftServer.class);
@@ -417,9 +417,9 @@ class SteveManagerTest extends AbstractMinecraftTest {
 
     @Test
     void onSteveUnloadRemovesEntryWhenNameCasingDiffersFromKey() {
-        SteveManager manager = new SteveManager();
+        VasyanManager manager = new VasyanManager();
         UUID uuid = UUID.randomUUID();
-        SteveEntity steve = mockSteve("Steve", uuid);
+        VasyanEntity steve = mockSteve("Steve", uuid);
         manager.adopt(steve);
 
         when(steve.getSteveName()).thenReturn("steve");

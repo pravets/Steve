@@ -1,4 +1,4 @@
-package com.steve.ai.memory;
+package ru.pravets.vasyan.memory;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

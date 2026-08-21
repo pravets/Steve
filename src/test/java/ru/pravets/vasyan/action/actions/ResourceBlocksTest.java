@@ -1,6 +1,6 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.testutil.AbstractMinecraftTest;
+import ru.pravets.vasyan.testutil.AbstractMinecraftTest;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;

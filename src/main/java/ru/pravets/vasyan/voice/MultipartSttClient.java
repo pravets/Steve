@@ -1,7 +1,7 @@
-package com.steve.ai.voice;
+package ru.pravets.vasyan.voice;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.config.SteveConfig;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.config.VasyanConfig;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -28,10 +28,10 @@ public final class MultipartSttClient {
     private MultipartSttClient() {}
 
     public static CompletableFuture<String> transcribe(byte[] wav) {
-        String baseUrl = SteveConfig.STT_BASE_URL.get().replaceAll("/+$", "");
-        String model = SteveConfig.STT_MODEL.get();
-        String language = SteveConfig.STT_LANGUAGE.get();
-        String apiKey = SteveConfig.STT_API_KEY.get();
+        String baseUrl = VasyanConfig.STT_BASE_URL.get().replaceAll("/+$", "");
+        String model = VasyanConfig.STT_MODEL.get();
+        String language = VasyanConfig.STT_LANGUAGE.get();
+        String apiKey = VasyanConfig.STT_API_KEY.get();
 
         String boundary = "steve" + UUID.randomUUID();
         byte[] body = buildMultipart(wav, model, language, boundary);
@@ -49,7 +49,7 @@ public final class MultipartSttClient {
             .thenApply(resp -> {
                 if (resp.statusCode() >= 300) {
                     // Log status only - the body may contain transcribed speech
-                    SteveMod.LOGGER.warn("STT error status {} for player request", resp.statusCode());
+                    VasyanMod.LOGGER.warn("STT error status {} for player request", resp.statusCode());
                     throw new RuntimeException("STT endpoint returned " + resp.statusCode());
                 }
                 return parseText(resp.body());

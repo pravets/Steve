@@ -1,7 +1,7 @@
-package com.steve.ai.action.actions;
+package ru.pravets.vasyan.action.actions;
 
-import com.steve.ai.action.Task;
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.entity.VasyanEntity;
 
 /**
  * Mining by visible-target search. The old tunnel-digging behavior (mining in
@@ -10,7 +10,7 @@ import com.steve.ai.entity.SteveEntity;
  */
 public class MineBlockAction extends GatherResourceAction {
 
-    public MineBlockAction(SteveEntity steve, Task task) {
+    public MineBlockAction(VasyanEntity steve, Task task) {
         super(steve, task);
     }
 }

@@ -1,6 +1,6 @@
-package com.steve.ai.util;
+package ru.pravets.vasyan.util;
 
-import com.steve.ai.entity.SteveEntity;
+import ru.pravets.vasyan.entity.VasyanEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -20,7 +20,7 @@ public class ActionUtils {
      * @param steve The Steve entity
      * @return The nearest player, or null if no players found
      */
-    public static Player findNearestPlayer(SteveEntity steve) {
+    public static Player findNearestPlayer(VasyanEntity steve) {
         List<? extends Player> players = steve.level().players();
 
         if (players.isEmpty()) {

@@ -1,4 +1,4 @@
-package com.steve.ai.action;
+package ru.pravets.vasyan.action;
 
 import java.util.Map;
 

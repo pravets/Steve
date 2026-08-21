@@ -1,6 +1,6 @@
-package com.steve.ai.network;
+package ru.pravets.vasyan.network;
 
-import com.steve.ai.entity.SteveInventory;
+import ru.pravets.vasyan.entity.VasyanInventory;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -41,7 +41,7 @@ public record ClientboundInventoryPacket(String steveName, List<ItemStack> stack
         return new ClientboundInventoryPacket(steveName, List.of());
     }
 
-    public static ClientboundInventoryPacket fromInventory(String steveName, SteveInventory inventory) {
+    public static ClientboundInventoryPacket fromInventory(String steveName, VasyanInventory inventory) {
         // Deep-copy every stack: the packet must own independent ItemStack
         // objects, because the live inventory can be mutated (grow/shrink) in
         // the server tick while encode() runs later on the network thread

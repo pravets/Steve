@@ -1,6 +1,6 @@
-package com.steve.ai.llm.resilience;
+package ru.pravets.vasyan.llm.resilience;
 
-import com.steve.ai.llm.async.LLMException;
+import ru.pravets.vasyan.llm.async.LLMException;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;

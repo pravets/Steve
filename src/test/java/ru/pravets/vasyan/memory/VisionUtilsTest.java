@@ -1,4 +1,4 @@
-package com.steve.ai.memory;
+package ru.pravets.vasyan.memory;
 
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;

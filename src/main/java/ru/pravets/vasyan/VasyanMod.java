@@ -1,14 +1,14 @@
-package com.steve.ai;
+package ru.pravets.vasyan;
 
 import com.mojang.logging.LogUtils;
-import com.steve.ai.command.SteveCommands;
-import com.steve.ai.command.SteveNameArgumentInfo;
-import com.steve.ai.command.SteveNameArgumentType;
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.entity.SteveManager;
-import com.steve.ai.menu.SteveMenus;
-import com.steve.ai.network.SteveNetworking;
+import ru.pravets.vasyan.command.VasyanCommands;
+import ru.pravets.vasyan.command.VasyanNameArgumentInfo;
+import ru.pravets.vasyan.command.VasyanNameArgumentType;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.entity.VasyanManager;
+import ru.pravets.vasyan.menu.VasyanMenus;
+import ru.pravets.vasyan.network.VasyanNetworking;
 import net.minecraft.commands.synchronization.ArgumentTypeInfo;
 import net.minecraft.commands.synchronization.ArgumentTypeInfos;
 import net.minecraft.server.level.ServerLevel;
@@ -30,16 +30,16 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
 
-@Mod(SteveMod.MODID)
-public class SteveMod {
+@Mod(VasyanMod.MODID)
+public class VasyanMod {
     public static final String MODID = "steve";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public static final DeferredRegister<EntityType<?>> ENTITIES = 
         DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
 
-    public static final RegistryObject<EntityType<SteveEntity>> STEVE_ENTITY = ENTITIES.register("steve",
-        () -> EntityType.Builder.of(SteveEntity::new, MobCategory.CREATURE)
+    public static final RegistryObject<EntityType<VasyanEntity>> VASYAN_ENTITY = ENTITIES.register("steve",
+        () -> EntityType.Builder.of(VasyanEntity::new, MobCategory.CREATURE)
             .sized(0.6F, 1.8F)
             .clientTrackingRange(10)
             .build("steve"));
@@ -48,21 +48,21 @@ public class SteveMod {
         DeferredRegister.create(ForgeRegistries.COMMAND_ARGUMENT_TYPES, MODID);
 
     static {
-        COMMAND_ARGUMENT_TYPES.register("steve_name", () -> SteveNameArgumentInfo.INSTANCE);
+        COMMAND_ARGUMENT_TYPES.register("vasyan_name", () -> VasyanNameArgumentInfo.INSTANCE);
     }
 
-    private static SteveManager steveManager;
+    private static VasyanManager steveManager;
 
-    public SteveMod() {
+    public VasyanMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        SteveNetworking.register();
+        VasyanNetworking.register();
 
         ENTITIES.register(modEventBus);
         COMMAND_ARGUMENT_TYPES.register(modEventBus);
-        SteveMenus.MENUS.register(modEventBus);
+        VasyanMenus.MENUS.register(modEventBus);
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SteveConfig.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, VasyanConfig.SPEC);
 
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::entityAttributes);
@@ -70,9 +70,9 @@ public class SteveMod {
         MinecraftForge.EVENT_BUS.register(this);
         
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
-            MinecraftForge.EVENT_BUS.register(com.steve.ai.client.SteveGUI.class);        }
+            MinecraftForge.EVENT_BUS.register(ru.pravets.vasyan.client.VasyanGUI.class);        }
         
-        steveManager = new SteveManager();
+        steveManager = new VasyanManager();
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -80,15 +80,15 @@ public class SteveMod {
         // can serialize the command tree to clients (ArgumentTypeInfos.byClass).
         // This must happen on the main thread after registries are frozen.
         event.enqueueWork(() ->
-            ArgumentTypeInfos.registerByClass(SteveNameArgumentType.class, SteveNameArgumentInfo.INSTANCE));
+            ArgumentTypeInfos.registerByClass(VasyanNameArgumentType.class, VasyanNameArgumentInfo.INSTANCE));
     }
 
     private void entityAttributes(EntityAttributeCreationEvent event) {
-        event.put(STEVE_ENTITY.get(), SteveEntity.createAttributes().build());
+        event.put(VASYAN_ENTITY.get(), VasyanEntity.createAttributes().build());
     }
 
     @SubscribeEvent
-    public void onCommandRegister(RegisterCommandsEvent event) {        SteveCommands.register(event.getDispatcher());    }
+    public void onCommandRegister(RegisterCommandsEvent event) {        VasyanCommands.register(event.getDispatcher());    }
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
@@ -99,7 +99,7 @@ public class SteveMod {
         }
     }
 
-    public static SteveManager getSteveManager() {
+    public static VasyanManager getSteveManager() {
         return steveManager;
     }
 }

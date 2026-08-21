@@ -1,18 +1,18 @@
-package com.steve.ai.llm;
+package ru.pravets.vasyan.llm;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.action.Task;
-import com.steve.ai.chat.ChatCommandParser;
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.debug.AgentDebugBuffer;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.llm.async.AsyncLLMClient;
-import com.steve.ai.llm.async.LLMCache;
-import com.steve.ai.llm.async.LLMResponse;
-import com.steve.ai.llm.async.OpenAICompatibleClient;
-import com.steve.ai.llm.resilience.LLMFallbackHandler;
-import com.steve.ai.llm.resilience.ResilientLLMClient;
-import com.steve.ai.memory.WorldKnowledge;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.action.Task;
+import ru.pravets.vasyan.chat.ChatCommandParser;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.debug.AgentDebugBuffer;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.llm.async.AsyncLLMClient;
+import ru.pravets.vasyan.llm.async.LLMCache;
+import ru.pravets.vasyan.llm.async.LLMResponse;
+import ru.pravets.vasyan.llm.async.OpenAICompatibleClient;
+import ru.pravets.vasyan.llm.resilience.LLMFallbackHandler;
+import ru.pravets.vasyan.llm.resilience.ResilientLLMClient;
+import ru.pravets.vasyan.memory.WorldKnowledge;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,17 +29,17 @@ public class TaskPlanner {
     private final OpenAICompatibleClient baseClient;
 
     public TaskPlanner() {
-        String provider = SteveConfig.AI_PROVIDER.get().toLowerCase();
-        String baseUrl = SteveConfig.LLM_BASE_URL.get();
-        String apiKey = SteveConfig.LLM_API_KEY.get();
-        String model = SteveConfig.LLM_MODEL.get();
-        int maxTokens = SteveConfig.MAX_TOKENS.get();
-        double temperature = SteveConfig.TEMPERATURE.get();
-        boolean jsonMode = SteveConfig.LLM_JSON_MODE.get();
-        int timeoutSeconds = SteveConfig.LLM_TIMEOUT_SECONDS.get();
+        String provider = VasyanConfig.AI_PROVIDER.get().toLowerCase();
+        String baseUrl = VasyanConfig.LLM_BASE_URL.get();
+        String apiKey = VasyanConfig.LLM_API_KEY.get();
+        String model = VasyanConfig.LLM_MODEL.get();
+        int maxTokens = VasyanConfig.MAX_TOKENS.get();
+        double temperature = VasyanConfig.TEMPERATURE.get();
+        boolean jsonMode = VasyanConfig.LLM_JSON_MODE.get();
+        int timeoutSeconds = VasyanConfig.LLM_TIMEOUT_SECONDS.get();
 
         if (!LLMProviders.isValid(provider)) {
-            SteveMod.LOGGER.warn("Unknown LLM provider '{}', falling back to 'ollama'. Valid: {}",
+            VasyanMod.LOGGER.warn("Unknown LLM provider '{}', falling back to 'ollama'. Valid: {}",
                 provider, String.join(", ", List.of(
                     LLMProviders.OPENAI, LLMProviders.GROQ, LLMProviders.GEMINI,
                     LLMProviders.OLLAMA, LLMProviders.LMSTUDIO, LLMProviders.OPENCODE_GO,
@@ -51,14 +51,14 @@ public class TaskPlanner {
             provider, baseUrl, apiKey, model, maxTokens, temperature, jsonMode, timeoutSeconds);
 
         if (LLMProviders.requiresKey(provider) && !baseClient.hasApiKey()) {
-            SteveMod.LOGGER.warn("Provider '{}' requires an API key but llm.apiKey is empty. " +
-                "LLM calls will fail; set the key in config/steve-common.toml.", provider);
+            VasyanMod.LOGGER.warn("Provider '{}' requires an API key but llm.apiKey is empty. " +
+                "LLM calls will fail; set the key in config/vasyan-common.toml.", provider);
         }
 
         this.llmCache = new LLMCache();
         this.llmClient = new ResilientLLMClient(baseClient, llmCache, new LLMFallbackHandler());
 
-        SteveMod.LOGGER.info("TaskPlanner initialized: provider={}, baseUrl={}, model={}, jsonMode={}",
+        VasyanMod.LOGGER.info("TaskPlanner initialized: provider={}, baseUrl={}, model={}, jsonMode={}",
             provider, baseClient.getBaseUrl(), baseClient.getModel(), jsonMode);
     }
 
@@ -69,29 +69,29 @@ public class TaskPlanner {
      * separate thread with resilience patterns (circuit breaker, retry, rate
      * limiting, caching, fallback).</p>
      */
-    public CompletableFuture<ResponseParser.ParsedResponse> planTasksAsync(SteveEntity steve, String command) {
+    public CompletableFuture<ResponseParser.ParsedResponse> planTasksAsync(VasyanEntity steve, String command) {
         try {
             String systemPrompt = PromptBuilder.buildSystemPrompt();
             WorldKnowledge worldKnowledge = new WorldKnowledge(steve);
             String userPrompt = PromptBuilder.buildUserPrompt(steve, command, worldKnowledge);
 
-            String provider = SteveConfig.AI_PROVIDER.get().toLowerCase();
-            SteveMod.LOGGER.info("[Async] Requesting AI plan for Steve '{}' using {}: {}",
+            String provider = VasyanConfig.AI_PROVIDER.get().toLowerCase();
+            VasyanMod.LOGGER.info("[Async] Requesting AI plan for Steve '{}' using {}: {}",
                 steve.getSteveName(), provider, command);
             AgentDebugBuffer.log(steve.getSteveName(), "COMMAND", "[" + provider + "] " + command);
 
             Map<String, Object> params = Map.of(
                 "systemPrompt", systemPrompt,
-                "model", SteveConfig.LLM_MODEL.get(),
-                "maxTokens", SteveConfig.MAX_TOKENS.get(),
-                "temperature", SteveConfig.TEMPERATURE.get()
+                "model", VasyanConfig.LLM_MODEL.get(),
+                "maxTokens", VasyanConfig.MAX_TOKENS.get(),
+                "temperature", VasyanConfig.TEMPERATURE.get()
             );
 
             return llmClient.sendAsync(userPrompt, params)
                 .thenApply(response -> {
                     String content = response.getContent();
                     if (content == null || content.isEmpty()) {
-                        SteveMod.LOGGER.error("[Async] Empty response from LLM");
+                        VasyanMod.LOGGER.error("[Async] Empty response from LLM");
                         AgentDebugBuffer.log(steve.getSteveName(), "LLM", "empty response");
                         return null;
                     }
@@ -102,12 +102,12 @@ public class TaskPlanner {
 
                     ResponseParser.ParsedResponse parsed = ResponseParser.parseAIResponse(content);
                     if (parsed == null) {
-                        SteveMod.LOGGER.error("[Async] Failed to parse AI response");
+                        VasyanMod.LOGGER.error("[Async] Failed to parse AI response");
                         AgentDebugBuffer.log(steve.getSteveName(), "PARSE", "FAILED to parse: " + truncate(content, 400));
                         return null;
                     }
 
-                    SteveMod.LOGGER.info("[Async] Plan received: {} ({} tasks, {}ms, {} tokens, cache: {})",
+                    VasyanMod.LOGGER.info("[Async] Plan received: {} ({} tasks, {}ms, {} tokens, cache: {})",
                         parsed.getPlan(),
                         parsed.getTasks().size(),
                         response.getLatencyMs(),
@@ -128,28 +128,28 @@ public class TaskPlanner {
                     // mark every gather task with fill=true (the LLM does not
                     // get to decide the quantity for this quantifier).
                     if (ChatCommandParser.isFillCommand(command)) {
-                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                        for (ru.pravets.vasyan.action.Task task : parsed.getTasks()) {
                             if ("gather".equals(task.getAction())) {
                                 task.getParameters().put("fill", true);
                             }
                         }
-                        SteveMod.LOGGER.info("[Async] Fill-inventory mode applied to gather tasks");
+                        VasyanMod.LOGGER.info("[Async] Fill-inventory mode applied to gather tasks");
                     }
 
                     // "One full stack" (стак) is deterministic too: replace the
                     // LLM's quantity with the resource's real stack size.
                     if (ChatCommandParser.isStackCommand(command)) {
-                        for (com.steve.ai.action.Task task : parsed.getTasks()) {
+                        for (ru.pravets.vasyan.action.Task task : parsed.getTasks()) {
                             if ("gather".equals(task.getAction())) {
                                 String resource = task.getStringParameter("resource");
                                 if (resource == null) {
                                     resource = task.getStringParameter("block");
                                 }
                                 net.minecraft.world.level.block.Block block =
-                                    com.steve.ai.action.actions.ResourceBlocks.parseBlock(resource);
-                                int stackSize = com.steve.ai.action.actions.ResourceBlocks.stackSizeFor(block);
+                                    ru.pravets.vasyan.action.actions.ResourceBlocks.parseBlock(resource);
+                                int stackSize = ru.pravets.vasyan.action.actions.ResourceBlocks.stackSizeFor(block);
                                 task.getParameters().put("quantity", stackSize);
-                                SteveMod.LOGGER.info("[Async] Stack size {} applied to gather task '{}'", stackSize, resource);
+                                VasyanMod.LOGGER.info("[Async] Stack size {} applied to gather task '{}'", stackSize, resource);
                             }
                         }
                     }
@@ -172,10 +172,10 @@ public class TaskPlanner {
                         parsed.getTasks().addAll(collapsed);
                         int removed = before - collapsed.size();
                         if (removed > 0) {
-                            SteveMod.LOGGER.info("[Async] Wood request: collapsed {} per-type gather tasks into one any-log task",
+                            VasyanMod.LOGGER.info("[Async] Wood request: collapsed {} per-type gather tasks into one any-log task",
                                 removed + 1);
                         } else {
-                            SteveMod.LOGGER.info("[Async] Wood request normalized to any-log mode");
+                            VasyanMod.LOGGER.info("[Async] Wood request normalized to any-log mode");
                         }
                     }
 
@@ -187,7 +187,7 @@ public class TaskPlanner {
                         int before = parsed.getTasks().size();
                         List<Task> deduped = dedupeGatherTasks(parsed.getTasks());
                         if (deduped.size() < before) {
-                            SteveMod.LOGGER.info("[Async] Removed {} duplicate gather task(s), final plan: {}",
+                            VasyanMod.LOGGER.info("[Async] Removed {} duplicate gather task(s), final plan: {}",
                                 before - deduped.size(), describeTasks(deduped));
                             parsed.getTasks().clear();
                             parsed.getTasks().addAll(deduped);
@@ -197,30 +197,30 @@ public class TaskPlanner {
                     return parsed;
                 })
                 .exceptionally(throwable -> {
-                    SteveMod.LOGGER.error("[Async] Error planning tasks: {}", throwable.getMessage());
+                    VasyanMod.LOGGER.error("[Async] Error planning tasks: {}", throwable.getMessage());
                     AgentDebugBuffer.log(steve.getSteveName(), "LLM_ERROR",
                         throwable.getClass().getSimpleName() + ": " + truncate(throwable.getMessage(), 300));
                     return null;
                 });
 
         } catch (Exception e) {
-            SteveMod.LOGGER.error("[Async] Error setting up task planning", e);
+            VasyanMod.LOGGER.error("[Async] Error setting up task planning", e);
             return CompletableFuture.completedFuture(null);
         }
     }
 
     /**
      * Legacy blocking variant. Blocks the calling thread up to the configured
-     * LLM timeout. Prefer {@link #planTasksAsync(SteveEntity, String)}.
+     * LLM timeout. Prefer {@link #planTasksAsync(VasyanEntity, String)}.
      *
      * @deprecated Use planTasksAsync instead.
      */
     @Deprecated
-    public ResponseParser.ParsedResponse planTasks(SteveEntity steve, String command) {
+    public ResponseParser.ParsedResponse planTasks(VasyanEntity steve, String command) {
         try {
-            return planTasksAsync(steve, command).get(SteveConfig.LLM_TIMEOUT_SECONDS.get() + 5, TimeUnit.SECONDS);
+            return planTasksAsync(steve, command).get(VasyanConfig.LLM_TIMEOUT_SECONDS.get() + 5, TimeUnit.SECONDS);
         } catch (Exception e) {
-            SteveMod.LOGGER.error("Error planning tasks (sync)", e);
+            VasyanMod.LOGGER.error("Error planning tasks (sync)", e);
             return null;
         }
     }
@@ -248,11 +248,11 @@ public class TaskPlanner {
     }
 
     public String getActiveProvider() {
-        return SteveConfig.AI_PROVIDER.get().toLowerCase();
+        return VasyanConfig.AI_PROVIDER.get().toLowerCase();
     }
 
     public String getActiveModel() {
-        String model = SteveConfig.LLM_MODEL.get();
+        String model = VasyanConfig.LLM_MODEL.get();
         if (model == null || model.isEmpty()) {
             return LLMProviders.resolveModel(getActiveProvider(), "");
         }
@@ -260,7 +260,7 @@ public class TaskPlanner {
     }
 
     public String getActiveBaseUrl() {
-        return LLMProviders.resolveBaseUrl(getActiveProvider(), SteveConfig.LLM_BASE_URL.get());
+        return LLMProviders.resolveBaseUrl(getActiveProvider(), VasyanConfig.LLM_BASE_URL.get());
     }
 
     public boolean validateTask(Task task) {
@@ -276,7 +276,7 @@ public class TaskPlanner {
             case "gather" -> task.hasParameters("resource", "quantity");
             case "build" -> task.hasParameters("structure", "blocks", "dimensions");
             default -> {
-                SteveMod.LOGGER.warn("Unknown action type: {}", action);
+                VasyanMod.LOGGER.warn("Unknown action type: {}", action);
                 yield false;
             }
         };

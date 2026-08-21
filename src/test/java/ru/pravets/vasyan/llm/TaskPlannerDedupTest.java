@@ -1,6 +1,6 @@
-package com.steve.ai.llm;
+package ru.pravets.vasyan.llm;
 
-import com.steve.ai.action.Task;
+import ru.pravets.vasyan.action.Task;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

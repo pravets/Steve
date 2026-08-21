@@ -1,8 +1,8 @@
-package com.steve.ai.config;
+package ru.pravets.vasyan.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 
-public class SteveConfig {
+public class VasyanConfig {
     public static final ForgeConfigSpec SPEC;
     public static final ForgeConfigSpec.ConfigValue<String> AI_PROVIDER;
     public static final ForgeConfigSpec.ConfigValue<String> LLM_BASE_URL;

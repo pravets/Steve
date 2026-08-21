@@ -1,19 +1,19 @@
-package com.steve.ai.action;
+package ru.pravets.vasyan.action;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.action.actions.*;
-import com.steve.ai.debug.AgentDebugBuffer;
-import com.steve.ai.di.ServiceContainer;
-import com.steve.ai.di.SimpleServiceContainer;
-import com.steve.ai.event.EventBus;
-import com.steve.ai.event.SimpleEventBus;
-import com.steve.ai.execution.*;
-import com.steve.ai.llm.ResponseParser;
-import com.steve.ai.llm.TaskPlanner;
-import com.steve.ai.config.SteveConfig;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.plugin.ActionRegistry;
-import com.steve.ai.plugin.PluginManager;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.action.actions.*;
+import ru.pravets.vasyan.debug.AgentDebugBuffer;
+import ru.pravets.vasyan.di.ServiceContainer;
+import ru.pravets.vasyan.di.SimpleServiceContainer;
+import ru.pravets.vasyan.event.EventBus;
+import ru.pravets.vasyan.event.SimpleEventBus;
+import ru.pravets.vasyan.execution.*;
+import ru.pravets.vasyan.llm.ResponseParser;
+import ru.pravets.vasyan.llm.TaskPlanner;
+import ru.pravets.vasyan.config.VasyanConfig;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.plugin.ActionRegistry;
+import ru.pravets.vasyan.plugin.PluginManager;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -34,7 +34,7 @@ import java.util.concurrent.Future;
  * @since 1.1.0
  */
 public class ActionExecutor {
-    private final SteveEntity steve;
+    private final VasyanEntity steve;
     private TaskPlanner taskPlanner;  // Lazy-initialized to avoid loading dependencies on entity creation
     private final Queue<Task> taskQueue;
 
@@ -63,7 +63,7 @@ public class ActionExecutor {
     private final AgentStateMachine stateMachine;
     private final EventBus eventBus;
 
-    public ActionExecutor(SteveEntity steve) {
+    public ActionExecutor(VasyanEntity steve) {
         this.steve = steve;
         this.taskPlanner = null;  // Will be initialized when first needed
         this.taskQueue = new LinkedList<>();
@@ -91,13 +91,13 @@ public class ActionExecutor {
             .interceptorChain(interceptorChain)
             .build();
 
-        SteveMod.LOGGER.debug("ActionExecutor initialized with plugin architecture for Steve '{}'",
+        VasyanMod.LOGGER.debug("ActionExecutor initialized with plugin architecture for Steve '{}'",
             steve.getSteveName());
     }
     
     private TaskPlanner getTaskPlanner() {
         if (taskPlanner == null) {
-            SteveMod.LOGGER.info("Initializing TaskPlanner for Steve '{}'", steve.getSteveName());
+            VasyanMod.LOGGER.info("Initializing TaskPlanner for Steve '{}'", steve.getSteveName());
             taskPlanner = new TaskPlanner();
         }
         return taskPlanner;
@@ -121,13 +121,13 @@ public class ActionExecutor {
      * @param command The natural language command from the user
      */
     public void processNaturalLanguageCommand(String command) {
-        SteveMod.LOGGER.info("Steve '{}' processing command (async): {}", steve.getSteveName(), command);
+        VasyanMod.LOGGER.info("Steve '{}' processing command (async): {}", steve.getSteveName(), command);
 
         long requestId;
         synchronized (planningLock) {
             // If already planning, ignore new commands
             if (isPlanning) {
-                SteveMod.LOGGER.warn("Steve '{}' is already planning, ignoring command: {}", steve.getSteveName(), command);
+                VasyanMod.LOGGER.warn("Steve '{}' is already planning, ignoring command: {}", steve.getSteveName(), command);
                 sendToGUI(steve.getSteveName(), "Hold on, I'm still thinking about the previous command...");
                 return;
             }
@@ -171,7 +171,7 @@ public class ActionExecutor {
         try {
             future = getTaskPlanner().planTasksAsync(steve, command);
         } catch (NoClassDefFoundError e) {
-            SteveMod.LOGGER.error("Failed to initialize AI components", e);
+            VasyanMod.LOGGER.error("Failed to initialize AI components", e);
             sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
             synchronized (planningLock) {
                 resetPlanningStateLocked();
@@ -179,7 +179,7 @@ public class ActionExecutor {
             }
             return;
         } catch (Exception e) {
-            SteveMod.LOGGER.error("Error starting async planning", e);
+            VasyanMod.LOGGER.error("Error starting async planning", e);
             sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
             synchronized (planningLock) {
                 resetPlanningStateLocked();
@@ -191,11 +191,11 @@ public class ActionExecutor {
         synchronized (planningLock) {
             if (activePlanningRequestId == requestId) {
                 this.planningFuture = future;
-                SteveMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
+                VasyanMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
             } else {
                 // Request was cancelled between reservation and publication.
                 future.cancel(true);
-                SteveMod.LOGGER.debug("Steve '{}' discarded planning future for cancelled request {}",
+                VasyanMod.LOGGER.debug("Steve '{}' discarded planning future for cancelled request {}",
                     steve.getSteveName(), requestId);
             }
         }
@@ -212,7 +212,7 @@ public class ActionExecutor {
      */
     @Deprecated
     public void processNaturalLanguageCommandSync(String command) {
-        SteveMod.LOGGER.info("Steve '{}' processing command (SYNC - blocking!): {}", steve.getSteveName(), command);
+        VasyanMod.LOGGER.info("Steve '{}' processing command (SYNC - blocking!): {}", steve.getSteveName(), command);
 
         if (currentAction != null) {
             currentAction.cancel();
@@ -239,15 +239,15 @@ public class ActionExecutor {
             taskQueue.clear();
             taskQueue.addAll(response.getTasks());
 
-            if (SteveConfig.ENABLE_CHAT_RESPONSES.get()) {
+            if (VasyanConfig.ENABLE_CHAT_RESPONSES.get()) {
                 sendToGUI(steve.getSteveName(), "Okay! " + currentGoal);
             }
         } catch (NoClassDefFoundError e) {
-            SteveMod.LOGGER.error("Failed to initialize AI components", e);
+            VasyanMod.LOGGER.error("Failed to initialize AI components", e);
             sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
         }
 
-        SteveMod.LOGGER.info("Steve '{}' queued {} tasks", steve.getSteveName(), taskQueue.size());
+        VasyanMod.LOGGER.info("Steve '{}' queued {} tasks", steve.getSteveName(), taskQueue.size());
     }
     
     /**
@@ -255,7 +255,7 @@ public class ActionExecutor {
      */
     private void sendToGUI(String steveName, String message) {
         if (steve.level().isClientSide) {
-            com.steve.ai.client.SteveGUI.addSteveMessage(steveName, message);
+            ru.pravets.vasyan.client.VasyanGUI.addSteveMessage(steveName, message);
         }
     }
 
@@ -292,16 +292,16 @@ public class ActionExecutor {
                 if (expectedId != activePlanningRequestId) {
                     // A stop/start race happened while we were waiting for the future:
                     // this result belongs to an older request, so discard it silently.
-                    SteveMod.LOGGER.debug("Steve '{}' discarding stale planning result for request {}",
+                    VasyanMod.LOGGER.debug("Steve '{}' discarding stale planning result for request {}",
                         steve.getSteveName(), expectedId);
                     return;
                 }
 
                 if (planningError instanceof java.util.concurrent.CancellationException) {
-                    SteveMod.LOGGER.info("Steve '{}' planning was cancelled", steve.getSteveName());
+                    VasyanMod.LOGGER.info("Steve '{}' planning was cancelled", steve.getSteveName());
                     sendToGUI(steve.getSteveName(), "Planning cancelled.");
                 } else if (planningError != null) {
-                    SteveMod.LOGGER.error("Steve '{}' failed to get planning result", steve.getSteveName(), planningError);
+                    VasyanMod.LOGGER.error("Steve '{}' failed to get planning result", steve.getSteveName(), planningError);
                     sendToGUI(steve.getSteveName(), "Oops, something went wrong while planning!");
                 } else if (response != null) {
                     currentGoal = response.getPlan();
@@ -313,16 +313,16 @@ public class ActionExecutor {
                     AgentDebugBuffer.log(steve.getSteveName(), "PLAN",
                         "goal=\"" + truncate(currentGoal, 200) + "\", queued tasks: " + response.getTasks().size());
 
-                    if (SteveConfig.ENABLE_CHAT_RESPONSES.get()) {
+                    if (VasyanConfig.ENABLE_CHAT_RESPONSES.get()) {
                         sendToGUI(steve.getSteveName(), "Okay! " + currentGoal);
                     }
 
-                    SteveMod.LOGGER.info("Steve '{}' async planning complete: {} tasks queued",
+                    VasyanMod.LOGGER.info("Steve '{}' async planning complete: {} tasks queued",
                         steve.getSteveName(), taskQueue.size());
                 } else {
                     sendToGUI(steve.getSteveName(), "I couldn't understand that command.");
                     AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning returned null (see LLM/PARSE events)");
-                    SteveMod.LOGGER.warn("Steve '{}' async planning returned null response", steve.getSteveName());
+                    VasyanMod.LOGGER.warn("Steve '{}' async planning returned null response", steve.getSteveName());
                 }
 
                 resetPlanningStateLocked();
@@ -335,8 +335,8 @@ public class ActionExecutor {
                 (ticksSinceLastAction - planningStartTick) / PLANNING_CHECK_INTERVAL >= 1) {
 
                 int elapsedSeconds = (ticksSinceLastAction - planningStartTick) / 20;
-                if (elapsedSeconds >= SteveConfig.PLANNING_TIMEOUT_SECONDS.get()) {
-                    SteveMod.LOGGER.warn("Steve '{}' planning timed out after {}s", steve.getSteveName(), elapsedSeconds);
+                if (elapsedSeconds >= VasyanConfig.PLANNING_TIMEOUT_SECONDS.get()) {
+                    VasyanMod.LOGGER.warn("Steve '{}' planning timed out after {}s", steve.getSteveName(), elapsedSeconds);
                     AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning timed out after " + elapsedSeconds + "s");
 
                     if (planningFuture != null) {
@@ -353,7 +353,7 @@ public class ActionExecutor {
         if (currentAction != null) {
             if (currentAction.isComplete()) {
                 ActionResult result = currentAction.getResult();
-                SteveMod.LOGGER.info("Steve '{}' - Action completed: {} (Success: {})", 
+                VasyanMod.LOGGER.info("Steve '{}' - Action completed: {} (Success: {})", 
                     steve.getSteveName(), result.getMessage(), result.isSuccess());
                 AgentDebugBuffer.log(steve.getSteveName(), result.isSuccess() ? "ACTION_DONE" : "ACTION_FAIL",
                     currentAction.getClass().getSimpleName() + " -> " + truncate(result.getMessage(), 200));
@@ -362,7 +362,7 @@ public class ActionExecutor {
                 
                 if (!result.isSuccess() && result.requiresReplanning()) {
                     // Action failed, need to replan
-                    if (SteveConfig.ENABLE_CHAT_RESPONSES.get()) {
+                    if (VasyanConfig.ENABLE_CHAT_RESPONSES.get()) {
                         sendToGUI(steve.getSteveName(), "Problem: " + result.getMessage());
                     }
                 }
@@ -370,7 +370,7 @@ public class ActionExecutor {
                 currentAction = null;
             } else {
                 if (ticksSinceLastAction % 100 == 0) {
-                    SteveMod.LOGGER.info("Steve '{}' - Ticking action: {}", 
+                    VasyanMod.LOGGER.info("Steve '{}' - Ticking action: {}", 
                         steve.getSteveName(), currentAction.getDescription());
                 }
                 try {
@@ -378,7 +378,7 @@ public class ActionExecutor {
                 } catch (Exception e) {
                     // An action crash must never leave the Steve silently
                     // standing: report it as an honest failure.
-                    SteveMod.LOGGER.error("Steve '{}' action '{}' crashed",
+                    VasyanMod.LOGGER.error("Steve '{}' action '{}' crashed",
                         steve.getSteveName(), currentAction.getClass().getSimpleName(), e);
                     AgentDebugBuffer.log(steve.getSteveName(), "ACTION_FAIL",
                         currentAction.getClass().getSimpleName() + " crashed: " + e);
@@ -389,7 +389,7 @@ public class ActionExecutor {
             }
         }
 
-        if (ticksSinceLastAction >= SteveConfig.ACTION_TICK_DELAY.get()) {
+        if (ticksSinceLastAction >= VasyanConfig.ACTION_TICK_DELAY.get()) {
             if (!taskQueue.isEmpty()) {
                 Task nextTask = taskQueue.poll();
                 executeTask(nextTask);
@@ -419,23 +419,23 @@ public class ActionExecutor {
     }
 
     private void executeTask(Task task) {
-        SteveMod.LOGGER.info("Steve '{}' executing task: {} (action type: {})", 
+        VasyanMod.LOGGER.info("Steve '{}' executing task: {} (action type: {})", 
             steve.getSteveName(), task, task.getAction());
         
         currentAction = createAction(task);
         
         if (currentAction == null) {
-            SteveMod.LOGGER.error("FAILED to create action for task: {}", task);
+            VasyanMod.LOGGER.error("FAILED to create action for task: {}", task);
             AgentDebugBuffer.log(steve.getSteveName(), "NO_ACTION",
                 "no factory for action '" + task.getAction() + "', params=" + task.getParameters());
             return;
         }
 
-        SteveMod.LOGGER.info("Created action: {} - starting now...", currentAction.getClass().getSimpleName());
+        VasyanMod.LOGGER.info("Created action: {} - starting now...", currentAction.getClass().getSimpleName());
         currentAction.start();
         AgentDebugBuffer.log(steve.getSteveName(), "ACTION_START",
             currentAction.getClass().getSimpleName() + " " + task.getAction() + " " + task.getParameters());
-        SteveMod.LOGGER.info("Action started! Is complete: {}", currentAction.isComplete());
+        VasyanMod.LOGGER.info("Action started! Is complete: {}", currentAction.isComplete());
     }
 
     /**
@@ -456,14 +456,14 @@ public class ActionExecutor {
         if (registry.hasAction(actionType)) {
             BaseAction action = registry.createAction(actionType, steve, task, actionContext);
             if (action != null) {
-                SteveMod.LOGGER.debug("Created action '{}' via registry (plugin: {})",
+                VasyanMod.LOGGER.debug("Created action '{}' via registry (plugin: {})",
                     actionType, registry.getPluginForAction(actionType));
                 return action;
             }
         }
 
         // Fallback to legacy switch statement for backward compatibility
-        SteveMod.LOGGER.debug("Using legacy fallback for action: {}", actionType);
+        VasyanMod.LOGGER.debug("Using legacy fallback for action: {}", actionType);
         return createActionLegacy(task);
     }
 
@@ -492,7 +492,7 @@ public class ActionExecutor {
             case "gather" -> new GatherResourceAction(steve, task);
             case "build" -> new BuildStructureAction(steve, task);
             default -> {
-                SteveMod.LOGGER.warn("Unknown action type: {}", task.getAction());
+                VasyanMod.LOGGER.warn("Unknown action type: {}", task.getAction());
                 yield null;
             }
         };
@@ -534,7 +534,7 @@ public class ActionExecutor {
                 if (planningFuture != null) {
                     planningFuture.cancel(true);
                 }
-                SteveMod.LOGGER.info("Steve '{}' planning cancelled by stop", steve.getSteveName());
+                VasyanMod.LOGGER.info("Steve '{}' planning cancelled by stop", steve.getSteveName());
                 AgentDebugBuffer.log(steve.getSteveName(), "PLAN", "planning cancelled by stop command");
                 if (steve.level().isClientSide()) {
                     sendToGUI(steve.getSteveName(), "Planning cancelled.");

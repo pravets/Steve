@@ -1,7 +1,7 @@
-package com.steve.ai.execution;
+package ru.pravets.vasyan.execution;
 
-import com.steve.ai.action.actions.BaseAction;
-import com.steve.ai.action.ActionResult;
+import ru.pravets.vasyan.action.actions.BaseAction;
+import ru.pravets.vasyan.action.ActionResult;
 
 /**
  * Interceptor interface for cross-cutting concerns in action execution.

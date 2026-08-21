@@ -1,4 +1,4 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -10,14 +10,14 @@ import net.minecraft.world.level.saveddata.SavedData;
  * which was reset on every player logout and caused default bots to be
  * re-spawned (and duplicated) on each login.
  */
-public class SteveWorldData extends SavedData {
-    public static final String DATA_NAME = "steve_default_bots_spawned";
+public class VasyanWorldData extends SavedData {
+    public static final String DATA_NAME = "vasyan_default_bots_spawned";
     private static final String TAG_DEFAULT_BOTS_SPAWNED = "DefaultBotsSpawned";
 
     private boolean defaultBotsSpawned;
 
-    public static SteveWorldData load(CompoundTag tag) {
-        SteveWorldData data = new SteveWorldData();
+    public static VasyanWorldData load(CompoundTag tag) {
+        VasyanWorldData data = new VasyanWorldData();
         data.defaultBotsSpawned = tag.getBoolean(TAG_DEFAULT_BOTS_SPAWNED);
         return data;
     }

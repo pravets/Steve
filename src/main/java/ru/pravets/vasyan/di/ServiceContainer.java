@@ -1,4 +1,4 @@
-package com.steve.ai.di;
+package ru.pravets.vasyan.di;
 
 import java.util.Optional;
 

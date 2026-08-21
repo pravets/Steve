@@ -1,4 +1,4 @@
-package com.steve.ai.entity;
+package ru.pravets.vasyan.entity;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -25,7 +25,7 @@ import java.util.List;
  * <p>Implements {@link Container} so players can open Steve's inventory via a
  * container menu (right-click on Steve) and selectively take items.</p>
  */
-public class SteveInventory implements Container {
+public class VasyanInventory implements Container {
 
     /**
      * Default capacity: 27 slots (3 rows x 9), matching a vanilla single chest
@@ -38,17 +38,17 @@ public class SteveInventory implements Container {
     private final ItemStack[] slots;
     private final int maxSize;
     /** Owner for stillValid() checks; null in unit tests. */
-    private final SteveEntity owner;
+    private final VasyanEntity owner;
 
-    public SteveInventory() {
+    public VasyanInventory() {
         this(null, DEFAULT_SIZE);
     }
 
-    public SteveInventory(int maxSize) {
+    public VasyanInventory(int maxSize) {
         this(null, maxSize);
     }
 
-    public SteveInventory(SteveEntity owner, int maxSize) {
+    public VasyanInventory(VasyanEntity owner, int maxSize) {
         this.owner = owner;
         this.maxSize = maxSize;
         this.slots = new ItemStack[maxSize];
@@ -291,7 +291,7 @@ public class SteveInventory implements Container {
 
     @Override
     public void setChanged() {
-        // No-op: SteveInventory is not a block entity
+        // No-op: VasyanInventory is not a block entity
     }
 
     @Override

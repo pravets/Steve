@@ -1,6 +1,6 @@
-package com.steve.ai.plugin;
+package ru.pravets.vasyan.plugin;
 
-import com.steve.ai.di.ServiceContainer;
+import ru.pravets.vasyan.di.ServiceContainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p><b>Plugin Discovery:</b></p>
  * <ol>
- *   <li>ServiceLoader scans META-INF/services/com.steve.ai.plugin.ActionPlugin</li>
+ *   <li>ServiceLoader scans META-INF/services/ru.pravets.vasyan.plugin.ActionPlugin</li>
  *   <li>Plugins are sorted by dependencies (topological sort)</li>
  *   <li>Plugins are loaded in priority order within dependency constraints</li>
  *   <li>Each plugin's onLoad() is called with registry and container</li>

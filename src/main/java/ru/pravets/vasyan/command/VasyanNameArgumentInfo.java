@@ -1,4 +1,4 @@
-package com.steve.ai.command;
+package ru.pravets.vasyan.command;
 
 import com.google.gson.JsonObject;
 import net.minecraft.commands.CommandBuildContext;
@@ -6,17 +6,17 @@ import net.minecraft.commands.synchronization.ArgumentTypeInfo;
 import net.minecraft.network.FriendlyByteBuf;
 
 /**
- * Registry info for {@link SteveNameArgumentType}. The type is stateless
+ * Registry info for {@link VasyanNameArgumentType}. The type is stateless
  * (no parameters), so serialization is a no-op and both network and JSON
  * deserialization hand back the same singleton template.
  */
-public final class SteveNameArgumentInfo implements ArgumentTypeInfo<SteveNameArgumentType, SteveNameArgumentInfo.Template> {
+public final class VasyanNameArgumentInfo implements ArgumentTypeInfo<VasyanNameArgumentType, VasyanNameArgumentInfo.Template> {
 
-    public static final SteveNameArgumentInfo INSTANCE = new SteveNameArgumentInfo();
+    public static final VasyanNameArgumentInfo INSTANCE = new VasyanNameArgumentInfo();
 
     private static final Template SINGLETON = new Template();
 
-    private SteveNameArgumentInfo() {
+    private VasyanNameArgumentInfo() {
     }
 
     @Override
@@ -33,19 +33,19 @@ public final class SteveNameArgumentInfo implements ArgumentTypeInfo<SteveNameAr
     }
 
     @Override
-    public Template unpack(SteveNameArgumentType argumentType) {
+    public Template unpack(VasyanNameArgumentType argumentType) {
         return SINGLETON;
     }
 
-    public static class Template implements ArgumentTypeInfo.Template<SteveNameArgumentType> {
+    public static class Template implements ArgumentTypeInfo.Template<VasyanNameArgumentType> {
 
         @Override
-        public SteveNameArgumentType instantiate(CommandBuildContext context) {
-            return new SteveNameArgumentType();
+        public VasyanNameArgumentType instantiate(CommandBuildContext context) {
+            return new VasyanNameArgumentType();
         }
 
         @Override
-        public SteveNameArgumentInfo type() {
+        public VasyanNameArgumentInfo type() {
             return INSTANCE;
         }
     }

@@ -1,10 +1,10 @@
-package com.steve.ai.chat;
+package ru.pravets.vasyan.chat;
 
 import org.junit.jupiter.api.Test;
 
-import static com.steve.ai.chat.ChatCommandParser.isAllCommand;
-import static com.steve.ai.chat.ChatCommandParser.isStayCommand;
-import static com.steve.ai.chat.ChatCommandParser.normalize;
+import static ru.pravets.vasyan.chat.ChatCommandParser.isAllCommand;
+import static ru.pravets.vasyan.chat.ChatCommandParser.isStayCommand;
+import static ru.pravets.vasyan.chat.ChatCommandParser.normalize;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

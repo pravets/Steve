@@ -1,4 +1,4 @@
-package com.steve.ai.llm.async;
+package ru.pravets.vasyan.llm.async;
 
 import java.util.Objects;
 

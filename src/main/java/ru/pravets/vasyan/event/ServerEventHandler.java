@@ -1,10 +1,10 @@
-package com.steve.ai.event;
+package ru.pravets.vasyan.event;
 
-import com.steve.ai.SteveMod;
-import com.steve.ai.entity.SteveEntity;
-import com.steve.ai.entity.SteveManager;
-import com.steve.ai.entity.SteveWorldData;
-import com.steve.ai.memory.VisionScanner;
+import ru.pravets.vasyan.VasyanMod;
+import ru.pravets.vasyan.entity.VasyanEntity;
+import ru.pravets.vasyan.entity.VasyanManager;
+import ru.pravets.vasyan.entity.VasyanWorldData;
+import ru.pravets.vasyan.memory.VisionScanner;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -16,7 +16,7 @@ import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-@Mod.EventBusSubscriber(modid = SteveMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = VasyanMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ServerEventHandler {
 
     /**
@@ -31,8 +31,8 @@ public class ServerEventHandler {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        if (event.getEntity() instanceof SteveEntity steve) {
-            if (SteveMod.getSteveManager().adopt(steve) == null) {
+        if (event.getEntity() instanceof VasyanEntity steve) {
+            if (VasyanMod.getSteveManager().adopt(steve) == null) {
                 event.setCanceled(true);
             }
         }
@@ -47,18 +47,18 @@ public class ServerEventHandler {
      */
     @SubscribeEvent
     public static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
-        if (event.getEntity() instanceof SteveEntity steve) {
+        if (event.getEntity() instanceof VasyanEntity steve) {
             VisionScanner.forget(steve);
             if (!event.getLevel().isClientSide()
                     && steve.getRemovalReason() != Entity.RemovalReason.CHANGED_DIMENSION) {
-                SteveMod.getSteveManager().onSteveUnload(steve);
+                VasyanMod.getSteveManager().onSteveUnload(steve);
             }
         }
     }
 
     /**
      * Periodic safety net (dead/removed cleanup + chunk force-loading) runs
-     * from SteveMod.onServerTick - once per level, with the level parameter.
+     * from VasyanMod.onServerTick - once per level, with the level parameter.
      */
 
     /**
@@ -73,12 +73,12 @@ public class ServerEventHandler {
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerLevel level = (ServerLevel) player.level();
-            SteveManager manager = SteveMod.getSteveManager();
+            VasyanManager manager = VasyanMod.getSteveManager();
             // The "default bots already spawned" marker lives in the world's
             // SavedData, so it survives chunk unloads and player logouts. The
             // default bots are spawned only on the very first world start -
             // never re-spawned on a later login (bug #9).
-            SteveWorldData worldData = getWorldData(level);
+            VasyanWorldData worldData = getWorldData(level);
             if (!worldData.hasDefaultBotsSpawned()) {
                 // World-loaded Steves are already adopted by onEntityJoinLevel
                 // and keep their NBT state (inventory, memory). spawnSteve()
@@ -109,14 +109,14 @@ public class ServerEventHandler {
     }
 
     /**
-     * Returns the persistent {@link SteveWorldData} of the world the given
+     * Returns the persistent {@link VasyanWorldData} of the world the given
      * level belongs to. The overworld's data storage is used so the marker
      * is shared across dimensions. The entry is created on first access.
      */
-    private static SteveWorldData getWorldData(ServerLevel level) {
+    private static VasyanWorldData getWorldData(ServerLevel level) {
         ServerLevel overworld = level.getServer() != null ? level.getServer().overworld() : level;
         return overworld.getDataStorage().computeIfAbsent(
-            SteveWorldData::load, SteveWorldData::new, SteveWorldData.DATA_NAME);
+            VasyanWorldData::load, VasyanWorldData::new, VasyanWorldData.DATA_NAME);
     }
 }
 
