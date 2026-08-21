@@ -18,6 +18,7 @@ import com.steve.ai.plugin.PluginManager;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 /**
  * Executes actions for a Steve entity using the plugin-based action system.
@@ -46,11 +47,15 @@ public class ActionExecutor {
 
     // NEW: Async planning support (non-blocking LLM calls)
     private final Object planningLock = new Object();
-    private CompletableFuture<ResponseParser.ParsedResponse> planningFuture;
+    private Future<ResponseParser.ParsedResponse> planningFuture;
     private boolean isPlanning = false;
     private String pendingCommand;  // Store command while planning
     private int planningStartTick = -1;
     private static final int PLANNING_CHECK_INTERVAL = 20; // once per second
+
+    // NEW: Monotonic request ID so each planning attempt owns its lifecycle atomically
+    private long planningRequestSequence = 0L;
+    private long activePlanningRequestId = 0L;
 
     // NEW: Plugin architecture components
     private final ActionContext actionContext;
@@ -125,6 +130,31 @@ public class ActionExecutor {
                 sendToGUI(steve.getSteveName(), "Hold on, I'm still thinking about the previous command...");
                 return;
             }
+
+            // Store command and start async planning
+            this.pendingCommand = command;
+            this.isPlanning = true;
+            this.planningStartTick = this.ticksSinceLastAction;
+            long requestId = ++planningRequestSequence;
+            this.activePlanningRequestId = requestId;
+
+            try {
+                // Start async LLM call - returns immediately!
+                CompletableFuture<ResponseParser.ParsedResponse> future = getTaskPlanner().planTasksAsync(steve, command);
+                this.planningFuture = future;
+
+                SteveMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
+            } catch (NoClassDefFoundError e) {
+                SteveMod.LOGGER.error("Failed to initialize AI components", e);
+                sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
+                resetPlanningStateLocked();
+                activePlanningRequestId = ++planningRequestSequence;
+            } catch (Exception e) {
+                SteveMod.LOGGER.error("Error starting async planning", e);
+                sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
+                resetPlanningStateLocked();
+                activePlanningRequestId = ++planningRequestSequence;
+            }
         }
 
         // A new command wakes the Steve up from "stay in place".
@@ -148,44 +178,8 @@ public class ActionExecutor {
             idleFollowAction = null;
         }
 
-        try {
-            synchronized (planningLock) {
-                // Store command and start async planning
-                this.pendingCommand = command;
-                this.isPlanning = true;
-                this.planningStartTick = this.ticksSinceLastAction;
-            }
-
-            // Send immediate feedback to user
-            sendToGUI(steve.getSteveName(), "Thinking...");
-
-            // Start async LLM call - returns immediately!
-            CompletableFuture<ResponseParser.ParsedResponse> future = getTaskPlanner().planTasksAsync(steve, command);
-            synchronized (planningLock) {
-                planningFuture = future;
-            }
-
-            SteveMod.LOGGER.info("Steve '{}' started async planning for: {}", steve.getSteveName(), command);
-
-        } catch (NoClassDefFoundError e) {
-            SteveMod.LOGGER.error("Failed to initialize AI components", e);
-            sendToGUI(steve.getSteveName(), "Sorry, I'm having trouble with my AI systems!");
-            synchronized (planningLock) {
-                isPlanning = false;
-                planningFuture = null;
-                pendingCommand = null;
-                planningStartTick = -1;
-            }
-        } catch (Exception e) {
-            SteveMod.LOGGER.error("Error starting async planning", e);
-            sendToGUI(steve.getSteveName(), "Oops, something went wrong!");
-            synchronized (planningLock) {
-                isPlanning = false;
-                planningFuture = null;
-                pendingCommand = null;
-                planningStartTick = -1;
-            }
-        }
+        // Send immediate feedback to user
+        sendToGUI(steve.getSteveName(), "Thinking...");
     }
 
     /**
@@ -250,18 +244,47 @@ public class ActionExecutor {
         ticksSinceLastAction++;
 
         // Check if async planning is complete (non-blocking check!)
-        CompletableFuture<ResponseParser.ParsedResponse> completedFuture = null;
+        Future<ResponseParser.ParsedResponse> completedFuture = null;
+        long expectedId = 0L;
         synchronized (planningLock) {
             if (isPlanning && planningFuture != null && planningFuture.isDone()) {
                 completedFuture = planningFuture;
+                expectedId = activePlanningRequestId;
             }
         }
 
         if (completedFuture != null) {
+            ResponseParser.ParsedResponse response = null;
+            Exception planningError = null;
             try {
-                ResponseParser.ParsedResponse response = completedFuture.get();
+                response = completedFuture.get();
+            } catch (java.util.concurrent.CancellationException e) {
+                planningError = e;
+            } catch (java.util.concurrent.ExecutionException e) {
+                planningError = e;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                planningError = e;
+            } catch (Exception e) {
+                planningError = e;
+            }
 
-                if (response != null) {
+            synchronized (planningLock) {
+                if (expectedId != activePlanningRequestId) {
+                    // A stop/start race happened while we were waiting for the future:
+                    // this result belongs to an older request, so discard it silently.
+                    SteveMod.LOGGER.debug("Steve '{}' discarding stale planning result for request {}",
+                        steve.getSteveName(), expectedId);
+                    return;
+                }
+
+                if (planningError instanceof java.util.concurrent.CancellationException) {
+                    SteveMod.LOGGER.info("Steve '{}' planning was cancelled", steve.getSteveName());
+                    sendToGUI(steve.getSteveName(), "Planning cancelled.");
+                } else if (planningError != null) {
+                    SteveMod.LOGGER.error("Steve '{}' failed to get planning result", steve.getSteveName(), planningError);
+                    sendToGUI(steve.getSteveName(), "Oops, something went wrong while planning!");
+                } else if (response != null) {
                     currentGoal = response.getPlan();
                     steve.getMemory().setCurrentGoal(currentGoal);
 
@@ -283,19 +306,7 @@ public class ActionExecutor {
                     SteveMod.LOGGER.warn("Steve '{}' async planning returned null response", steve.getSteveName());
                 }
 
-            } catch (java.util.concurrent.CancellationException e) {
-                SteveMod.LOGGER.info("Steve '{}' planning was cancelled", steve.getSteveName());
-                sendToGUI(steve.getSteveName(), "Planning cancelled.");
-            } catch (Exception e) {
-                SteveMod.LOGGER.error("Steve '{}' failed to get planning result", steve.getSteveName(), e);
-                sendToGUI(steve.getSteveName(), "Oops, something went wrong while planning!");
-            } finally {
-                synchronized (planningLock) {
-                    isPlanning = false;
-                    planningFuture = null;
-                    pendingCommand = null;
-                    planningStartTick = -1;
-                }
+                resetPlanningStateLocked();
             }
         }
 
@@ -314,10 +325,8 @@ public class ActionExecutor {
                     }
 
                     sendToGUI(steve.getSteveName(), "LLM planning timed out — please try again.");
-                    isPlanning = false;
-                    planningFuture = null;
-                    pendingCommand = null;
-                    planningStartTick = -1;
+                    resetPlanningStateLocked();
+                    activePlanningRequestId = ++planningRequestSequence;
                 }
             }
         }
@@ -511,12 +520,22 @@ public class ActionExecutor {
                 if (steve.level().isClientSide()) {
                     sendToGUI(steve.getSteveName(), "Planning cancelled.");
                 }
-                isPlanning = false;
-                planningFuture = null;
-                pendingCommand = null;
-                planningStartTick = -1;
+                resetPlanningStateLocked();
+                activePlanningRequestId = ++planningRequestSequence;
             }
         }
+    }
+
+    /**
+     * Clears all planning-related state under planningLock. Does not touch
+     * the request-id generator; callers must bump activePlanningRequestId
+     * separately when invalidating the current request.
+     */
+    private void resetPlanningStateLocked() {
+        isPlanning = false;
+        planningFuture = null;
+        pendingCommand = null;
+        planningStartTick = -1;
     }
 
     /**
@@ -594,12 +613,13 @@ public class ActionExecutor {
      * Test-only hook that injects a planning future without starting a real LLM call.
      * Package-private so unit tests in the same package can set up a stuck-planning scenario.
      */
-    void setPlanningFutureForTest(CompletableFuture<ResponseParser.ParsedResponse> future, String command) {
+    void setPlanningFutureForTest(Future<ResponseParser.ParsedResponse> future, String command) {
         synchronized (planningLock) {
             this.pendingCommand = command;
             this.isPlanning = true;
             this.planningFuture = future;
             this.planningStartTick = this.ticksSinceLastAction;
+            this.activePlanningRequestId = ++planningRequestSequence;
         }
     }
 
@@ -648,4 +668,3 @@ public class ActionExecutor {
         return str.substring(0, maxLength) + "...";
     }
 }
-
