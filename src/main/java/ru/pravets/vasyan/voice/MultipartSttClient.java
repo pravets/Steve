@@ -33,7 +33,7 @@ public final class MultipartSttClient {
         String language = VasyanConfig.STT_LANGUAGE.get();
         String apiKey = VasyanConfig.STT_API_KEY.get();
 
-        String boundary = "steve" + UUID.randomUUID();
+        String boundary = "vasyan" + UUID.randomUUID();
         byte[] body = buildMultipart(wav, model, language, boundary);
 
         HttpRequest.Builder request = HttpRequest.newBuilder()

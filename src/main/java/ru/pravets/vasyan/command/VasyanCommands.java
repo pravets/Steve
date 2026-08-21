@@ -25,7 +25,7 @@ import java.util.List;
 public class VasyanCommands {
     
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("steve")
+        dispatcher.register(Commands.literal("vasyan")
             .then(Commands.literal("spawn")
                 .then(Commands.argument("name", VasyanNameArgumentType.steveName())
                     .executes(VasyanCommands::spawnSteve)))
@@ -55,7 +55,7 @@ public class VasyanCommands {
     }
 
     /**
-     * /steve tp <name|all> - instantly teleports the named Steve (or all
+     * /vasyan tp <name|all> - instantly teleports the named Steve (or all
      * Steves) to a safe spot near the commanding player.
      */
     private static int tpSteve(CommandContext<CommandSourceStack> context) {
@@ -72,7 +72,7 @@ public class VasyanCommands {
         if ("all".equalsIgnoreCase(name)) {
             List<String> names = manager.getSteveNames();
             if (names.isEmpty()) {
-                source.sendFailure(Component.literal("§cNo Steves spawned. Use /steve spawn <name>"));
+                source.sendFailure(Component.literal("§cNo Steves spawned. Use /vasyan spawn <name>"));
                 return 0;
             }
             int teleported = 0;
@@ -181,7 +181,7 @@ public class VasyanCommands {
         // Per-Steve state
         var steves = manager.getAllSteves();
         if (steves.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("§7No Steves spawned. Use /steve spawn <name>"), false);
+            source.sendSuccess(() -> Component.literal("§7No Steves spawned. Use /vasyan spawn <name>"), false);
         } else {
             for (VasyanEntity steve : steves) {
                 source.sendSuccess(() -> Component.literal(

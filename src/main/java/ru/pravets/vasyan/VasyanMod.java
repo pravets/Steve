@@ -32,17 +32,17 @@ import org.slf4j.Logger;
 
 @Mod(VasyanMod.MODID)
 public class VasyanMod {
-    public static final String MODID = "steve";
+    public static final String MODID = "vasyan";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public static final DeferredRegister<EntityType<?>> ENTITIES = 
         DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
 
-    public static final RegistryObject<EntityType<VasyanEntity>> VASYAN_ENTITY = ENTITIES.register("steve",
+    public static final RegistryObject<EntityType<VasyanEntity>> VASYAN_ENTITY = ENTITIES.register("vasyan",
         () -> EntityType.Builder.of(VasyanEntity::new, MobCategory.CREATURE)
             .sized(0.6F, 1.8F)
             .clientTrackingRange(10)
-            .build("steve"));
+            .build("vasyan"));
 
     public static final DeferredRegister<ArgumentTypeInfo<?, ?>> COMMAND_ARGUMENT_TYPES =
         DeferredRegister.create(ForgeRegistries.COMMAND_ARGUMENT_TYPES, MODID);

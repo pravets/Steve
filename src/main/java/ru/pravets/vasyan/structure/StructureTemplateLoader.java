@@ -77,7 +77,7 @@ public class StructureTemplateLoader {
         }
         
         try {
-            ResourceLocation resourceLocation = new ResourceLocation("steve", structureName);
+            ResourceLocation resourceLocation = new ResourceLocation(VasyanMod.MODID, structureName);
             var templateManager = level.getStructureManager();
             var template = templateManager.get(resourceLocation);
             

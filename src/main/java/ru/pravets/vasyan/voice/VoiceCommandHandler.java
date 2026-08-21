@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * transcribes the assembled audio via an OpenAI-compatible STT endpoint,
  * and dispatches the resulting text as a normal chat command.
  */
-@Mod.EventBusSubscriber(modid = "steve", bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = VasyanMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class VoiceCommandHandler {
 
     /** In-progress recording per player. */

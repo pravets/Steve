@@ -45,8 +45,8 @@ public final class NameMatcher {
     private static final Map<String, List<String>> TRANSCRIPTIONS = Map.ofEntries(
         Map.entry("алекс", List.of("alex")),
         Map.entry("саша", List.of("alex", "sasha")),
-        Map.entry("стиви", List.of("steve", "stevie")),
-        Map.entry("стеви", List.of("steve", "stevie")),
+        Map.entry("васян", List.of("vasyan", "vasyann")),
+        Map.entry("вася", List.of("vasyan", "vasyann")),
         Map.entry("боб", List.of("bob")),
         Map.entry("дима", List.of("dima")),
         Map.entry("миша", List.of("mike", "misha")),

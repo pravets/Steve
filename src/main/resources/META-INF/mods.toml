@@ -3,24 +3,24 @@ loaderVersion="[47,)"
 license="MIT"
 
 [[mods]]
-modId="steve"
+modId="vasyan"
 version="1.0.0"
-displayName="Steve AI Mod"
+displayName="Vasyan"
 description='''
-AI-controlled Steve entities that can follow natural language commands,
-mine resources, build structures, and behave like real players using OpenAI.
+AI-controlled Vasyan entities that follow natural language commands,
+mine resources, build structures, and behave like real players.
 '''
-authors="Steve AI Team"
-displayURL="https://github.com/yourusername/steve-ai-mod"
+authors="Iosif Pravets"
+displayURL="https://github.com/pravets/Vasyan"
 
-[[dependencies.steve]]
+[[dependencies.vasyan]]
     modId="forge"
     mandatory=true
     versionRange="[47,)"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.steve]]
+[[dependencies.vasyan]]
     modId="minecraft"
     mandatory=true
     versionRange="[1.20.1,1.21)"

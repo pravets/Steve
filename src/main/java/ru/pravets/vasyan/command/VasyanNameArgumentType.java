@@ -31,7 +31,7 @@ public final class VasyanNameArgumentType implements ArgumentType<String> {
     private static final Pattern VALID_NAME = Pattern.compile("[\\p{L}\\p{N}_\\-.+]+");
 
     private static final DynamicCommandExceptionType INVALID_NAME = new DynamicCommandExceptionType(
-        value -> Component.translatable("argument.steve.vasyan_name.invalid", value));
+        value -> Component.translatable("argument.vasyan.vasyan_name.invalid", value));
 
     VasyanNameArgumentType() {
     }
