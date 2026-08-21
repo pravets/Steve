@@ -1,6 +1,7 @@
 package com.steve.ai.action.actions;
 
 import com.steve.ai.testutil.AbstractMinecraftTest;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import org.junit.jupiter.api.Test;
@@ -63,5 +64,70 @@ class ResourceBlocksTest extends AbstractMinecraftTest {
         assertNull(ResourceBlocks.parseBlock("unobtainium"));
         assertNull(ResourceBlocks.parseBlock(""));
         assertNull(ResourceBlocks.parseBlock(null));
+    }
+
+    @Test
+    void coalYieldCountsCoalItemNotOreBlock() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("coal");
+        assertTrue(yield.miningBlocks().contains(Blocks.COAL_ORE));
+        assertTrue(yield.miningBlocks().contains(Blocks.DEEPSLATE_COAL_ORE));
+        assertTrue(yield.itemMatcher().test(Items.COAL));
+        assertFalse(yield.itemMatcher().test(Items.RAW_IRON));
+        assertEquals(Items.COAL, yield.representativeItem());
+    }
+
+    @Test
+    void stoneYieldMinesStoneAndCountsCobblestone() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("stone");
+        assertTrue(yield.miningBlocks().contains(Blocks.STONE));
+        assertTrue(yield.miningBlocks().contains(Blocks.COBBLESTONE));
+        assertTrue(yield.itemMatcher().test(Items.COBBLESTONE));
+        assertEquals(Items.COBBLESTONE, yield.representativeItem());
+    }
+
+    @Test
+    void cobblestoneYieldMinesStoneToo() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("cobblestone");
+        assertTrue(yield.miningBlocks().contains(Blocks.STONE));
+        assertTrue(yield.miningBlocks().contains(Blocks.COBBLESTONE));
+        assertTrue(yield.itemMatcher().test(Items.COBBLESTONE));
+    }
+
+    @Test
+    void ironYieldCountsRawIron() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("iron");
+        assertTrue(yield.miningBlocks().contains(Blocks.IRON_ORE));
+        assertTrue(yield.itemMatcher().test(Items.RAW_IRON));
+        assertFalse(yield.itemMatcher().test(Items.IRON_ORE));
+    }
+
+    @Test
+    void unknownResourceReturnsNull() {
+        assertNull(ResourceBlocks.yieldFor("unobtainium"));
+    }
+
+    @Test
+    void fallbackYieldUsesBlockAsItem() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("oak_log");
+        assertTrue(yield.miningBlocks().contains(Blocks.OAK_LOG));
+        assertTrue(yield.itemMatcher().test(Items.OAK_LOG));
+    }
+
+    @Test
+    void explicitOreNameReusesRegisteredYield() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("iron_ore");
+        assertTrue(yield.miningBlocks().contains(Blocks.IRON_ORE));
+        assertTrue(yield.miningBlocks().contains(Blocks.DEEPSLATE_IRON_ORE));
+        assertTrue(yield.itemMatcher().test(Items.RAW_IRON));
+        assertFalse(yield.itemMatcher().test(Items.IRON_ORE));
+    }
+
+    @Test
+    void namespacedOreNameReusesRegisteredYield() {
+        ResourceBlocks.ResourceYield yield = ResourceBlocks.yieldFor("minecraft:coal_ore");
+        assertTrue(yield.miningBlocks().contains(Blocks.COAL_ORE));
+        assertTrue(yield.miningBlocks().contains(Blocks.DEEPSLATE_COAL_ORE));
+        assertTrue(yield.itemMatcher().test(Items.COAL));
+        assertFalse(yield.itemMatcher().test(Items.COAL_ORE));
     }
 }

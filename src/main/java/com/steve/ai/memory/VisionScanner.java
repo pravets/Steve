@@ -105,10 +105,34 @@ public final class VisionScanner {
      * Returns an empty list if nothing is visible.
      */
     public static List<BlockPos> findVisible(SteveEntity steve, Block target) {
-        Map<Block, List<BlockPos>> visible = scan(steve);
-        List<BlockPos> found = visible.getOrDefault(target, List.of());
-        if (found.isEmpty()) {
+        if (target == null) {
             return List.of();
+        }
+        return findVisible(steve, Set.of(target));
+    }
+
+    /**
+     * Finds all visible blocks of any of the given types near Steve, nearest first.
+     * Returns an empty list if nothing is visible.
+     *
+     * <p>Requested blocks that are not in the shared {@link #INTERESTING} cache are
+     * scanned on demand with the same radius/step budget, so common blocks like
+     * stone or cobblestone are still discoverable without polluting the shared cache.
+     */
+    public static List<BlockPos> findVisible(SteveEntity steve, Set<Block> targets) {
+        Map<Block, List<BlockPos>> visible = scan(steve);
+        List<BlockPos> found = new ArrayList<>();
+        Set<Block> missing = new HashSet<>();
+        for (Block block : targets) {
+            List<BlockPos> positions = visible.get(block);
+            if (positions != null && !positions.isEmpty()) {
+                found.addAll(positions);
+            } else if (!INTERESTING.contains(block)) {
+                missing.add(block);
+            }
+        }
+        if (!missing.isEmpty()) {
+            found.addAll(scanTargets(steve, missing));
         }
         BlockPos center = steve.blockPosition();
         return found.stream()
@@ -145,16 +169,28 @@ public final class VisionScanner {
      * @param target the exact block to look for, or null for ANY log type
      */
     public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Block target) {
+        Set<Block> targets = target == null ? null : Set.of(target);
+        return findNearbyBlocks(steve, radius, targets);
+    }
+
+    /**
+     * Brute-force scan for blocks of any of the given types within a cube
+     * around the bot, WITHOUT line-of-sight checks.
+     *
+     * @param targets the set of blocks to look for, or null for ANY log type
+     */
+    public static List<BlockPos> findNearbyBlocks(SteveEntity steve, int radius, Set<Block> targets) {
         BlockPos center = steve.blockPosition();
-        List<BlockPos> found = new java.util.ArrayList<>();
-        net.minecraft.world.level.Level level = steve.level();
+        List<BlockPos> found = new ArrayList<>();
+        Level level = steve.level();
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     BlockPos pos = center.offset(dx, dy, dz);
                     Block block = level.getBlockState(pos).getBlock();
-                    boolean match = target != null ? block == target
-                        : block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+                    boolean match = targets == null
+                        ? block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS)
+                        : targets.contains(block);
                     if (match) {
                         found.add(pos);
                     }
@@ -339,6 +375,47 @@ public final class VisionScanner {
         return visible;
     }
 
+    private static List<BlockPos> scanTargets(SteveEntity steve, Set<Block> targets) {
+        Level level = steve.level();
+        BlockPos center = steve.blockPosition();
+        int radius = SteveConfig.WORLD_SCAN_RADIUS.get();
+        int configuredStep = Math.max(1, SteveConfig.WORLD_SCAN_STEP.get());
+
+        int step = configuredStep;
+        while (step <= 8) {
+            long positions = (long) Math.pow((2L * radius / step) + 1, 3);
+            if (positions <= MAX_SCAN_POSITIONS) {
+                break;
+            }
+            step *= 2;
+        }
+
+        Map<Block, Set<BlockPos>> candidates = new HashMap<>();
+        collectTargets(level, center, radius, step, targets, candidates);
+
+        if (step > 1) {
+            int preciseRadius = Math.min(PRECISE_RADIUS, radius);
+            collectTargets(level, center, preciseRadius, 1, targets, candidates);
+        }
+
+        List<BlockPos> visible = new ArrayList<>();
+        for (Set<BlockPos> positions : candidates.values()) {
+            List<BlockPos> sorted = new ArrayList<>(positions);
+            sorted.sort(Comparator.comparingDouble(p -> p.distSqr(center)));
+            int checked = 0;
+            for (BlockPos pos : sorted) {
+                if (checked >= 64) {
+                    break;
+                }
+                checked++;
+                if (hasLineOfSight(steve, pos)) {
+                    visible.add(pos);
+                }
+            }
+        }
+        return visible;
+    }
+
     private static void collectCandidates(Level level, BlockPos center, int radius, int step,
                                           Map<Block, Set<BlockPos>> candidates) {
         for (int dx = -radius; dx <= radius; dx += step) {
@@ -354,6 +431,29 @@ public final class VisionScanner {
                         continue;
                     }
                     if (!INTERESTING.contains(block)) {
+                        continue;
+                    }
+                    candidates.computeIfAbsent(block, k -> new LinkedHashSet<>()).add(pos.immutable());
+                }
+            }
+        }
+    }
+
+    private static void collectTargets(Level level, BlockPos center, int radius, int step,
+                                       Set<Block> targets, Map<Block, Set<BlockPos>> candidates) {
+        for (int dx = -radius; dx <= radius; dx += step) {
+            for (int dy = -radius; dy <= radius; dy += step) {
+                for (int dz = -radius; dz <= radius; dz += step) {
+                    BlockPos pos = center.offset(dx, dy, dz);
+                    // Never load chunks synchronously on the server tick
+                    if (!level.hasChunkAt(pos)) {
+                        continue;
+                    }
+                    Block block = level.getBlockState(pos).getBlock();
+                    if (block == Blocks.AIR || block == Blocks.CAVE_AIR || block == Blocks.VOID_AIR) {
+                        continue;
+                    }
+                    if (!targets.contains(block)) {
                         continue;
                     }
                     candidates.computeIfAbsent(block, k -> new LinkedHashSet<>()).add(pos.immutable());

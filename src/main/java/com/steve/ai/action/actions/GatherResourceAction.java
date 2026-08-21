@@ -8,7 +8,9 @@ import com.steve.ai.memory.VisionScanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -68,6 +70,8 @@ public class GatherResourceAction extends BaseAction {
     private Block targetBlock;
     /** The original requested resource (never overwritten by pillar material runs). */
     private Block resourceBlock;
+    private ResourceBlocks.ResourceYield resourceYield;
+    private Set<Block> miningBlocks;
     private int targetQuantity;
     private int gatheredCount;
     private boolean fillMode;
@@ -133,12 +137,15 @@ public class GatherResourceAction extends BaseAction {
         // "Gather wood/tree" means ANY log (oak, birch, spruce...) - the LLM
         // may name a single type, but the user asked for wood in general.
         anyLogMode = ResourceBlocks.isWoodRequest(blockName);
-        targetBlock = anyLogMode ? null : ResourceBlocks.parseBlock(blockName);
-        if (!anyLogMode && targetBlock == null) {
+        resourceYield = anyLogMode ? null : ResourceBlocks.yieldFor(blockName);
+        if (!anyLogMode && resourceYield == null) {
             result = ActionResult.failure("Unknown resource: " + blockName);
             return;
         }
+
+        targetBlock = anyLogMode ? null : ResourceBlocks.parseBlock(blockName);
         resourceBlock = targetBlock;
+        miningBlocks = anyLogMode ? null : resourceYield.miningBlocks();
 
         gatheredCount = 0;
         // Quota counts what actually reaches the inventory (pickup fact),
@@ -254,15 +261,18 @@ public class GatherResourceAction extends BaseAction {
         }
     }
 
-    /** The item we are actually counting: logs while felling, else the target block. */
-    private net.minecraft.world.item.Item currentTargetItem() {
+    /** The item we are actually counting: logs while felling, else the target yield item. */
+    private Item currentTargetItem() {
         if (fellMode && fellLogBlock != null) {
             return fellLogBlock.asItem();
         }
-        if (anyLogMode || targetBlock == null) {
-            return net.minecraft.world.item.Items.OAK_LOG;
+        if (anyLogMode) {
+            return Items.OAK_LOG;
         }
-        return targetBlock.asItem();
+        if (resourceYield != null && resourceYield.representativeItem() != null) {
+            return resourceYield.representativeItem();
+        }
+        return targetBlock == null ? Items.AIR : targetBlock.asItem();
     }
 
     /** Human-readable resource name ("Oak Log" or "Wood" in any-log mode). */
@@ -289,11 +299,11 @@ public class GatherResourceAction extends BaseAction {
         // trees and walk off into the distance).
         List<BlockPos> visible = anyLogMode
             ? VisionScanner.findVisibleAnyLog(steve)
-            : VisionScanner.findVisible(steve, targetBlock);
+            : VisionScanner.findVisible(steve, miningBlocks);
         boolean logTarget = anyLogMode
             || (targetBlock != null && targetBlock.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS));
 
-        List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, targetBlock);
+        List<BlockPos> nearby = VisionScanner.findNearbyBlocks(steve, NEARBY_SCAN_RADIUS, miningBlocks);
         if (logTarget) {
             // lone logs of player buildings are not trees
             nearby = nearby.stream().filter(this::isTreeLog).toList();
@@ -845,9 +855,8 @@ public class GatherResourceAction extends BaseAction {
         if (anyLogMode) {
             // In-game only: item tag bindings require a running server.
             matcher = item -> item.builtInRegistryHolder().is(net.minecraft.tags.ItemTags.LOGS);
-        } else if (resourceBlock != null) {
-            net.minecraft.world.item.Item resourceItem = resourceBlock.asItem();
-            matcher = item -> item == resourceItem;
+        } else if (resourceYield != null) {
+            matcher = resourceYield.itemMatcher();
         } else {
             matcher = item -> false;
         }
@@ -873,17 +882,19 @@ public class GatherResourceAction extends BaseAction {
 
     /**
      * Whether the block at pos is the current mining target: ANY log in
-     * any-log mode, but the MATERIAL block itself while gathering pillar
-     * material (targetBlock is temporarily dirt/grass then - checking the
-     * LOGS tag in that state made the bot refuse to dig dirt on every
-     * wood run, because wood runs are always any-log).
+     * any-log mode, the specific set of mining blocks for a yield-based
+     * resource, or the temporary pillar material while gathering it.
      */
     private boolean isLogBlockAt(BlockPos pos) {
         Block block = steve.level().getBlockState(pos).getBlock();
-        if (fellGatheringMaterial || !anyLogMode) {
+        if (fellGatheringMaterial) {
+            // targetBlock is temporarily dirt/grass/etc.; check the material.
             return block == targetBlock;
         }
-        return block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+        if (anyLogMode) {
+            return block.builtInRegistryHolder().is(net.minecraft.tags.BlockTags.LOGS);
+        }
+        return miningBlocks != null && miningBlocks.contains(block);
     }
 
     /**
