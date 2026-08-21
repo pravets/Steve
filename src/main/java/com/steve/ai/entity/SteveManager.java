@@ -2,6 +2,7 @@ package com.steve.ai.entity;
 
 import com.steve.ai.SteveMod;
 import com.steve.ai.config.SteveConfig;
+import com.steve.ai.debug.AgentDebugBuffer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -97,6 +98,8 @@ public class SteveManager {
                 // The newcomer is the real bot loaded from NBT; the survivor is
                 // a freshly spawned empty copy. Keep the NBT state, discard the
                 // empty copy without dropping its (empty) inventory.
+                SteveMod.LOGGER.warn("Dedup discard: replacing fresh '{}' ({} alive={}, removed={}) with NBT-loaded original ({})",
+                        name, existing.getUUID(), existing.isAlive(), existing.isRemoved(), steve.getUUID());
                 existing.setSuppressInventoryDrop(true);
                 existing.discard();
                 SteveMod.LOGGER.info("Dedup: replaced fresh duplicate '{}' ({}) with NBT-loaded original ({})",
@@ -115,6 +118,22 @@ public class SteveManager {
         }
         activeSteves.put(name, steve);
         stevesByUUID.put(steve.getUUID(), steve);
+        if (SteveConfig.FORCE_LOAD_CHUNKS.get()
+                && steve.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            net.minecraft.world.level.ChunkPos current = new net.minecraft.world.level.ChunkPos(steve.blockPosition());
+            ChunkForceTracker.ChunkKey key = new ChunkForceTracker.ChunkKey(serverLevel.dimension(), current);
+            // A Steve reloaded from NBT after a chunk unload keeps the same UUID.
+            // The chunk was left force-loaded on unload (issue #14), so reuse
+            // that existing force instead of double-counting. Newcomers that do
+            // not already hold the chunk force it normally.
+            if (chunkForceTracker.hasHolder(serverLevel.dimension(), current, steve.getUUID())) {
+                AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "adopt existing [" + current.x + "," + current.z + "] in " + serverLevel.dimension().location());
+                steve.setForcedChunk(key);
+            } else {
+                forceChunk(serverLevel, current, steve.getUUID());
+                steve.setForcedChunk(key);
+            }
+        }
         return steve;
     }
 
@@ -177,7 +196,8 @@ public class SteveManager {
                     SteveMod.LOGGER.info("Successfully spawned Steve: {} with UUID {} at {}", name, steve.getUUID(), position);
                     return steve;
                 } else {
-                    SteveMod.LOGGER.warn("Steve '{}' was added to the world but adopt() did not register it - discarding", name);
+                    SteveMod.LOGGER.warn("Spawn-adopt mismatch discard for '{}' ({} alive={}, removed={})",
+                            name, steve.getUUID(), steve.isAlive(), steve.isRemoved());
                     if (!steve.isRemoved()) {
                         steve.setSuppressInventoryDrop(true);
                         steve.discard();
@@ -279,6 +299,7 @@ public class SteveManager {
                     // copies. The tracked instance keeps the normal drop.
                     steve.setSuppressInventoryDrop(true);
                 }
+                SteveMod.LOGGER.warn("removeSteve discard for '{}' ({} tracked={})", name, steve.getUUID(), steve == trackedInWorldSweep);
                 steve.discard();
                 removed = true;
             }
@@ -307,7 +328,7 @@ public class SteveManager {
         Map.Entry<String, SteveEntity> trackedEntry = findEntryByNameIgnoreCase(name);
         if (trackedEntry != null && trackedEntry.getValue() == steve) {
             activeSteves.remove(trackedEntry.getKey());
-            SteveMod.LOGGER.info("Steve '{}' left the world, removed from registry", name);
+            SteveMod.LOGGER.info("Steve '{}' left the world (reason={}), removed from registry", name, steve.getRemovalReason());
         }
         stevesByUUID.remove(steve.getUUID());
     }
@@ -333,6 +354,7 @@ public class SteveManager {
     public void clearAllSteves() {
         SteveMod.LOGGER.info("Clearing {} Steve entities", activeSteves.size());
         for (SteveEntity steve : activeSteves.values()) {
+            SteveMod.LOGGER.warn("clearAllSteves discard for '{}' ({})", steve.getSteveName(), steve.getUUID());
             steve.discard();
         }
         activeSteves.clear();
@@ -355,18 +377,29 @@ public class SteveManager {
 
     private final ChunkForceTracker chunkForceTracker = new ChunkForceTracker();
 
-    /** Force-loads a chunk while a Steve is in it (refcounted across Steves). */
-    public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
-        if (chunkForceTracker.force(level.dimension(), chunkPos)) {
-            level.setChunkForced(chunkPos.x, chunkPos.z, true);
-        }
+    /** Package-private accessor for tests. */
+    ChunkForceTracker getChunkForceTracker() {
+        return chunkForceTracker;
     }
 
-    /** Releases a chunk force-load; the chunk unloads when the last Steve leaves. */
-    public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos) {
-        if (chunkForceTracker.unforce(level.dimension(), chunkPos)) {
+    /** Force-loads a chunk for a specific Steve (refcounted across Steves). */
+    public void forceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos, UUID uuid) {
+        boolean newlyLoaded = chunkForceTracker.force(level.dimension(), chunkPos, uuid);
+        if (newlyLoaded) {
+            level.setChunkForced(chunkPos.x, chunkPos.z, true);
+        }
+        String action = newlyLoaded ? "force" : "add-holder";
+        AgentDebugBuffer.log("system", "CHUNK", action + " [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
+    }
+
+    /** Releases a chunk force-load for a specific Steve; un-forces when the last holder leaves. */
+    public void unforceChunk(ServerLevel level, net.minecraft.world.level.ChunkPos chunkPos, UUID uuid) {
+        boolean fullyUnforced = chunkForceTracker.unforce(level.dimension(), chunkPos, uuid);
+        if (fullyUnforced) {
             level.setChunkForced(chunkPos.x, chunkPos.z, false);
         }
+        String action = fullyUnforced ? "unforce" : "remove-holder";
+        AgentDebugBuffer.log("system", "CHUNK", action + " [" + chunkPos.x + "," + chunkPos.z + "] in " + level.dimension().location() + " (holders: " + chunkForceTracker.holders(level.dimension(), chunkPos) + ")");
     }
 
     /**
@@ -377,11 +410,12 @@ public class SteveManager {
     public void releaseChunk(SteveEntity steve, ServerLevel level) {
         ChunkForceTracker.ChunkKey chunkKey = steve.getForcedChunk();
         if (chunkKey != null) {
+            AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "release [" + chunkKey.pos().x + "," + chunkKey.pos().z + "] in " + chunkKey.dimension().location());
             ServerLevel ownerLevel = level.getServer() != null
                 ? level.getServer().getLevel(chunkKey.dimension())
                 : null;
             if (ownerLevel != null) {
-                unforceChunk(ownerLevel, chunkKey.pos());
+                unforceChunk(ownerLevel, chunkKey.pos(), steve.getUUID());
             }
             steve.setForcedChunk(null);
         }
@@ -402,7 +436,7 @@ public class SteveManager {
                 if (old != null) {
                     ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
                     if (ownerLevel != null) {
-                        unforceChunk(ownerLevel, old.pos());
+                        unforceChunk(ownerLevel, old.pos(), steve.getUUID());
                     }
                     steve.setForcedChunk(null);
                 }
@@ -419,12 +453,13 @@ public class SteveManager {
             if (current.equals(old)) {
                 continue;
             }
-            forceChunk(level, current.pos());
+            forceChunk(level, current.pos(), steve.getUUID());
+            AgentDebugBuffer.log(steve.getSteveName(), "CHUNK", "force current [" + current.pos().x + "," + current.pos().z + "]");
             if (old != null) {
                 // Un-force the previous chunk in ITS dimension (dimension change)
                 ServerLevel ownerLevel = level.getServer().getLevel(old.dimension());
                 if (ownerLevel != null) {
-                    unforceChunk(ownerLevel, old.pos());
+                    unforceChunk(ownerLevel, old.pos(), steve.getUUID());
                 }
             }
             steve.setForcedChunk(current);

@@ -71,7 +71,8 @@ public class SteveEntity extends PathfinderMob {
         this.actionExecutor = new ActionExecutor(this);
         this.inventory = new SteveInventory(this, SteveInventory.DEFAULT_SIZE);
         this.setCustomNameVisible(true);
-        
+        this.setPersistenceRequired();
+
         this.isInvulnerable = true;
         this.setInvulnerable(true);
     }
@@ -121,13 +122,25 @@ public class SteveEntity extends PathfinderMob {
                 this.spawnAtLocation(stack);
             }
         }
+        releaseForcedChunk(reason);
+        super.remove(reason);
+    }
+
+    /**
+     * Releases the force-loaded chunk, but only for permanent removals.
+     * Chunk unloads and dimension changes must keep the force so the bot's
+     * chunk reloads without a player nearby.
+     */
+    void releaseForcedChunk(RemovalReason reason) {
         if (!this.level().isClientSide && forcedChunk != null
-                && com.steve.ai.SteveMod.getSteveManager() != null) {
-            // Release our chunk force-load so it does not linger after removal
+                && com.steve.ai.SteveMod.getSteveManager() != null
+                && (reason == RemovalReason.KILLED || reason == RemovalReason.DISCARDED)) {
+            // Permanent removal: release our chunk force-load. Transient removals
+            // (chunk unload, dimension change) must keep the force so the bot's
+            // chunk reloads without a player nearby.
             com.steve.ai.SteveMod.getSteveManager().releaseChunk(this, (net.minecraft.server.level.ServerLevel) this.level());
             forcedChunk = null;
         }
-        super.remove(reason);
     }
 
     /** Chunk currently force-loaded for this Steve (tracked by SteveManager). */
