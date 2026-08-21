@@ -1,6 +1,5 @@
 package ru.pravets.vasyan;
 
-import com.mojang.logging.LogUtils;
 import ru.pravets.vasyan.command.VasyanCommands;
 import ru.pravets.vasyan.command.VasyanNameArgumentInfo;
 import ru.pravets.vasyan.command.VasyanNameArgumentType;
@@ -33,7 +32,7 @@ import org.slf4j.Logger;
 @Mod(VasyanMod.MODID)
 public class VasyanMod {
     public static final String MODID = "vasyan";
-    public static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger("VasyanMod");
 
     public static final DeferredRegister<EntityType<?>> ENTITIES = 
         DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
