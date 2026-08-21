@@ -537,6 +537,17 @@ public class ActionExecutor {
     }
 
     /**
+     * Test-only hook that injects a planning future without starting a real LLM call.
+     * Package-private so unit tests in the same package can set up a stuck-planning scenario.
+     */
+    void setPlanningFutureForTest(CompletableFuture<ResponseParser.ParsedResponse> future, String command) {
+        this.pendingCommand = command;
+        this.isPlanning = true;
+        this.planningFuture = future;
+        this.planningStartTick = this.ticksSinceLastAction;
+    }
+
+    /**
      * Number of tasks waiting in the queue.
      */
     public int getQueuedTaskCount() {
